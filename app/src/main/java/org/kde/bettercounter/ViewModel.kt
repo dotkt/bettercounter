@@ -123,7 +123,8 @@ class ViewModel(application: Application) {
             summaryMap[name]?.postValue(repo.getCounterSummary(name))
             if (oldEntryDate != null) {
                 for (observer in counterObservers) {
-                    observer.onCounterDecremented(name, oldEntryDate)
+                    //return 0
+                    //observer.onCounterDecremented(name, oldEntryDate)
                 }
             }
         }
