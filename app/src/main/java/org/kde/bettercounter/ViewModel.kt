@@ -25,10 +25,12 @@ import java.io.OutputStream
 import java.util.Calendar
 import java.util.Date
 import kotlin.collections.set
+import android.media.MediaPlayer
 
 private const val TAG = "ViewModel"
 
 class ViewModel(application: Application) {
+    private val appContext: Context = application.applicationContext
 
     interface CounterObserver {
         fun onInitialCountersLoaded()
@@ -104,7 +106,19 @@ class ViewModel(application: Application) {
         CoroutineScope(Dispatchers.IO).launch {
             repo.addEntry(name, date)
             summaryMap[name]?.postValue(repo.getCounterSummary(name))
+            // Switch to Main thread to play the sound
+            withContext(Dispatchers.Main) {
+                playDingSound()
+            }
         }
+    }
+
+    private fun playDingSound() {
+        val mediaPlayer = MediaPlayer.create(appContext, R.raw.ding)
+        mediaPlayer.start()
+        //mediaPlayer.setOnCompletionListener { mp ->
+         //   mp.release() // Release the media player once the sound is done playing
+        //}
     }
 
     fun incrementCounterWithCallback(name: String, date: Date = Calendar.getInstance().time, callback: () -> Unit) {
@@ -113,6 +127,9 @@ class ViewModel(application: Application) {
             summaryMap[name]?.postValue(repo.getCounterSummary(name))
             CoroutineScope(Dispatchers.Main).launch {
                 callback()
+            }
+            withContext(Dispatchers.Main) {
+                playDingSound()
             }
         }
     }
