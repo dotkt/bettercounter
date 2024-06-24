@@ -13,7 +13,7 @@ enum class Interval(val humanReadableResource: Int) {
     LIFETIME(R.string.interval_lifetime);
 
     companion object {
-        val DEFAULT = LIFETIME
+        val DEFAULT = DAY
 
         fun humanReadableValues(context: Context): List<String> {
             return entries.map { context.getString(it.humanReadableResource) }
