@@ -24,10 +24,17 @@ class CounterSummary(
     }
 
     fun getFormattedCount(): CharSequence = buildString {
-        append(lastIntervalCount)
         if (goal > 0) {
-            append('/')
-            append(goal)
+            if (lastIntervalCount < goal) {
+                append(lastIntervalCount)
+                append('/')
+                append(goal)
+            } else {
+                append("\uD83D\uDC4D")
+            }
+        } else {
+            append(lastIntervalCount)
         }
     }
+
 }
