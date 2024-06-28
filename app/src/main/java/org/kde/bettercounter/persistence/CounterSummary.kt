@@ -33,12 +33,22 @@ class CounterSummary(
                 val diffMillis = mostRecent?.let {
                     System.currentTimeMillis() - it.time
                 } ?: 0L
+
                 val minutes = (diffMillis / (1000 * 60)) % 60
                 val seconds = (diffMillis / 1000) % 60
-                append(String.format("%02d:%02d", minutes, seconds))
+                val hours = (diffMillis / (1000 * 60 * 60)) % 24
+
+                val formattedTime = when {
+                    hours > 0 -> String.format(Locale.getDefault(), "%02d.%d", hours, minutes / 10)
+                    minutes > 10 -> String.format(Locale.getDefault(), "%02d.%d", minutes, seconds / 10)
+                    else -> String.format(Locale.getDefault(), "%d:%02d", minutes, seconds)
+                }
+
+                append(formattedTime)
+
             } else {
                 // totalCount 是偶数，显示 start 字符串
-                append(">")
+                append("▶")
             }
         } else {
             // 如果不是 MYTIMER 类型，保持原有逻辑
