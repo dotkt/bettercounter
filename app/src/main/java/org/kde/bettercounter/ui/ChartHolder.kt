@@ -36,6 +36,7 @@ class ChartHolder(
             Interval.DAY, Interval.WEEK -> SimpleDateFormat.getDateInstance(SimpleDateFormat.SHORT)
             Interval.MONTH -> SimpleDateFormat("LLL yyyy", Locale.getDefault())
             Interval.YEAR -> SimpleDateFormat("yyyy", Locale.getDefault())
+            Interval.MYTIMER -> SimpleDateFormat("yyyy", Locale.getDefault())
             Interval.LIFETIME -> throw IllegalStateException("Interval not valid as a chart display interval")
         }
         val dateString = dateFormat.format(rangeStart.time)

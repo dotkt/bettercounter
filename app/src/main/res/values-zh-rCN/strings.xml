@@ -15,6 +15,7 @@
     <string name="interval_week">按周统计</string>
     <string name="interval_month">按月统计</string>
     <string name="interval_year">按年统计</string>
+    <string name="interval_timer">计时器</string>
     <string name="interval_lifetime">完整统计</string>
     <string name="time_ago_dhm">%1$d天 %2$d小时 %3$d分钟 以前</string>
     <string name="time_ago_hm">%1$d小时 %2$d分钟 以前</string>

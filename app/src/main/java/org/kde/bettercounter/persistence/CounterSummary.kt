@@ -2,6 +2,8 @@ package org.kde.bettercounter.persistence
 
 import java.util.Calendar
 import java.util.Date
+import java.text.SimpleDateFormat
+import java.util.*
 
 class CounterSummary(
     var name: String,
@@ -24,16 +26,33 @@ class CounterSummary(
     }
 
     fun getFormattedCount(): CharSequence = buildString {
-        if (goal > 0) {
-            if (lastIntervalCount < goal) {
-                append(lastIntervalCount)
-                append('/')
-                append(goal)
+        if (interval == Interval.MYTIMER) {
+            if (totalCount % 2 == 1) {
+                // totalCount 是奇数，显示距离 mostRecent 过去的分和秒，格式为 00:00
+                //val diffMillis = System.currentTimeMillis() - mostRecent.time
+                val diffMillis = mostRecent?.let {
+                    System.currentTimeMillis() - it.time
+                } ?: 0L
+                val minutes = (diffMillis / (1000 * 60)) % 60
+                val seconds = (diffMillis / 1000) % 60
+                append(String.format("%02d:%02d", minutes, seconds))
             } else {
-                append("\uD83D\uDC4D")
+                // totalCount 是偶数，显示 start 字符串
+                append(">")
             }
         } else {
-            append(lastIntervalCount)
+            // 如果不是 MYTIMER 类型，保持原有逻辑
+            if (goal > 0) {
+                if (lastIntervalCount < goal) {
+                    append(lastIntervalCount)
+                    append('/')
+                    append(goal)
+                } else {
+                    append("\uD83D\uDC4D")
+                }
+            } else {
+                append(lastIntervalCount)
+            }
         }
     }
 

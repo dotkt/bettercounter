@@ -10,6 +10,7 @@ enum class Interval(val humanReadableResource: Int) {
     WEEK(R.string.interval_week),
     MONTH(R.string.interval_month),
     YEAR(R.string.interval_year),
+    MYTIMER(R.string.interval_timer),
     LIFETIME(R.string.interval_lifetime);
 
     companion object {
@@ -27,6 +28,7 @@ enum class Interval(val humanReadableResource: Int) {
             WEEK -> ChronoUnit.WEEKS
             MONTH -> ChronoUnit.MONTHS
             YEAR -> ChronoUnit.YEARS
+            MYTIMER -> ChronoUnit.YEARS
             LIFETIME -> throw UnsupportedOperationException("$this can't be converted to ChronoUnit")
         }
     }

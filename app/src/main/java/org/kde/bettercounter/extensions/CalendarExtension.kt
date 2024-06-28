@@ -46,6 +46,7 @@ fun Calendar.addInterval(interval: Interval, times: Int) {
         Interval.WEEK -> add(Calendar.DAY_OF_YEAR, 7 * times)
         Interval.MONTH -> add(Calendar.MONTH, 1 * times)
         Interval.YEAR -> add(Calendar.YEAR, 1 * times)
+        Interval.MYTIMER -> add(Calendar.YEAR, 1000)
         Interval.LIFETIME -> add(Calendar.YEAR, 1000)
     }
 }

@@ -17,6 +17,7 @@
     <string name="interval_week">Weekly</string>
     <string name="interval_month">Monthly</string>
     <string name="interval_year">Yearly</string>
+    <string name="interval_timer">mytimer</string>
     <string name="interval_lifetime">Lifetime</string>
     <string name="time_ago_dhm">%1$dd %2$dh %3$dm ago</string>
     <string name="time_ago_hm">%1$dh %2$dm ago</string>

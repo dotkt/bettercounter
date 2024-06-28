@@ -106,6 +106,7 @@ class BetterChart : BarChart {
             Interval.WEEK -> 7 to Calendar.DAY_OF_WEEK
             Interval.MONTH -> rangeStart.getActualMaximum(Calendar.DAY_OF_MONTH) to Calendar.DAY_OF_MONTH
             Interval.YEAR -> 12 to Calendar.MONTH
+            Interval.MYTIMER -> 12 to Calendar.MONTH
             Interval.LIFETIME -> 0 to 0.also { assert(false) } // Not a valid display interval
         }
 
