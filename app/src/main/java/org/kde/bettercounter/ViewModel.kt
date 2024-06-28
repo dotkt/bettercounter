@@ -105,11 +105,12 @@ class ViewModel(application: Application) {
     fun incrementCounter(name: String, date: Date = Calendar.getInstance().time) {
         CoroutineScope(Dispatchers.IO).launch {
             repo.addEntry(name, date)
-            summaryMap[name]?.postValue(repo.getCounterSummary(name))
-            // Switch to Main thread to play the sound
             withContext(Dispatchers.Main) {
                 playDingSound()
             }
+            summaryMap[name]?.postValue(repo.getCounterSummary(name))
+            // Switch to Main thread to play the sound
+
         }
     }
 
@@ -124,13 +125,14 @@ class ViewModel(application: Application) {
     fun incrementCounterWithCallback(name: String, date: Date = Calendar.getInstance().time, callback: () -> Unit) {
         CoroutineScope(Dispatchers.IO).launch {
             repo.addEntry(name, date)
+            withContext(Dispatchers.Main) {
+                playDingSound()
+            }
             summaryMap[name]?.postValue(repo.getCounterSummary(name))
             CoroutineScope(Dispatchers.Main).launch {
                 callback()
             }
-            withContext(Dispatchers.Main) {
-                playDingSound()
-            }
+
         }
     }
 
