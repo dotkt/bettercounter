@@ -39,7 +39,8 @@ class CounterSummary(
                 val hours = (diffMillis / (1000 * 60 * 60)) % 24
 
                 val formattedTime = when {
-                    hours > 0 -> String.format(Locale.getDefault(), "%02d.%d", hours, minutes / 10)
+                    hours > 10 -> String.format(Locale.getDefault(), "%02d!%d", hours, minutes / 10)
+                    hours > 0 -> String.format(Locale.getDefault(), "%d!%02d", hours, minutes / 10)
                     minutes > 10 -> String.format(Locale.getDefault(), "%02d.%d", minutes, seconds / 10)
                     else -> String.format(Locale.getDefault(), "%d:%02d", minutes, seconds)
                 }
