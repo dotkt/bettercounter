@@ -171,7 +171,7 @@ internal fun updateAppWidget(
             if (date != null) {
                 val now = Date()
                 val diffInMillis = now.time - date.time
-                val isRecent = diffInMillis < (12 * 60 * 60 * 1000L) // 12 hours
+                val isRecent = diffInMillis < (48 * 60 * 60 * 1000L) // 12 hours
                 val dateFormat = if (isRecent) {
                     SimpleDateFormat.getTimeInstance()
                 } else {
