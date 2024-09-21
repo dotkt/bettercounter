@@ -17,33 +17,19 @@ import org.kde.bettercounter.ViewModel
 import org.kde.bettercounter.persistence.CounterSummary
 import java.text.SimpleDateFormat
 import java.util.Date
-import android.os.Handler
-import android.os.Looper
+
 private const val ACTION_COUNT = "org.kde.bettercounter.WidgetProvider.COUNT"
 private const val EXTRA_WIDGET_ID = "EXTRA_WIDGET_ID"
 
 private const val TAG = "WidgetProvider"
 
-
-
 class WidgetProvider : AppWidgetProvider() {
-    private val handler = Handler(Looper.getMainLooper())
-    private val interval: Long = 1000 // 每秒钟更新一次
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         val viewModel = (context.applicationContext as BetterApplication).viewModel
         for (appWidgetId in appWidgetIds) {
             updateAppWidget(context, viewModel, appWidgetManager, appWidgetId)
         }
-        // 开始定时更新
-        handler.post(object : Runnable {
-            override fun run() {
-                for (appWidgetId in appWidgetIds) {
-                    updateAppWidget(context,viewModel, appWidgetManager, appWidgetId)
-                }
-                handler.postDelayed(this, interval)
-            }
-        })
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
