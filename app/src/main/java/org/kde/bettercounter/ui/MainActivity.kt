@@ -1,10 +1,13 @@
 package org.kde.bettercounter.ui
 
+import android.content.ContentValues
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.MediaStore
+import android.os.Environment
 import android.util.Log
 import android.view.Menu
 import android.view.MenuInflater
@@ -258,7 +261,41 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.export_csv -> {
-                exportFilePicker.launch(CreateFileParams("text/csv", "bettercounter-export.csv"))
+                // 使用 MediaStore API 创建文件
+                val fileName = "bettercounter_export.csv"
+                val values = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "text/csv")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                }
+
+                try {
+                    val uri = contentResolver.insert(MediaStore.Downloads.getContentUri("external"), values)
+                    uri?.let { outputUri ->
+                        contentResolver.openOutputStream(outputUri)?.let { stream ->
+                            val progressDialogBinding = ProgressDialogBinding.inflate(layoutInflater)
+                            val dialog = MaterialAlertDialogBuilder(this)
+                                .setView(progressDialogBinding.root)
+                                .setCancelable(false)
+                                .create()
+                            dialog.show()
+
+                            val progressHandler = Handler(Looper.getMainLooper()) {
+                                progressDialogBinding.text.text =
+                                    getString(R.string.exported_n, it.arg1, it.arg2)
+                                if (it.arg1 == it.arg2) {
+                                    dialog.setCancelable(true)
+                                    Snackbar.make(binding.recycler, "已导出到下载目录: $fileName", Snackbar.LENGTH_LONG).show()
+                                }
+                                true
+                            }
+                            viewModel.exportAll(stream, progressHandler)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to export: ${e.message}")
+                    Snackbar.make(binding.recycler, "导出失败: ${e.message}", Snackbar.LENGTH_LONG).show()
+                }
             }
             R.id.import_csv -> {
                 importFilePicker.launch(OpenFileParams("text/*"))
@@ -321,32 +358,6 @@ class MainActivity : AppCompatActivity() {
                     true
                 }
                 viewModel.importAll(this, stream, progressHandler)
-            }
-        }
-    }
-
-    private val exportFilePicker: ActivityResultLauncher<CreateFileParams> = registerForActivityResult(
-        CreateFileResultContract()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            contentResolver.openOutputStream(uri)?.let { stream ->
-
-                val progressDialogBinding = ProgressDialogBinding.inflate(layoutInflater)
-                val dialog = MaterialAlertDialogBuilder(this)
-                    .setView(progressDialogBinding.root)
-                    .setCancelable(false)
-                    .create()
-                dialog.show()
-
-                val progressHandler = Handler(Looper.getMainLooper()) {
-                    progressDialogBinding.text.text =
-                        getString(R.string.exported_n, it.arg1, it.arg2)
-                    if (it.arg1 == it.arg2) {
-                        dialog.setCancelable(true)
-                    }
-                    true
-                }
-                viewModel.exportAll(stream, progressHandler)
             }
         }
     }
