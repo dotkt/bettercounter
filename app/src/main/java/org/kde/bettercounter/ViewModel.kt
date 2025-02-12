@@ -264,19 +264,34 @@ class ViewModel(application: Application) {
         }
 
         CoroutineScope(Dispatchers.IO).launch {
-            stream.use {
-                it.bufferedWriter().use { writer ->
-                    for ((i, name) in repo.getCounterList().withIndex()) {
-                        sendProgress(i)
-                        val entries = repo.getAllEntriesSortedByDate(name)
-                        writer.write(name)
-                        for (entry in entries) {
-                            writer.write(",")
-                            writer.write(entry.date.time.toString())
-                        }
-                        writer.write("\n")
+            try {
+                val writer = stream.bufferedWriter()
+                for ((i, name) in repo.getCounterList().withIndex()) {
+                    sendProgress(i)
+                    val entries = repo.getAllEntriesSortedByDate(name)
+                    writer.write(name)
+                    for (entry in entries) {
+                        writer.write(",")
+                        writer.write(entry.date.time.toString())
                     }
-                    sendProgress(repo.getCounterList().size)
+                    writer.write("\n")
+                    writer.flush()  // 每写完一个计数器就刷新缓冲区
+                }
+                sendProgress(repo.getCounterList().size)
+                writer.flush()  // 最后再次刷新确保所有数据都写入
+                withContext(Dispatchers.Main) {
+                    writer.close()  // 在主线程中关闭流
+                    stream.close()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Export failed: ${e.message}")
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    try {
+                        stream.close()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Failed to close stream: ${e.message}")
+                    }
                 }
             }
         }

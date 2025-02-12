@@ -273,26 +273,45 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.export_csv -> {
-                // 使用 MediaStore API 创建文件
-                val fileName = "bettercounter_export.csv"
-                val values = ContentValues().apply {
-                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                    put(MediaStore.MediaColumns.MIME_TYPE, "text/csv")
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                }
-
                 try {
-                    val uri = contentResolver.insert(MediaStore.Downloads.getContentUri("external"), values)
-                    uri?.let { outputUri ->
-                        contentResolver.openOutputStream(outputUri)?.let { stream ->
+                    val fileName = "bettercounter_export.csv"
+                    val values = ContentValues().apply {
+                        put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                        put(MediaStore.MediaColumns.MIME_TYPE, "text/csv")
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                        }
+                    }
+
+                    val resolver = applicationContext.contentResolver
+                    val uri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                    } else {
+                        MediaStore.Files.getContentUri("external")
+                    }
+
+                    // 删除可能存在的同名文件
+                    val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} = ?"
+                    val selectionArgs = arrayOf(fileName)
+                    resolver.delete(uri, selection, selectionArgs)
+
+                    // 创建新文件
+                    val itemUri = resolver.insert(uri, values)
+                    if (itemUri != null) {
+                        val outputStream = resolver.openOutputStream(itemUri)
+                        if (outputStream != null) {
                             val progressHandler = Handler(Looper.getMainLooper()) {
                                 if (it.arg1 == it.arg2) {
                                     Snackbar.make(binding.recycler, "已导出到下载目录: $fileName", Snackbar.LENGTH_LONG).show()
                                 }
                                 true
                             }
-                            viewModel.exportAll(stream, progressHandler)
+                            viewModel.exportAll(outputStream, progressHandler)
+                        } else {
+                            throw Exception("无法打开输出流")
                         }
+                    } else {
+                        throw Exception("无法创建文件")
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to export: ${e.message}")
