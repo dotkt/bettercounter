@@ -163,7 +163,7 @@ internal fun updateAppWidget(
 
             views.setInt(R.id.widgetBackground, "setBackgroundColor", value.color.colorInt)
             views.setTextViewText(R.id.widgetName, value.name)
-            views.setTextViewText(R.id.widgetCounter, value.getFormattedCount())
+            views.setTextViewText(R.id.widgetCounter, value.getFormattedCount(forWidget = true))
             val date = value.mostRecent
             if (date != null) {
                 val now = Date()

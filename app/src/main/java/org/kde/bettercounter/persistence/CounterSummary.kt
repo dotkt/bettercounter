@@ -25,44 +25,30 @@ class CounterSummary(
         return goal in 1..lastIntervalCount
     }
 
-    fun getFormattedCount(): CharSequence = buildString {
+    fun getFormattedCount(forWidget: Boolean = false): String {
         if (interval == Interval.MYTIMER) {
-            if (totalCount % 2 == 1) {
-                // totalCount 是奇数，显示距离 mostRecent 过去的分和秒，格式为 00:00
-                //val diffMillis = System.currentTimeMillis() - mostRecent.time
-                val diffMillis = mostRecent?.let {
-                    System.currentTimeMillis() - it.time
-                } ?: 0L
-
-                val minutes = (diffMillis / (1000 * 60)) % 60
-                val seconds = (diffMillis / 1000) % 60
-                val hours = (diffMillis / (1000 * 60 * 60)) % 24
-
-                val formattedTime = when {
-                    hours > 10 -> String.format(Locale.getDefault(), "%02d!%d", hours, minutes / 10)
-                    hours > 0 -> String.format(Locale.getDefault(), "%d!%02d", hours, minutes)
-                    minutes > 10 -> String.format(Locale.getDefault(), "%02d.%d", minutes, seconds / 10)
-                    else -> String.format(Locale.getDefault(), "%d:%02d", minutes, seconds)
-                }
-
-                append(formattedTime)
-
+            if (lastIntervalCount % 2 == 0) {
+                return "▶"
             } else {
-                // totalCount 是偶数，显示 start 字符串
-                append("▶")
+                return "■"
             }
         } else {
-            // 如果不是 MYTIMER 类型，保持原有逻辑
-            if (goal > 0) {
-                if (lastIntervalCount < goal) {
-                    append(lastIntervalCount)
-                    append('/')
-                    append(goal)
+            if (forWidget) {
+                if (goal > 0) {
+                    if (lastIntervalCount < goal) {
+                        return "$lastIntervalCount/$goal"
+                    } else {
+                        return "\uD83D\uDC4D"
+                    }
                 } else {
-                    append("\uD83D\uDC4D")
+                    return lastIntervalCount.toString()
                 }
             } else {
-                append(lastIntervalCount)
+                if (goal > 0) {
+                    return "$lastIntervalCount/$goal"
+                } else {
+                    return lastIntervalCount.toString()
+                }
             }
         }
     }
