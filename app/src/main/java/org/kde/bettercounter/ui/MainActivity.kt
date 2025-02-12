@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
@@ -43,8 +44,14 @@ import org.kde.bettercounter.persistence.Interval
 import org.kde.bettercounter.persistence.Tutorial
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
+import java.util.Date
 
 class MainActivity : AppCompatActivity() {
+
+    companion object {
+        const val EXTRA_COUNTER_NAME = "EXTRA_COUNTER_NAME"
+        private const val TAG = "MainActivity"
+    }
 
     private lateinit var viewModel: ViewModel
     private lateinit var entryViewAdapter: EntryListViewAdapter
@@ -64,6 +71,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Log.d(TAG, "onCreate called")
+        handleIntent(intent)
+        
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
@@ -174,6 +184,47 @@ class MainActivity : AppCompatActivity() {
         forceRefreshWidgets(this)
 
         startRefreshEveryHourBoundary()
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        Log.d(TAG, "onNewIntent called")
+        handleIntent(intent)
+    }
+
+    private fun handleIntent(intent: Intent?) {
+        Log.d(TAG, "handleIntent called with intent: $intent")
+        intent?.extras?.let { bundle ->
+            for (key in bundle.keySet()) {
+                Log.d(TAG, "Extra: $key = ${bundle.get(key)}")
+            }
+        }
+        
+        intent?.getStringExtra(EXTRA_COUNTER_NAME)?.let { counterName ->
+            Log.d(TAG, "Got counter name: $counterName")
+            // 等待数据加载完成后再滚动
+            viewModel.observeCounterChange(object : ViewModel.CounterObserver {
+                override fun onInitialCountersLoaded() {
+                    val position = viewModel.getCounterList().indexOf(counterName)
+                    Log.d(TAG, "Counter position: $position")
+                    if (position != -1) {
+                        // 使用 post 确保在布局完成后执行
+                        binding.recycler.post {
+                            binding.recycler.smoothScrollToPosition(position)
+                            // 自动展开详情面板
+                            entryViewAdapter.selectItem(position)
+                        }
+                    }
+                    viewModel.removeCounterChangeObserver(this)
+                }
+                
+                // 实现其他必需的接口方法
+                override fun onCounterAdded(counterName: String) {}
+                override fun onCounterRemoved(counterName: String) {}
+                override fun onCounterRenamed(oldName: String, newName: String) {}
+                override fun onCounterDecremented(counterName: String, oldEntryDate: Date) {}
+            })
+        }
     }
 
     private fun millisecondsUntilNextHour(): Long {

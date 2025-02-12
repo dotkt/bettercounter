@@ -111,8 +111,19 @@ internal fun updateAppWidget(
 
     val views = RemoteViews(BuildConfig.APPLICATION_ID, R.layout.widget)
 
-    val openAppIntent = Intent(context, MainActivity::class.java)
-    val openAppPendingIntent = PendingIntent.getActivity(context, 0, openAppIntent, PendingIntent.FLAG_IMMUTABLE)
+    val openAppIntent = Intent(context, MainActivity::class.java).apply {
+        putExtra(MainActivity.EXTRA_COUNTER_NAME, counterName)
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    }
+    Log.d("WidgetProvider", "Creating PendingIntent for counter: $counterName")
+    
+    val openAppPendingIntent = PendingIntent.getActivity(
+        context, 
+        appWidgetId,
+        openAppIntent, 
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+    )
+    Log.d("WidgetProvider", "Setting click listener on widgetName")
     views.setOnClickPendingIntent(R.id.widgetName, openAppPendingIntent)
 
     if (!viewModel.counterExists(counterName)) {

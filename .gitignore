@@ -7,3 +7,5 @@
 /captures
 .externalNativeBuild
 .cxx
+.kotlin/errors/*.log
+.kotlin/sessions/*.salive

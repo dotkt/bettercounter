@@ -186,4 +186,11 @@ class EntryListViewAdapter(
     override fun onDragEnd(viewHolder: RecyclerView.ViewHolder?) {
         viewModel.saveCounterOrder(counters)
     }
+
+    fun selectItem(position: Int) {
+        val counterName = counters[position]
+        viewModel.getCounterSummary(counterName).value?.let { counter ->
+            listObserver.onItemSelected(position, counter)
+        }
+    }
 }
