@@ -31,6 +31,7 @@ private const val TAG = "ViewModel"
 
 class ViewModel(application: Application) {
     private val appContext: Context = application.applicationContext
+    private var mediaPlayer: MediaPlayer? = null
 
     interface CounterObserver {
         fun onInitialCountersLoaded()
@@ -114,12 +115,39 @@ class ViewModel(application: Application) {
         }
     }
 
+    private fun initMediaPlayer() {
+        try {
+            mediaPlayer?.release()
+            mediaPlayer = MediaPlayer.create(appContext, R.raw.ding)
+            mediaPlayer?.setOnCompletionListener { mp ->
+                mp.release()
+                mediaPlayer = null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize MediaPlayer: ${e.message}")
+            mediaPlayer = null
+        }
+    }
+
     private fun playDingSound() {
-        val mediaPlayer = MediaPlayer.create(appContext, R.raw.ding)
-        mediaPlayer.start()
-        //mediaPlayer.setOnCompletionListener { mp ->
-         //   mp.release() // Release the media player once the sound is done playing
-        //}
+        try {
+            if (mediaPlayer == null) {
+                initMediaPlayer()
+            }
+            mediaPlayer?.let { player ->
+                if (!player.isPlaying) {
+                    player.start()
+                } else {
+                    // 如果正在播放，重新初始化并播放
+                    initMediaPlayer()
+                    mediaPlayer?.start()
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to play sound: ${e.message}")
+            // 出错时尝试重新初始化
+            initMediaPlayer()
+        }
     }
 
     fun incrementCounterWithCallback(name: String, date: Date = Calendar.getInstance().time, callback: () -> Unit) {
