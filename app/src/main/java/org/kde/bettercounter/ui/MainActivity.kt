@@ -238,8 +238,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun startRefreshEveryHourBoundary() {
         lifecycleScope.launch(Dispatchers.IO) {
+            var lastDate = LocalDateTime.now().toLocalDate()
+            
             while (isActive) {
                 delay(millisecondsUntilNextHour())
+                
+                // 检查日期是否变化
+                val currentDate = LocalDateTime.now().toLocalDate()
+                if (currentDate != lastDate) {
+                    // 日期已变化，刷新所有计数器
+                    Log.d(TAG, "Date changed from $lastDate to $currentDate, refreshing counters")
+                    lastDate = currentDate
+                }
+                
+                // 刷新所有观察者
                 viewModel.refreshAllObservers()
             }
         }
