@@ -273,18 +273,8 @@ class MainActivity : AppCompatActivity() {
                     val uri = contentResolver.insert(MediaStore.Downloads.getContentUri("external"), values)
                     uri?.let { outputUri ->
                         contentResolver.openOutputStream(outputUri)?.let { stream ->
-                            val progressDialogBinding = ProgressDialogBinding.inflate(layoutInflater)
-                            val dialog = MaterialAlertDialogBuilder(this)
-                                .setView(progressDialogBinding.root)
-                                .setCancelable(false)
-                                .create()
-                            dialog.show()
-
                             val progressHandler = Handler(Looper.getMainLooper()) {
-                                progressDialogBinding.text.text =
-                                    getString(R.string.exported_n, it.arg1, it.arg2)
                                 if (it.arg1 == it.arg2) {
-                                    dialog.setCancelable(true)
                                     Snackbar.make(binding.recycler, "已导出到下载目录: $fileName", Snackbar.LENGTH_LONG).show()
                                 }
                                 true
