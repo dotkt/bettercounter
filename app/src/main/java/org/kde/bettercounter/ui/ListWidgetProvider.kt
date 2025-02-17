@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import android.widget.RemoteViews
 import org.kde.bettercounter.BuildConfig
 import org.kde.bettercounter.R
@@ -18,6 +19,8 @@ class ListWidgetProvider : AppWidgetProvider() {
             appWidgetManager: AppWidgetManager,
             appWidgetId: Int
         ) {
+            Log.d("ListWidgetProvider", "updateListWidget: $appWidgetId")
+            
             // 创建列表视图的 RemoteViews
             val views = RemoteViews(BuildConfig.APPLICATION_ID, R.layout.widget_list)
 
