@@ -347,9 +347,22 @@ class ViewModel(application: Application) {
         return ret
     }
 
+    fun refreshCounterSummary(name: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val summary = repo.getCounterSummary(name)
+            summaryMap[name]?.postValue(summary)
+        }
+    }
+
     suspend fun refreshAllObservers() {
-        for ((name, summary) in summaryMap) {
-            summary.postValue(repo.getCounterSummary(name))
+        val counterList = repo.getCounterList()
+        for (name in counterList) {
+            try {
+                val summary = repo.getCounterSummary(name)
+                summaryMap[name]?.postValue(summary)
+            } catch (e: Exception) {
+                Log.e(TAG, "刷新计数器 $name 时出错: ${e.message}")
+            }
         }
     }
 

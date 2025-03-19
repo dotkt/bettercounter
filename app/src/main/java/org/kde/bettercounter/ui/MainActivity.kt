@@ -256,6 +256,26 @@ class MainActivity : AppCompatActivity() {
         // 保存原始点击监听器以便后续恢复
         binding.fab.setTag(R.id.fab_original_listener, fabOriginalClickListener)
         binding.fab.setOnClickListener(fabOriginalClickListener)
+
+        // 添加页面切换监听器
+        viewPager.registerOnPageChangeCallback(object : androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback() {
+            override fun onPageSelected(position: Int) {
+                super.onPageSelected(position)
+                // 获取当前分组ID
+                val groups = viewModel.getGroups()
+                val currentGroupId = if (position >= 0 && position < groups.size) {
+                    groups[position].id
+                } else {
+                    "default"
+                }
+                
+                // 刷新当前分组的适配器
+                groupPagerAdapter.getAdapter(currentGroupId)?.refreshCounters()
+                
+                // 记录日志，便于调试
+                Log.d(TAG, "切换到分组位置: $position, 分组ID: $currentGroupId")
+            }
+        })
     }
 
     override fun onNewIntent(intent: Intent?) {

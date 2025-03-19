@@ -52,10 +52,15 @@ class EntryListViewAdapter(
     }
 
     private fun observeNewCounter(counterName: String) {
+        viewModel.getCounterSummary(counterName).removeObservers(activity)
+        
         viewModel.getCounterSummary(counterName).observe(activity) {
-            notifyItemChanged(counters.indexOf(it.name), Unit)
-            if (currentSelectedCounterName == it.name) {
-                listObserver.onSelectedItemUpdated(counters.indexOf(it.name), it)
+            val position = counters.indexOf(it.name)
+            if (position >= 0) {
+                notifyItemChanged(position, Unit)
+                if (currentSelectedCounterName == it.name) {
+                    listObserver.onSelectedItemUpdated(position, it)
+                }
             }
         }
     }
@@ -101,7 +106,6 @@ class EntryListViewAdapter(
                     listObserver.onSelectedItemUpdated(position, viewModel.getCounterSummary(newName).value!!)
                 }
                 activity.runOnUiThread {
-                    // passing a second parameter disables the disappear+appear animation
                     notifyItemChanged(position, Unit)
                 }
             }
@@ -174,7 +178,6 @@ class EntryListViewAdapter(
             }
         }
         notifyItemMoved(fromPosition, toPosition)
-        // Do not store individual movements, store the final result in `onDragEnd`
     }
 
     override fun onDragStart(viewHolder: RecyclerView.ViewHolder?) {
@@ -204,20 +207,23 @@ class EntryListViewAdapter(
         val filteredCounters = allCounters.filter { 
             viewModel.getCounterGroup(it) == groupId 
         }
-        counters = filteredCounters.toMutableList()
+        
+        counters.clear()
+        counters.addAll(filteredCounters)
+        
         notifyDataSetChanged()
         
         for (counterName in counters) {
             observeNewCounter(counterName)
         }
+        
+        Log.d(TAG, "分组 $groupId 刷新了 ${counters.size} 个计数器")
     }
 
-    // 获取计数器在列表中的位置
     fun getPositionForCounter(counterName: String): Int {
         return counters.indexOf(counterName)
     }
 
-    // 滚动到指定位置
     fun scrollToPosition(position: Int) {
         recyclerView?.scrollToPosition(position)
     }
