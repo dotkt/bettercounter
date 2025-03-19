@@ -80,4 +80,8 @@ class GroupPagerAdapter(
         groups = viewModel.getGroups()
         notifyDataSetChanged()
     }
+
+    fun getAdapter(groupId: String): EntryListViewAdapter? {
+        return adapters[groupId]
+    }
 } 

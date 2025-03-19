@@ -211,4 +211,14 @@ class EntryListViewAdapter(
             observeNewCounter(counterName)
         }
     }
+
+    // 获取计数器在列表中的位置
+    fun getPositionForCounter(counterName: String): Int {
+        return counters.indexOf(counterName)
+    }
+
+    // 滚动到指定位置
+    fun scrollToPosition(position: Int) {
+        recyclerView?.scrollToPosition(position)
+    }
 }

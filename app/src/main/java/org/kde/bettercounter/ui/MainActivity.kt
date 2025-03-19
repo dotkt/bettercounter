@@ -80,11 +80,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var viewPager: androidx.viewpager2.widget.ViewPager2
     private lateinit var tabLayout: TabLayout
     private lateinit var groupPagerAdapter: GroupPagerAdapter
+    private val handler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d(TAG, "onCreate called")
-        handleIntent(intent)
         
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -92,8 +92,12 @@ class MainActivity : AppCompatActivity() {
         // 设置Toolbar为ActionBar
         setSupportActionBar(binding.toolbar)
 
+        // 先初始化viewModel
         viewModel = (application as BetterApplication).viewModel
-
+        
+        // 然后再处理Intent
+        handleIntent(intent)
+        
         // Bottom sheet with graph
         // -----------------------
         sheetBehavior = BottomSheetBehavior.from(binding.bottomSheet)
@@ -221,6 +225,8 @@ class MainActivity : AppCompatActivity() {
 
         // 每次添加新分组后刷新适配器
         groupPagerAdapter.refreshGroups()
+
+        setupDetailsTitle()
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -230,37 +236,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
-        Log.d(TAG, "handleIntent called with intent: $intent")
-        intent?.extras?.let { bundle ->
-            for (key in bundle.keySet()) {
-                Log.d(TAG, "Extra: $key = ${bundle.get(key)}")
-            }
-        }
+        if (intent == null) return
         
-        intent?.getStringExtra(EXTRA_COUNTER_NAME)?.let { counterName ->
-            Log.d(TAG, "Got counter name: $counterName")
-            // 等待数据加载完成后再滚动
-            viewModel.observeCounterChange(object : ViewModel.CounterObserver {
-                override fun onInitialCountersLoaded() {
-                    val position = viewModel.getCounterList().indexOf(counterName)
-                    Log.d(TAG, "Counter position: $position")
-                    if (position != -1) {
-                        // 使用 post 确保在布局完成后执行
-                        binding.recycler.post {
-                            binding.recycler.smoothScrollToPosition(position)
-                            // 自动展开详情面板
-                            entryViewAdapter.selectItem(position)
-                        }
-                    }
-                    viewModel.removeCounterChangeObserver(this)
-                }
-                
-                // 实现其他必需的接口方法
-                override fun onCounterAdded(counterName: String) {}
-                override fun onCounterRemoved(counterName: String) {}
-                override fun onCounterRenamed(oldName: String, newName: String) {}
-                override fun onCounterDecremented(counterName: String, oldEntryDate: Date) {}
-            })
+        // 确保viewModel已初始化
+        if (!::viewModel.isInitialized) return
+        
+        val counterName = intent.getStringExtra(EXTRA_COUNTER_NAME)
+        if (counterName != null) {
+            Log.d(TAG, "从Intent中获取计数器名称: $counterName")
+            // 使用Handler延迟执行，确保Activity完全初始化
+            handler.postDelayed({
+                navigateToCounter(counterName)
+            }, 500)
         }
     }
 
@@ -577,6 +564,68 @@ class MainActivity : AppCompatActivity() {
         val index = groups.indexOfFirst { it.id == groupId }
         if (index >= 0) {
             viewPager.currentItem = index
+        }
+    }
+
+    // 添加导航到指定计数器的方法
+    fun navigateToCounter(counterName: String) {
+        Log.d(TAG, "尝试导航到计数器: $counterName")
+        
+        // 获取计数器所在分组
+        val groupId = viewModel.getCounterGroup(counterName)
+        Log.d(TAG, "计数器所在分组ID: $groupId")
+        
+        // 首先关闭详情面板
+        sheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+        
+        // 切换到对应分组标签
+        val groups = viewModel.getGroups()
+        val tabIndex = groups.indexOfFirst { it.id == groupId }
+        Log.d(TAG, "分组索引: $tabIndex")
+        
+        if (tabIndex >= 0) {
+            // 切换标签页
+            viewPager.currentItem = tabIndex
+            
+            // 使用延迟确保视图已经切换完成
+            handler.postDelayed({
+                // 获取当前显示的分组适配器
+                val adapter = groupPagerAdapter.getAdapter(groupId)
+                
+                if (adapter != null) {
+                    Log.d(TAG, "找到分组适配器")
+                    
+                    // 确保数据已加载
+                    adapter.refreshCounters()
+                    
+                    // 查找计数器位置
+                    val position = adapter.getPositionForCounter(counterName)
+                    Log.d(TAG, "计数器在列表中的位置: $position")
+                    
+                    if (position >= 0) {
+                        // 滚动到并选中计数器
+                        adapter.selectItem(position)
+                        adapter.scrollToPosition(position)
+                        
+                        // 如果仍有问题，再尝试一次延迟滚动
+                        handler.postDelayed({
+                            adapter.scrollToPosition(position)
+                        }, 200)
+                    }
+                } else {
+                    Log.d(TAG, "未找到分组适配器")
+                }
+            }, 300) // 等待标签页切换完成
+        }
+    }
+
+    private fun setupDetailsTitle() {
+        binding.detailsTitle.setOnClickListener {
+            val counterName = binding.detailsTitle.text.toString()
+            Log.d(TAG, "点击了详情标题: $counterName")
+            if (counterName.isNotEmpty()) {
+                navigateToCounter(counterName)
+            }
         }
     }
 }
