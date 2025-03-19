@@ -61,6 +61,14 @@ class EntryViewHolder(
             binding.timestampText.referenceTime = -1L
             binding.decreaseButton.isEnabled = false
         }
+
+        // 获取并显示分组名称
+        val groupId = counter.groupId
+        val group = viewModel.getGroups().find { it.id == groupId }
+        val groupName = group?.name ?: "默认"
+        
+        // 如果布局中有分组标签，则设置分组名称
+        binding.groupLabel.text = groupName
     }
 
     fun showPickDateTutorial(onDismissListener: OnDismissListener? = null) {

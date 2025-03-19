@@ -25,7 +25,7 @@ class EntryListViewAdapter(
     private var activity: AppCompatActivity,
     private var viewModel: ViewModel,
     private var listObserver: EntryListObserver,
-
+    private var groupId: String = "default"
 ) : RecyclerView.Adapter<EntryViewHolder>(), DragAndSwipeTouchHelper.ListGesturesCallback {
     interface EntryListObserver {
         fun onItemSelected(position: Int, counter: CounterSummary)
@@ -51,36 +51,34 @@ class EntryListViewAdapter(
         super.onAttachedToRecyclerView(view)
     }
 
+    private fun observeNewCounter(counterName: String) {
+        viewModel.getCounterSummary(counterName).observe(activity) {
+            notifyItemChanged(counters.indexOf(it.name), Unit)
+            if (currentSelectedCounterName == it.name) {
+                listObserver.onSelectedItemUpdated(counters.indexOf(it.name), it)
+            }
+        }
+    }
+
     init {
         viewModel.observeCounterChange(object : ViewModel.CounterObserver {
-
-            fun observeNewCounter(counterName: String) {
-                viewModel.getCounterSummary(counterName).observe(activity) {
-                    notifyItemChanged(counters.indexOf(it.name), Unit)
-                    if (currentSelectedCounterName == it.name) {
-                        listObserver.onSelectedItemUpdated(counters.indexOf(it.name), it)
-                    }
-                }
-            }
-
             @SuppressLint("NotifyDataSetChanged")
             override fun onInitialCountersLoaded() {
                 activity.runOnUiThread {
-                    counters = viewModel.getCounterList().toMutableList()
-                    notifyDataSetChanged()
-                    for (counterName in counters) {
-                        observeNewCounter(counterName)
-                    }
+                    refreshCounters()
                 }
             }
 
             override fun onCounterAdded(counterName: String) {
-                activity.runOnUiThread {
-                    counters.add(counterName)
-                    val position = counters.size - 1
-                    notifyItemInserted(position)
-                    observeNewCounter(counterName)
-                    listObserver.onItemAdded(position)
+                val group = viewModel.getCounterGroup(counterName)
+                if (group == groupId) {
+                    activity.runOnUiThread {
+                        if (!counters.contains(counterName)) {
+                            counters.add(counterName)
+                            notifyItemInserted(counters.size - 1)
+                            observeNewCounter(counterName)
+                        }
+                    }
                 }
             }
 
@@ -191,6 +189,26 @@ class EntryListViewAdapter(
         val counterName = counters[position]
         viewModel.getCounterSummary(counterName).value?.let { counter ->
             listObserver.onItemSelected(position, counter)
+        }
+    }
+
+    fun getCounters(): List<CounterSummary> {
+        val allCounters = viewModel.getCounterList()
+        val groupCounters = allCounters.filter { viewModel.getCounterGroup(it) == groupId }
+        counters = groupCounters.toMutableList()
+        return groupCounters.mapNotNull { viewModel.getCounterSummary(it).value }
+    }
+
+    fun refreshCounters() {
+        val allCounters = viewModel.getCounterList()
+        val filteredCounters = allCounters.filter { 
+            viewModel.getCounterGroup(it) == groupId 
+        }
+        counters = filteredCounters.toMutableList()
+        notifyDataSetChanged()
+        
+        for (counterName in counters) {
+            observeNewCounter(counterName)
         }
     }
 }

@@ -14,6 +14,7 @@ class CounterSummary(
     var totalCount: Int,
     var leastRecent: Date?,
     var mostRecent: Date?,
+    var groupId: String = "default"
 ) {
     fun latestBetweenNowAndMostRecentEntry(): Date {
         val now = Calendar.getInstance().time

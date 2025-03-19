@@ -21,6 +21,7 @@ import org.kde.bettercounter.persistence.CounterColor
 import org.kde.bettercounter.persistence.CounterMetadata
 import org.kde.bettercounter.persistence.CounterSummary
 import org.kde.bettercounter.persistence.Interval
+import android.widget.ArrayAdapter
 
 class CounterSettingsDialogBuilder(private val context: Context, private val viewModel: ViewModel) {
 
@@ -89,6 +90,8 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
             binding.goalInput.isCursorVisible = hasFocus && (goal != 0)
         }
 
+        setupGroupSpinner()
+
         builder.setPositiveButton(R.string.save, null)
         builder.setNegativeButton(R.string.cancel, null)
     }
@@ -98,6 +101,22 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
             binding.goalInput.setText(goal.toString())
         } else {
             binding.goalInput.text?.clear() // will show the hint, which is "Ø"
+        }
+    }
+
+    private fun setupGroupSpinner(currentGroupId: String = "default") {
+        val groupSpinner = binding.groupSpinner
+        val groups = viewModel.getGroups()
+        val groupNames = groups.map { it.name }.toTypedArray()
+        
+        val adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, groupNames)
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        groupSpinner.adapter = adapter
+        
+        // 设置当前选中的分组
+        val groupIndex = groups.indexOfFirst { it.id == currentGroupId }
+        if (groupIndex >= 0) {
+            groupSpinner.setSelection(groupIndex)
         }
     }
 
@@ -151,12 +170,22 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
                     binding.nameEdit.error = context.getString(R.string.already_exists)
                 }
                 else -> {
+                    val groupSpinner = binding.groupSpinner
+                    val groups = viewModel.getGroups()
+                    val selectedGroupPosition = groupSpinner.selectedItemPosition
+                    val groupId = if (selectedGroupPosition >= 0 && selectedGroupPosition < groups.size) {
+                        groups[selectedGroupPosition].id
+                    } else {
+                        "default"
+                    }
+                    
                     onSaveListener(
                         CounterMetadata(
                             name,
                             intervalAdapter.itemAt(binding.spinnerInterval.selectedItemPosition),
                             goal,
                             CounterColor(colorAdapter.selectedColor),
+                            groupId
                         )
                     )
                     dialog.dismiss()

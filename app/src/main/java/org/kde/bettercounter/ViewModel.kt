@@ -26,6 +26,7 @@ import java.util.Calendar
 import java.util.Date
 import kotlin.collections.set
 import android.media.MediaPlayer
+import org.kde.bettercounter.persistence.Group
 
 private const val TAG = "ViewModel"
 
@@ -89,6 +90,7 @@ class ViewModel(application: Application) {
         val name = counter.name
         repo.setCounterList(repo.getCounterList().toMutableList() + name)
         repo.setCounterMetadata(counter)
+        repo.setCounterGroup(counter.name, counter.groupId)
         CoroutineScope(Dispatchers.IO).launch {
             summaryMap[name] = MutableLiveData(repo.getCounterSummary(name))
             withContext(Dispatchers.Main) {
@@ -348,6 +350,54 @@ class ViewModel(application: Application) {
     suspend fun refreshAllObservers() {
         for ((name, summary) in summaryMap) {
             summary.postValue(repo.getCounterSummary(name))
+        }
+    }
+
+    fun getGroups(): List<Group> {
+        return repo.getGroups()
+    }
+
+    fun addGroup(name: String) {
+        val groups = repo.getGroups().toMutableList()
+        val newId = "group_${System.currentTimeMillis()}"
+        groups.add(Group(newId, name, groups.size))
+        repo.saveGroups(groups)
+    }
+
+    fun renameGroup(groupId: String, newName: String) {
+        val groups = repo.getGroups().toMutableList()
+        val group = groups.find { it.id == groupId }
+        if (group != null) {
+            group.name = newName
+            repo.saveGroups(groups)
+        }
+    }
+
+    fun deleteGroup(groupId: String) {
+        if (groupId == "default") return // 默认分组不能删除
+        
+        val groups = repo.getGroups().toMutableList()
+        groups.removeIf { it.id == groupId }
+        repo.saveGroups(groups)
+        
+        // 将此分组中的计数器移动到默认分组
+        val counterList = repo.getCounterList()
+        for (counterName in counterList) {
+            if (repo.getCounterGroup(counterName) == groupId) {
+                repo.setCounterGroup(counterName, "default")
+            }
+        }
+    }
+
+    fun getCounterGroup(counterName: String): String {
+        return repo.getCounterGroup(counterName)
+    }
+
+    fun setCounterGroup(counterName: String, groupId: String) {
+        repo.setCounterGroup(counterName, groupId)
+        // 更新LiveData
+        CoroutineScope(Dispatchers.IO).launch {
+            summaryMap[counterName]?.postValue(repo.getCounterSummary(counterName))
         }
     }
 

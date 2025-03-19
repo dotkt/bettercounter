@@ -5,5 +5,6 @@ data class CounterMetadata(
     var interval: Interval,
     var goal: Int,
     var color: CounterColor,
+    var groupId: String = "default"
 )
 

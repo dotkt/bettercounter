@@ -60,6 +60,16 @@
             android:drawablePadding="4.5dip"
             tools:text="yesterday" />
 
+        <TextView
+            android:id="@+id/group_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:textSize="12sp"
+            android:textColor="#FF9800"
+            android:layout_marginTop="4dp"
+            tools:text="默认分组" />
+
     </LinearLayout>
 
     <View style="@style/Divider.Vertical"/>

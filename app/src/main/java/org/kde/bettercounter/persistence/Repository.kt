@@ -17,6 +17,8 @@ const val COUNTERS_INTERVAL_PREFS_KEY = "interval.%s"
 const val COUNTERS_COLOR_PREFS_KEY = "color.%s"
 const val COUNTERS_GOAL_PREFS_KEY = "goal.%s"
 const val TUTORIALS_PREFS_KEY = "tutorials"
+const val GROUPS_PREFS_KEY = "groups"
+const val COUNTER_GROUP_PREFS_KEY = "group.%s"
 
 class Repository(
     private val context: Context,
@@ -27,6 +29,7 @@ class Repository(
     private var tutorials: MutableSet<String>
     private var counters: List<String>
     private var counterCache = HashMap<String, CounterSummary>()
+    private var groups: List<Group>
 
     init {
         val countersStr = sharedPref.getString(COUNTERS_PREFS_KEY, "[]")
@@ -35,6 +38,10 @@ class Repository(
         if (BuildConfig.DEBUG && alwaysShowTutorialsInDebugBuilds) {
             tutorials = mutableSetOf()
         }
+
+        // 初始化分组数据
+        val groupsStr = sharedPref.getString(GROUPS_PREFS_KEY, "[{\"id\":\"default\",\"name\":\"默认\",\"order\":0}]")
+        groups = Converters.stringToGroupList(groupsStr)
     }
 
     fun getCounterList(): List<String> {
@@ -97,12 +104,35 @@ class Repository(
         val colorKey = COUNTERS_COLOR_PREFS_KEY.format(counter.name)
         val intervalKey = COUNTERS_INTERVAL_PREFS_KEY.format(counter.name)
         val goalKey = COUNTERS_GOAL_PREFS_KEY.format(counter.name)
+        val groupKey = COUNTER_GROUP_PREFS_KEY.format(counter.name)
         sharedPref.edit()
             .putInt(colorKey, counter.color.colorInt)
             .putString(intervalKey, counter.interval.toString())
             .putInt(goalKey, counter.goal)
+            .putString(groupKey, counter.groupId)
             .apply()
         counterCache.remove(counter.name)
+    }
+
+    fun getGroups(): List<Group> {
+        return groups
+    }
+
+    fun saveGroups(groupList: List<Group>) {
+        val jsonStr = Converters.groupListToString(groupList)
+        sharedPref.edit().putString(GROUPS_PREFS_KEY, jsonStr).apply()
+        groups = groupList
+    }
+
+    fun getCounterGroup(name: String): String {
+        val key = COUNTER_GROUP_PREFS_KEY.format(name)
+        return sharedPref.getString(key, "default") ?: "default"
+    }
+
+    fun setCounterGroup(name: String, groupId: String) {
+        val key = COUNTER_GROUP_PREFS_KEY.format(name)
+        sharedPref.edit().putString(key, groupId).apply()
+        counterCache.remove(name)
     }
 
     suspend fun getCounterSummary(name: String): CounterSummary {
@@ -115,6 +145,7 @@ class Repository(
         }
         val intervalEndDate = intervalStartDate.copy().apply { addInterval(interval, 1) }
         val firstLastAndCount = entryDao.getFirstLastAndCount(name)
+        val groupId = getCounterGroup(name)
         return counterCache.getOrPut(name) {
             CounterSummary(
                 name = name,
@@ -125,6 +156,7 @@ class Repository(
                 totalCount = firstLastAndCount.count, // entryDao.getCount(name),
                 leastRecent = firstLastAndCount.first, // entryDao.getLeastRecent(name)?.date,
                 mostRecent = firstLastAndCount.last, // entryDao.getMostRecent(name)?.date,
+                groupId = groupId
             )
         }
     }

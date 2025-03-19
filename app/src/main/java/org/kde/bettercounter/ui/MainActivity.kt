@@ -27,7 +27,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior.BottomSheetCa
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import io.github.douglasjunior.androidSimpleTooltip.SimpleTooltip
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Dispatchers as KotlinDispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -45,6 +45,12 @@ import org.kde.bettercounter.databinding.ProgressDialogBinding
 import org.kde.bettercounter.persistence.CounterSummary
 import org.kde.bettercounter.persistence.Interval
 import org.kde.bettercounter.persistence.Tutorial
+import org.kde.bettercounter.persistence.Group
+import android.widget.EditText
+import android.widget.PopupMenu
+import com.google.android.material.tabs.TabLayout
+import com.google.android.material.tabs.TabLayoutMediator
+import kotlinx.coroutines.CoroutineScope
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import java.util.Date
@@ -71,6 +77,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+    private lateinit var viewPager: androidx.viewpager2.widget.ViewPager2
+    private lateinit var tabLayout: TabLayout
+    private lateinit var groupPagerAdapter: GroupPagerAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,6 +88,8 @@ class MainActivity : AppCompatActivity() {
         
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        
+        // 设置Toolbar为ActionBar
         setSupportActionBar(binding.toolbar)
 
         viewModel = (application as BetterApplication).viewModel
@@ -187,6 +198,29 @@ class MainActivity : AppCompatActivity() {
         forceRefreshWidgets(this)
 
         startRefreshEveryHourBoundary()
+
+        // 设置分组视图
+        viewPager = binding.viewPager
+        tabLayout = binding.tabLayout
+        
+        groupPagerAdapter = GroupPagerAdapter(this, viewModel)
+        viewPager.adapter = groupPagerAdapter
+        
+        // 连接TabLayout和ViewPager
+        TabLayoutMediator(tabLayout, viewPager) { tab, position ->
+            tab.text = groupPagerAdapter.getGroupName(position)
+        }.attach()
+        
+        // 设置Tab长按事件
+        setupTabLongClickListener()
+
+        // 设置分组按钮点击监听
+        binding.addGroupFab.setOnClickListener {
+            showAddGroupDialog()
+        }
+
+        // 每次添加新分组后刷新适配器
+        groupPagerAdapter.refreshGroups()
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -237,7 +271,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startRefreshEveryHourBoundary() {
-        lifecycleScope.launch(Dispatchers.IO) {
+        lifecycleScope.launch(KotlinDispatchers.IO) {
             var lastDate = LocalDateTime.now().toLocalDate()
             
             while (isActive) {
@@ -258,8 +292,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        val inflater: MenuInflater = menuInflater
-        inflater.inflate(R.menu.main, menu)
+        menuInflater.inflate(R.menu.main, menu)
         return true
     }
 
@@ -271,7 +304,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        when (item.itemId) {
+        return when (item.itemId) {
             R.id.export_csv -> {
                 try {
                     val fileName = "bettercounter_export.csv"
@@ -317,9 +350,11 @@ class MainActivity : AppCompatActivity() {
                     Log.e(TAG, "Failed to export: ${e.message}")
                     Snackbar.make(binding.recycler, "导出失败: ${e.message}", Snackbar.LENGTH_LONG).show()
                 }
+                true
             }
             R.id.import_csv -> {
                 importFilePicker.launch(OpenFileParams("text/*"))
+                true
             }
             R.id.show_tutorial -> {
                 if (viewModel.getCounterList().isEmpty()) {
@@ -334,10 +369,14 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
+                true
             }
-            else -> return super.onOptionsItemSelected(item)
+            R.id.add_group -> {
+                showAddGroupDialog()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
         }
-        return true
     }
 
     private val importFilePicker: ActivityResultLauncher<OpenFileParams> = registerForActivityResult(
@@ -391,6 +430,7 @@ class MainActivity : AppCompatActivity() {
                 .forNewCounter()
                 .setOnSaveListener { counterMetadata ->
                     viewModel.addCounter(counterMetadata)
+                    switchToGroup(counterMetadata.groupId)
                 }
                 .setOnDismissListener { binding.fab.visibility = View.VISIBLE }
                 .show()
@@ -440,6 +480,103 @@ class MainActivity : AppCompatActivity() {
                         .show()
                 }
                 .show()
+        }
+    }
+
+    // 添加分组管理相关方法
+    private fun setupTabLongClickListener() {
+        for (i in 0 until tabLayout.tabCount) {
+            val tab = tabLayout.getTabAt(i)
+            tab?.view?.setOnLongClickListener {
+                val group = viewModel.getGroups()[i]
+                if (group.id != "default") { // 默认分组不允许修改
+                    showGroupOptionsMenu(it, group)
+                }
+                true
+            }
+        }
+    }
+
+    private fun showGroupOptionsMenu(view: View, group: Group) {
+        val popup = PopupMenu(this, view)
+        popup.menuInflater.inflate(R.menu.group_options, popup.menu)
+        popup.setOnMenuItemClickListener { item ->
+            when (item.itemId) {
+                R.id.rename_group -> {
+                    showRenameGroupDialog(group)
+                    true
+                }
+                R.id.delete_group -> {
+                    showDeleteGroupDialog(group)
+                    true
+                }
+                else -> false
+            }
+        }
+        popup.show()
+    }
+
+    private fun showRenameGroupDialog(group: Group) {
+        val builder = MaterialAlertDialogBuilder(this)
+        builder.setTitle(R.string.rename_group)
+        
+        val input = EditText(this)
+        input.setText(group.name)
+        builder.setView(input)
+        
+        builder.setPositiveButton(R.string.save) { _, _ ->
+            val newName = input.text.toString().trim()
+            if (newName.isNotEmpty()) {
+                viewModel.renameGroup(group.id, newName)
+                groupPagerAdapter.refreshGroups()
+            }
+        }
+        
+        builder.setNegativeButton(R.string.cancel, null)
+        builder.show()
+    }
+
+    private fun showDeleteGroupDialog(group: Group) {
+        val builder = MaterialAlertDialogBuilder(this)
+        builder.setTitle(R.string.delete_group)
+        builder.setMessage(getString(R.string.delete_group_confirmation, group.name))
+        
+        builder.setPositiveButton(R.string.delete) { _, _ ->
+            viewModel.deleteGroup(group.id)
+            groupPagerAdapter.refreshGroups()
+        }
+        
+        builder.setNegativeButton(R.string.cancel, null)
+        builder.show()
+    }
+
+    // 添加创建新分组的方法
+    private fun showAddGroupDialog() {
+        val builder = MaterialAlertDialogBuilder(this)
+        builder.setTitle(R.string.add_group)
+        
+        val input = EditText(this)
+        input.hint = getString(R.string.group_name)
+        builder.setView(input)
+        
+        builder.setPositiveButton(R.string.save) { _, _ ->
+            val name = input.text.toString().trim()
+            if (name.isNotEmpty()) {
+                viewModel.addGroup(name)
+                groupPagerAdapter.refreshGroups()
+            }
+        }
+        
+        builder.setNegativeButton(R.string.cancel, null)
+        builder.show()
+    }
+
+    // 添加计数器后切换到对应分组
+    private fun switchToGroup(groupId: String) {
+        val groups = viewModel.getGroups()
+        val index = groups.indexOfFirst { it.id == groupId }
+        if (index >= 0) {
+            viewPager.currentItem = index
         }
     }
 }

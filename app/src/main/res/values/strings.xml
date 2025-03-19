@@ -61,4 +61,12 @@
     <string name="list_widget_title">计数器列表</string>
     <string name="list_widget_description">在主屏幕上显示所有计数器的列表</string>
     <string name="add_widget">添加小部件</string>
+    <string name="group">分组</string>
+    <string name="add_group">添加分组</string>
+    <string name="rename_group">重命名分组</string>
+    <string name="delete_group">删除分组</string>
+    <string name="delete_group_confirmation">确定要删除分组"%1$s"吗？该分组中的计数器将被移动到默认分组。</string>
+    <string name="group_name">分组名称</string>
+    <string name="new_group_name">新分组名称</string>
+    <string name="delete_group_confirm">确定要删除此分组吗？此分组中的所有计数器将被移动到默认分组。</string>
 </resources>

@@ -5,6 +5,7 @@
     <color name="colorAccent">#D0D0D0</color>
     <color name="colorAccentDisabled">#505050</color>
     <color name="colorTextHint">#D0D0D0</color>
+    <color name="colorSecondary">#FF9800</color>
 
     <array name="picker_colors">
         <item>@color/colorLightBackground</item>
