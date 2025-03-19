@@ -26,8 +26,60 @@ fun Calendar.truncate(field: Int) {
     throw UnsupportedOperationException("truncate by $field not implemented")
 }
 
-fun Calendar.truncate(field: Interval) {
-    return truncate(field.toChronoUnit().toCalendarField())
+fun Calendar.truncate(interval: Interval) {
+    // 特殊处理MYTIMER和LIFETIME类型
+    if (interval == Interval.MYTIMER || interval == Interval.LIFETIME) {
+        // 对于这些特殊类型，只保留到天的精度
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+        return
+    }
+    
+    // 正常处理其他时间间隔类型
+    when (interval) {
+        Interval.HOUR -> {
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        Interval.DAY -> {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        Interval.WEEK -> {
+            set(Calendar.DAY_OF_WEEK, firstDayOfWeek)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        Interval.MONTH -> {
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        Interval.YEAR -> {
+            set(Calendar.MONTH, Calendar.JANUARY)
+            set(Calendar.DAY_OF_MONTH, 1)
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        else -> {
+            // 默认处理，以防有其他枚举值添加
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+    }
 }
 
 fun Calendar.debugToSimpleDateString(): String {

@@ -458,7 +458,14 @@ class MainActivity : AppCompatActivity() {
         binding.fab.setOnClickListener {
             binding.fab.visibility = View.GONE
 
-            CounterSettingsDialogBuilder(this@MainActivity, viewModel)
+            // 保存当前FAB的原始点击行为
+            val originalClickListener = binding.fab.getTag(R.id.fab_original_listener) as? View.OnClickListener
+            
+            // 记录原始分组ID
+            val originalGroupId = counter.groupId
+            
+            // 打开编辑对话框
+            val builder = CounterSettingsDialogBuilder(this, viewModel)
                 .forExistingCounter(counter)
                 .setOnSaveListener { newCounterMetadata ->
                     if (counter.name != newCounterMetadata.name) {
@@ -466,36 +473,37 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         viewModel.editCounterSameName(newCounterMetadata)
                     }
-                    // We are not subscribed to the summary livedata, so we won't get notified of the change we just made.
-                    // Update our local copy so it has the right data if we open the dialog again.
-                    counter.name = newCounterMetadata.name
-                    counter.interval = newCounterMetadata.interval
-                    counter.color = newCounterMetadata.color
-                }
-                .setOnDismissListener {
-                    binding.fab.visibility = View.VISIBLE
+                    
+                    // 如果分组发生变化，更新UI
+                    if (originalGroupId != newCounterMetadata.groupId) {
+                        Log.d(TAG, "计数器分组已变更: ${counter.name} 从 $originalGroupId 到 ${newCounterMetadata.groupId}")
+                        
+                        // 刷新两个分组的适配器
+                        groupPagerAdapter.getAdapter(originalGroupId)?.refreshCounters()
+                        groupPagerAdapter.getAdapter(newCounterMetadata.groupId)?.refreshCounters()
+                        
+                        // 如果当前显示的是原分组，切换到新分组
+                        if (viewPager.currentItem == groupPagerAdapter.getPositionForGroupId(originalGroupId)) {
+                            val newPosition = groupPagerAdapter.getPositionForGroupId(newCounterMetadata.groupId)
+                            if (newPosition >= 0) {
+                                viewPager.currentItem = newPosition
+                            }
+                        }
+                    }
+                    
+                    // 刷新详情页面
+                    counter.groupId = newCounterMetadata.groupId
+                    setupChartsForCounter(counter)
                 }
                 .setOnDeleteListener { _, _ ->
-                    MaterialAlertDialogBuilder(this)
-                        .setTitle(counter.name)
-                        .setMessage(R.string.delete_confirmation)
-                        .setNeutralButton(R.string.reset) { _, _ ->
-                            viewModel.resetCounter(counter.name)
-                            sheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
-                            onBackPressedCloseSheetCallback.isEnabled = false
-                            sheetIsExpanding = false
-                        }
-                        .setPositiveButton(R.string.delete) { _, _ ->
-                            viewModel.deleteCounter(counter.name)
-                            sheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
-                            onBackPressedCloseSheetCallback.isEnabled = false
-                            sheetIsExpanding = false
-                            removeWidgets(this, counter.name)
-                        }
-                        .setNegativeButton(R.string.cancel, null)
-                        .show()
+                    showDeleteDialog(counter)
                 }
-                .show()
+                .setOnDismissListener {
+                    // 恢复FAB的原始功能
+                    binding.fab.setImageResource(R.drawable.ic_add)
+                    binding.fab.setOnClickListener(originalClickListener)
+                }
+            builder.show()
         }
     }
 
@@ -704,26 +712,35 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupChartsForCounter(counter: CounterSummary) {
-        // 获取当前间隔或使用计数器的默认间隔
-        val interval = intervalOverride ?: counter.interval
-        
-        // 使用完整参数创建ChartsAdapter
-        chartsAdapter = ChartsAdapter(
-            this,
-            viewModel,
-            counter,
-            interval,
-            onIntervalChange = { newInterval ->
-                // 保存新的间隔设置
-                intervalOverride = newInterval
-                // 刷新图表
-                setupChartsForCounter(counter)
-            },
-            onDateChange = { /* 日期变更处理 */ },
-            onDataDisplayed = { /* 数据显示后的处理 */ }
-        )
-        
-        binding.charts.adapter = chartsAdapter
+        try {
+            // 使用完整参数创建ChartsAdapter
+            chartsAdapter = ChartsAdapter(
+                this,
+                viewModel, 
+                counter,
+                interval = intervalOverride ?: counter.interval,
+                onIntervalChange = { newInterval ->
+                    // 保存新的间隔设置
+                    intervalOverride = newInterval
+                    // 刷新图表
+                    setupChartsForCounter(counter)
+                },
+                onDateChange = { /* 日期变更处理 */ },
+                onDataDisplayed = { /* 数据显示后的处理 */ }
+            )
+            binding.charts.adapter = chartsAdapter
+        } catch (e: UnsupportedOperationException) {
+            // 处理无法显示图表的情况
+            Log.e(TAG, "无法为计数器 ${counter.name} 创建图表: ${e.message}")
+            
+            // 显示一个简单的错误信息
+            binding.charts.adapter = null
+            Snackbar.make(
+                binding.root,
+                "无法显示当前计数器的图表统计",
+                Snackbar.LENGTH_SHORT
+            ).show()
+        }
     }
 
     private fun showDeleteDialog(counter: CounterSummary) {

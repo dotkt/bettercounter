@@ -146,16 +146,26 @@ class Repository(
         val intervalEndDate = intervalStartDate.copy().apply { addInterval(interval, 1) }
         val firstLastAndCount = entryDao.getFirstLastAndCount(name)
         val groupId = getCounterGroup(name)
+        
+        // 安全获取时间段内计数
+        val lastIntervalCount = if (interval == Interval.MYTIMER || interval == Interval.LIFETIME) {
+            // 对于特殊间隔类型，返回总计数
+            firstLastAndCount.count
+        } else {
+            // 对于普通间隔类型，使用正常的时间范围查询
+            entryDao.getCountInRange(name, intervalStartDate.time, intervalEndDate.time)
+        }
+        
         return counterCache.getOrPut(name) {
             CounterSummary(
                 name = name,
                 color = color,
                 interval = interval,
                 goal = goal,
-                lastIntervalCount = entryDao.getCountInRange(name, intervalStartDate.time, intervalEndDate.time),
-                totalCount = firstLastAndCount.count, // entryDao.getCount(name),
-                leastRecent = firstLastAndCount.first, // entryDao.getLeastRecent(name)?.date,
-                mostRecent = firstLastAndCount.last, // entryDao.getMostRecent(name)?.date,
+                lastIntervalCount = lastIntervalCount,
+                totalCount = firstLastAndCount.count,
+                leastRecent = firstLastAndCount.first,
+                mostRecent = firstLastAndCount.last,
                 groupId = groupId
             )
         }

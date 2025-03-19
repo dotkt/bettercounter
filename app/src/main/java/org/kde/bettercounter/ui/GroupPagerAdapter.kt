@@ -85,4 +85,8 @@ class GroupPagerAdapter(
     fun getAdapter(groupId: String): EntryListViewAdapter? {
         return adapters[groupId]
     }
+
+    fun getPositionForGroupId(groupId: String): Int {
+        return groups.indexOfFirst { it.id == groupId }
+    }
 } 

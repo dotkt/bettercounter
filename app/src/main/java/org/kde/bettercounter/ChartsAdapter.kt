@@ -1,5 +1,6 @@
 package org.kde.bettercounter
 
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
@@ -16,21 +17,23 @@ import org.kde.bettercounter.persistence.Interval
 import org.kde.bettercounter.ui.ChartHolder
 import java.util.Calendar
 
+private const val TAG = "ChartsAdapter"
+
 class ChartsAdapter(
     private val activity: AppCompatActivity,
     private val viewModel: ViewModel,
     private val counter: CounterSummary,
-    private val interval: Interval,
-    private val onIntervalChange: (Interval) -> Unit,
-    private val onDateChange: ChartsAdapter.(Calendar) -> Unit,
-    private val onDataDisplayed: () -> Unit,
+    private val interval: Interval = counter.interval,
+    private val onIntervalChange: (Interval) -> Unit = {},
+    private val onDateChange: ChartsAdapter.(Calendar) -> Unit = {},
+    private val onDataDisplayed: () -> Unit = {},
 ) : RecyclerView.Adapter<ChartHolder>() {
 
     private val boundViewHolders = mutableListOf<ChartHolder>()
 
     private val inflater: LayoutInflater = LayoutInflater.from(activity)
 
-    private var numCharts: Int = countNumCharts(counter)
+    private var numCharts: Int = countNumCharts(counter, interval)
     override fun getItemCount(): Int = numCharts
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChartHolder {
@@ -79,10 +82,20 @@ class ChartsAdapter(
         boundViewHolders.remove(holder)
     }
 
-    private fun countNumCharts(counter: CounterSummary): Int {
-        val firstDate = counter.leastRecent ?: return 1
-        val lastDate = counter.latestBetweenNowAndMostRecentEntry()
-        return interval.toChronoUnit().count(firstDate, lastDate)
+    private fun countNumCharts(counter: CounterSummary, interval: Interval): Int {
+        if (interval == Interval.LIFETIME) {
+            return 1
+        }
+        
+        try {
+            val chronoUnit = interval.toChronoUnit()
+            val firstDate = counter.leastRecent ?: return 1
+            val lastDate = counter.latestBetweenNowAndMostRecentEntry()
+            return interval.toChronoUnit().count(firstDate, lastDate)
+        } catch (e: UnsupportedOperationException) {
+            Log.e(TAG, "不支持的间隔类型: $interval", e)
+            return 1
+        }
     }
 
 /*

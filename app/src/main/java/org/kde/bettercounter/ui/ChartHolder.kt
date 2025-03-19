@@ -1,5 +1,6 @@
 package org.kde.bettercounter.ui
 
+import android.util.Log
 import android.view.Gravity
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.PopupMenu
@@ -30,60 +31,126 @@ class ChartHolder(
     }
 
     fun display(counter: CounterSummary, entries: List<Entry>, interval: Interval, rangeStart: Calendar, rangeEnd: Calendar, onIntervalChange: (Interval) -> Unit, onDateChange: (Calendar) -> Unit) {
-        // Chart name
-        val dateFormat = when (interval) {
-            Interval.HOUR -> SimpleDateFormat.getDateTimeInstance()
-            Interval.DAY, Interval.WEEK -> SimpleDateFormat.getDateInstance(SimpleDateFormat.SHORT)
-            Interval.MONTH -> SimpleDateFormat("LLL yyyy", Locale.getDefault())
-            Interval.YEAR -> SimpleDateFormat("yyyy", Locale.getDefault())
-            Interval.MYTIMER -> SimpleDateFormat("yyyy", Locale.getDefault())
-            Interval.LIFETIME -> throw IllegalStateException("Interval not valid as a chart display interval")
-        }
-        val dateString = dateFormat.format(rangeStart.time)
-        binding.chartName.text = activity.resources.getQuantityString(R.plurals.chart_title, entries.size, dateString, entries.size)
-        binding.chartName.setOnClickListener { view ->
-            val popupMenu = PopupMenu(activity, view, Gravity.END)
-            popupMenu.menuInflater.inflate(R.menu.popup_menu, popupMenu.menu)
-            popupMenu.setOnMenuItemClickListener { menuItem ->
-                menuItem.isChecked = true
-                val newInterval = when (menuItem.itemId) {
-                    R.id.hour -> Interval.HOUR
-                    R.id.day -> Interval.DAY
-                    R.id.week -> Interval.WEEK
-                    R.id.month -> Interval.MONTH
-                    else -> Interval.YEAR
+        // 确保使用安全的图表显示间隔
+        var displayInterval = interval.toChartDisplayableInterval()
+        
+        // 确保间隔类型是有效的图表显示类型
+        try {
+            // Chart name
+            val dateFormat = when (displayInterval) {
+                Interval.HOUR -> SimpleDateFormat.getDateTimeInstance()
+                Interval.DAY, Interval.WEEK -> SimpleDateFormat.getDateInstance(SimpleDateFormat.SHORT)
+                Interval.MONTH -> SimpleDateFormat("LLL yyyy", Locale.getDefault())
+                Interval.YEAR -> SimpleDateFormat("yyyy", Locale.getDefault())
+                Interval.MYTIMER -> SimpleDateFormat("yyyy", Locale.getDefault())
+                Interval.LIFETIME -> throw IllegalStateException("Interval not valid as a chart display interval")
+            }
+            val dateString = dateFormat.format(rangeStart.time)
+            binding.chartName.text = activity.resources.getQuantityString(R.plurals.chart_title, entries.size, dateString, entries.size)
+            binding.chartName.setOnClickListener { view ->
+                val popupMenu = PopupMenu(activity, view, Gravity.END)
+                popupMenu.menuInflater.inflate(R.menu.popup_menu, popupMenu.menu)
+                popupMenu.setOnMenuItemClickListener { menuItem ->
+                    menuItem.isChecked = true
+                    val newInterval = when (menuItem.itemId) {
+                        R.id.hour -> Interval.HOUR
+                        R.id.day -> Interval.DAY
+                        R.id.week -> Interval.WEEK
+                        R.id.month -> Interval.MONTH
+                        else -> Interval.YEAR
+                    }
+                    onIntervalChange(newInterval)
+                    return@setOnMenuItemClickListener true
                 }
-                onIntervalChange(newInterval)
-                return@setOnMenuItemClickListener true
+                val selectedItem = when (displayInterval) {
+                    Interval.HOUR -> R.id.hour
+                    Interval.DAY -> R.id.day
+                    Interval.WEEK -> R.id.week
+                    Interval.MONTH -> R.id.month
+                    Interval.YEAR -> R.id.year
+                    else -> throw IllegalStateException("Interval not valid as a chart display interval")
+                }
+                popupMenu.menu.findItem(selectedItem).isChecked = true
+                popupMenu.show()
             }
-            val selectedItem = when (interval) {
-                Interval.HOUR -> R.id.hour
-                Interval.DAY -> R.id.day
-                Interval.WEEK -> R.id.week
-                Interval.MONTH -> R.id.month
-                Interval.YEAR -> R.id.year
-                else -> throw IllegalStateException("Interval not valid as a chart display interval")
+            binding.chartName.setOnLongClickListener {
+                showDatePicker(activity, rangeStart, onDateChange)
+                true
             }
-            popupMenu.menu.findItem(selectedItem).isChecked = true
-            popupMenu.show()
-        }
-        binding.chartName.setOnLongClickListener {
-            showDatePicker(activity, rangeStart, onDateChange)
-            true
-        }
 
-        // Only show a goal line if the displayed interval is larger than the counter's
-        val goalLine = computeGoalLine(counter, interval)
+            // Only show a goal line if the displayed interval is larger than the counter's
+            val goalLine = computeGoalLine(counter, displayInterval)
 
-        // Chart
-        binding.chart.setDataBucketized(entries, rangeStart, interval, counter.color.toColorForChart(activity), goalLine)
+            // Chart
+            binding.chart.setDataBucketized(entries, rangeStart, displayInterval, counter.color.toColorForChart(activity), goalLine)
 
-        // Stats
-        val periodAverage = getPeriodAverageString(counter, entries, rangeStart, rangeEnd)
-        val lifetimeAverage = getLifetimeAverageString(counter)
-        binding.chartAverage.text = activity.getString(R.string.stats_averages, periodAverage, lifetimeAverage)
-        if (binding.chartAverage.lineCount > 1) {
-            binding.chartAverage.text = activity.getString(R.string.stats_averages_multiline, periodAverage, lifetimeAverage)
+            // Stats
+            val periodAverage = getPeriodAverageString(counter, entries, rangeStart, rangeEnd)
+            val lifetimeAverage = getLifetimeAverageString(counter)
+            binding.chartAverage.text = activity.getString(R.string.stats_averages, periodAverage, lifetimeAverage)
+            if (binding.chartAverage.lineCount > 1) {
+                binding.chartAverage.text = activity.getString(R.string.stats_averages_multiline, periodAverage, lifetimeAverage)
+            }
+        } catch (e: IllegalStateException) {
+            // 如果发生错误，强制使用DAY间隔作为备选
+            Log.e("ChartHolder", "无法显示间隔 $interval，使用DAY间隔代替", e)
+            displayInterval = Interval.DAY
+
+            // Chart name
+            val dateFormat = when (displayInterval) {
+                Interval.HOUR -> SimpleDateFormat.getDateTimeInstance()
+                Interval.DAY, Interval.WEEK -> SimpleDateFormat.getDateInstance(SimpleDateFormat.SHORT)
+                Interval.MONTH -> SimpleDateFormat("LLL yyyy", Locale.getDefault())
+                Interval.YEAR -> SimpleDateFormat("yyyy", Locale.getDefault())
+                Interval.MYTIMER -> SimpleDateFormat("yyyy", Locale.getDefault())
+                Interval.LIFETIME -> throw IllegalStateException("Interval not valid as a chart display interval")
+            }
+            val dateString = dateFormat.format(rangeStart.time)
+            binding.chartName.text = activity.resources.getQuantityString(R.plurals.chart_title, entries.size, dateString, entries.size)
+            binding.chartName.setOnClickListener { view ->
+                val popupMenu = PopupMenu(activity, view, Gravity.END)
+                popupMenu.menuInflater.inflate(R.menu.popup_menu, popupMenu.menu)
+                popupMenu.setOnMenuItemClickListener { menuItem ->
+                    menuItem.isChecked = true
+                    val newInterval = when (menuItem.itemId) {
+                        R.id.hour -> Interval.HOUR
+                        R.id.day -> Interval.DAY
+                        R.id.week -> Interval.WEEK
+                        R.id.month -> Interval.MONTH
+                        else -> Interval.YEAR
+                    }
+                    onIntervalChange(newInterval)
+                    return@setOnMenuItemClickListener true
+                }
+                val selectedItem = when (displayInterval) {
+                    Interval.HOUR -> R.id.hour
+                    Interval.DAY -> R.id.day
+                    Interval.WEEK -> R.id.week
+                    Interval.MONTH -> R.id.month
+                    Interval.YEAR -> R.id.year
+                    else -> throw IllegalStateException("Interval not valid as a chart display interval")
+                }
+                popupMenu.menu.findItem(selectedItem).isChecked = true
+                popupMenu.show()
+            }
+            binding.chartName.setOnLongClickListener {
+                showDatePicker(activity, rangeStart, onDateChange)
+                true
+            }
+
+            // Only show a goal line if the displayed interval is larger than the counter's
+            val goalLine = computeGoalLine(counter, displayInterval)
+
+            // Chart
+            binding.chart.setDataBucketized(entries, rangeStart, displayInterval, counter.color.toColorForChart(activity), goalLine)
+
+            // Stats
+            val periodAverage = getPeriodAverageString(counter, entries, rangeStart, rangeEnd)
+            val lifetimeAverage = getLifetimeAverageString(counter)
+            binding.chartAverage.text = activity.getString(R.string.stats_averages, periodAverage, lifetimeAverage)
+            if (binding.chartAverage.lineCount > 1) {
+                binding.chartAverage.text = activity.getString(R.string.stats_averages_multiline, periodAverage, lifetimeAverage)
+            }
         }
     }
 

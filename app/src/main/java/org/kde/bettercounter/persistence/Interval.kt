@@ -28,8 +28,8 @@ enum class Interval(val humanReadableResource: Int) {
             WEEK -> ChronoUnit.WEEKS
             MONTH -> ChronoUnit.MONTHS
             YEAR -> ChronoUnit.YEARS
-            MYTIMER -> ChronoUnit.YEARS
-            LIFETIME -> throw UnsupportedOperationException("$this can't be converted to ChronoUnit")
+            MYTIMER -> throw UnsupportedOperationException("MYTIMER can't be converted to ChronoUnit")
+            LIFETIME -> ChronoUnit.FOREVER
         }
     }
 
@@ -38,8 +38,11 @@ enum class Interval(val humanReadableResource: Int) {
     }
 
     fun toChartDisplayableInterval(): Interval {
-        // When displaying in a chart, LIFETIME counters will still display year by year
-        return if (this == LIFETIME) YEAR else this
+        return when (this) {
+            LIFETIME -> YEAR  // 对于LIFETIME类型，显示年度统计
+            MYTIMER -> DAY    // 对于MYTIMER类型，显示日统计
+            else -> this      // 其他类型保持不变
+        }
     }
 }
 
