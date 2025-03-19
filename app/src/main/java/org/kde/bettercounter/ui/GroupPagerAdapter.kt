@@ -14,7 +14,8 @@ import org.kde.bettercounter.persistence.Group
 
 class GroupPagerAdapter(
     private val activity: AppCompatActivity,
-    private val viewModel: ViewModel
+    private val viewModel: ViewModel,
+    private val onItemSelectedListener: (counter: CounterSummary) -> Unit
 ) : RecyclerView.Adapter<GroupPagerAdapter.GroupViewHolder>() {
 
     private var groups: List<Group> = viewModel.getGroups()
@@ -39,11 +40,11 @@ class GroupPagerAdapter(
                 viewModel,
                 object : EntryListViewAdapter.EntryListObserver {
                     override fun onItemSelected(position: Int, counter: CounterSummary) {
-                        // 实现必要的回调...
+                        onItemSelectedListener(counter)
                     }
                     
                     override fun onSelectedItemUpdated(position: Int, counter: CounterSummary) {
-                        // 实现必要的回调...
+                        onItemSelectedListener(counter)
                     }
                     
                     override fun onItemAdded(position: Int) {

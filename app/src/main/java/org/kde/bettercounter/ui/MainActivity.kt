@@ -60,6 +60,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_COUNTER_NAME = "EXTRA_COUNTER_NAME"
         private const val TAG = "MainActivity"
+        const val REQUEST_EDIT_COUNTER = 1001
     }
 
     private lateinit var viewModel: ViewModel
@@ -81,6 +82,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tabLayout: TabLayout
     private lateinit var groupPagerAdapter: GroupPagerAdapter
     private val handler = Handler(Looper.getMainLooper())
+    private lateinit var currentCounter: CounterSummary
+    private lateinit var chartsAdapter: ChartsAdapter
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -207,7 +210,15 @@ class MainActivity : AppCompatActivity() {
         viewPager = binding.viewPager
         tabLayout = binding.tabLayout
         
-        groupPagerAdapter = GroupPagerAdapter(this, viewModel)
+        groupPagerAdapter = GroupPagerAdapter(
+            this, 
+            viewModel,
+            { counter -> 
+                // 处理计数器选择事件
+                currentCounter = counter
+                displayCounterDetails(counter)
+            }
+        )
         viewPager.adapter = groupPagerAdapter
         
         // 连接TabLayout和ViewPager
@@ -227,6 +238,24 @@ class MainActivity : AppCompatActivity() {
         groupPagerAdapter.refreshGroups()
 
         setupDetailsTitle()
+
+        // 在onCreate方法中保存FAB原始点击监听器
+        val fabOriginalClickListener = View.OnClickListener {
+            val builder = CounterSettingsDialogBuilder(this, viewModel)
+                .forNewCounter()
+                .setOnSaveListener { metadata ->
+                    viewModel.addCounter(metadata)
+                }
+                .setOnDismissListener {
+                    binding.fab.visibility = View.VISIBLE
+                }
+            builder.show()
+            binding.fab.visibility = View.INVISIBLE
+        }
+        
+        // 保存原始点击监听器以便后续恢复
+        binding.fab.setTag(R.id.fab_original_listener, fabOriginalClickListener)
+        binding.fab.setOnClickListener(fabOriginalClickListener)
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -627,5 +656,94 @@ class MainActivity : AppCompatActivity() {
                 navigateToCounter(counterName)
             }
         }
+    }
+
+    private fun displayCounterDetails(counter: CounterSummary) {
+        currentCounter = counter
+        binding.detailsTitle.text = counter.name
+        
+        // 设置图表
+        setupChartsForCounter(counter)
+        
+        // 修改FAB按钮的行为 - 当详情页面打开时点击FAB编辑当前计数器
+        binding.fab.setImageResource(R.drawable.ic_edit) // 可以换成编辑图标
+        binding.fab.setOnClickListener {
+            // 保存当前FAB的原始点击行为
+            val originalClickListener = binding.fab.getTag(R.id.fab_original_listener) as? View.OnClickListener
+            
+            // 打开编辑对话框
+            val builder = CounterSettingsDialogBuilder(this, viewModel)
+                .forExistingCounter(counter)
+                .setOnSaveListener { newCounterMetadata ->
+                    if (counter.name != newCounterMetadata.name) {
+                        viewModel.editCounter(counter.name, newCounterMetadata)
+                    } else {
+                        viewModel.editCounterSameName(newCounterMetadata)
+                    }
+                    // 刷新详情页面
+                    setupChartsForCounter(counter)
+                }
+                .setOnDeleteListener { _, _ ->
+                    showDeleteDialog(counter)
+                }
+                .setOnDismissListener {
+                    // 恢复FAB的原始功能
+                    binding.fab.setImageResource(R.drawable.ic_add)
+                    binding.fab.setOnClickListener(originalClickListener)
+                }
+            builder.show()
+        }
+        
+        // 展开底部详情面板
+        sheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+        sheetIsExpanding = true
+        binding.recycler.setPadding(0, 0, 0, binding.bottomSheet.height + 50)
+        
+        // 设置回退键监听以关闭详情面板
+        onBackPressedCloseSheetCallback.isEnabled = true
+    }
+
+    private fun setupChartsForCounter(counter: CounterSummary) {
+        // 获取当前间隔或使用计数器的默认间隔
+        val interval = intervalOverride ?: counter.interval
+        
+        // 使用完整参数创建ChartsAdapter
+        chartsAdapter = ChartsAdapter(
+            this,
+            viewModel,
+            counter,
+            interval,
+            onIntervalChange = { newInterval ->
+                // 保存新的间隔设置
+                intervalOverride = newInterval
+                // 刷新图表
+                setupChartsForCounter(counter)
+            },
+            onDateChange = { /* 日期变更处理 */ },
+            onDataDisplayed = { /* 数据显示后的处理 */ }
+        )
+        
+        binding.charts.adapter = chartsAdapter
+    }
+
+    private fun showDeleteDialog(counter: CounterSummary) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(counter.name)
+            .setMessage(R.string.delete_confirmation)
+            .setNeutralButton(R.string.reset) { _, _ ->
+                viewModel.resetCounter(counter.name)
+                sheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+                onBackPressedCloseSheetCallback.isEnabled = false
+                sheetIsExpanding = false
+            }
+            .setPositiveButton(R.string.delete) { _, _ ->
+                viewModel.deleteCounter(counter.name)
+                sheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+                onBackPressedCloseSheetCallback.isEnabled = false
+                sheetIsExpanding = false
+                removeWidgets(this, counter.name)
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
 }
