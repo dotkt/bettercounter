@@ -497,20 +497,45 @@ class MainActivity : AppCompatActivity() {
         
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                // 使用传统的File API直接写入下载目录
+                // 首先检查是否有数据可以导出
+                if (!viewModel.hasDataToExport()) {
+                    withContext(Dispatchers.Main) {
+                        Snackbar.make(binding.recycler, "没有计数器可导出", Snackbar.LENGTH_LONG).show()
+                    }
+                    return@launch
+                }
+                
+                // 检查下载目录是否存在现有的导出文件
                 val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                 if (!downloadsDir.exists()) {
                     downloadsDir.mkdirs()
                 }
                 
                 val file = java.io.File(downloadsDir, fileName)
+                
+                // 如果文件已存在且为空，先删除它
+                if (file.exists() && file.length() == 0L) {
+                    Log.d(TAG, "删除现有的空文件: ${file.absolutePath}")
+                    file.delete()
+                }
+                
                 Log.d(TAG, "开始导出到: ${file.absolutePath}")
                 
-                // 创建输出流，让viewModel负责关闭
+                // 创建输出流
                 val outputStream = java.io.FileOutputStream(file)
                 val progressHandler = Handler(Looper.getMainLooper()) {
                     if (it.arg1 == it.arg2) {
-                        Snackbar.make(binding.recycler, "已导出到下载目录: $fileName", Snackbar.LENGTH_LONG).show()
+                        // 验证文件已成功写入且非空
+                        if (file.exists() && file.length() > 0) {
+                            // 通知媒体扫描服务更新文件
+                            val mediaScanIntent = Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE)
+                            mediaScanIntent.data = Uri.fromFile(file)
+                            sendBroadcast(mediaScanIntent)
+                            
+                            Snackbar.make(binding.recycler, "已导出到下载目录: $fileName", Snackbar.LENGTH_LONG).show()
+                        } else {
+                            Snackbar.make(binding.recycler, "导出失败: 文件为空", Snackbar.LENGTH_LONG).show()
+                        }
                     }
                     true
                 }
@@ -520,6 +545,17 @@ class MainActivity : AppCompatActivity() {
             } catch (e: Exception) {
                 Log.e(TAG, "导出失败: ${e.javaClass.name}: ${e.message}")
                 e.printStackTrace()
+                
+                // 确保在出错时也重置文件状态
+                try {
+                    val file = java.io.File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), fileName)
+                    if (file.exists() && file.length() == 0L) {
+                        file.delete()
+                    }
+                } catch (cleanupEx: Exception) {
+                    Log.e(TAG, "清理失败的导出文件时出错: ${cleanupEx.message}")
+                }
+                
                 withContext(Dispatchers.Main) {
                     Snackbar.make(binding.recycler, "导出失败: ${e.message}", Snackbar.LENGTH_LONG).show()
                 }

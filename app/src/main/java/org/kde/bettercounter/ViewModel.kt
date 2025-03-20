@@ -794,4 +794,20 @@ class ViewModel(application: Application) {
         }
     }
 
+    // 获取计数器的所有条目
+    suspend fun getAllEntriesSortedByDate(name: String): List<Entry> {
+        return repo.getAllEntriesSortedByDate(name)
+    }
+
+    // 检查是否有任何计数器包含条目
+    suspend fun hasDataToExport(): Boolean {
+        val counters = repo.getCounterList()
+        for (name in counters) {
+            if (repo.getAllEntriesSortedByDate(name).isNotEmpty()) {
+                return true
+            }
+        }
+        return false
+    }
+
 }
