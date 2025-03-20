@@ -103,21 +103,19 @@ class WidgetCounterActionReceiver : BroadcastReceiver() {
     private fun handleIncrement(context: Context, counterName: String) {
         val viewModel = (context.applicationContext as BetterApplication).viewModel
         
-        // 先获取当前计数
-        val summary = viewModel.getCounterSummary(counterName).value
-        val currentCount = getCountFromSummary(summary)
-        android.util.Log.d("WidgetAction", "当前计数: $currentCount")
-        
-        // 增加计数
         try {
             viewModel.incrementCounter(counterName)
             
-            // 验证计数是否真的增加了
-            val newSummary = viewModel.getCounterSummary(counterName).value
-            val newCount = getCountFromSummary(newSummary)
-            android.util.Log.d("WidgetAction", "新计数: $newCount, 增加了: ${newCount - currentCount}")
-            
+            // 立即更新所有Widget的数据
             updateWidgets(context)
+            
+            // 主动调用updateAppWidget方法刷新Widget的显示
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val appWidgetIds = appWidgetManager.getAppWidgetIds(ComponentName(context, LargeCounterWidget::class.java))
+            for (widgetId in appWidgetIds) {
+                LargeCounterWidget.updateAppWidget(context, appWidgetManager, widgetId)
+            }
+            
         } catch (e: Exception) {
             android.util.Log.e("WidgetAction", "增加计数失败: ${e.message}")
             e.printStackTrace()

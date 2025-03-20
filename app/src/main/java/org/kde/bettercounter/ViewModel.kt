@@ -414,6 +414,45 @@ class ViewModel(application: Application) {
         }
     }
 
+    fun getCounterValue(counterName: String): Int {
+        // 获取CounterSummary对象
+        val summary = getCounterSummary(counterName).value ?: return 0
+        
+        try {
+            // 尝试使用getFormattedCount方法获取格式化的计数
+            val method = CounterSummary::class.java.getDeclaredMethod("getFormattedCount", Boolean::class.java)
+            method.isAccessible = true
+            val formattedCount = method.invoke(summary, true) as? String
+            
+            // 从格式化的计数中提取数字
+            if (formattedCount != null) {
+                android.util.Log.d("ViewModel", "格式化计数: $formattedCount")
+                val number = formattedCount.filter { it.isDigit() }
+                if (number.isNotEmpty()) {
+                    return number.toInt()
+                }
+            }
+            
+            // 回退到使用字段访问
+            val fields = CounterSummary::class.java.declaredFields
+            for (field in fields) {
+                if (field.name.contains("count", ignoreCase = true) || 
+                    field.name == "total" || 
+                    field.name == "value") {
+                    field.isAccessible = true
+                    val value = field.get(summary)
+                    if (value is Int) {
+                        return value
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("ViewModel", "获取计数失败: ${e.message}")
+        }
+        
+        return 0
+    }
+
     companion object {
         fun parseImportLine(line: String, namesToImport: MutableList<String>, entriesToImport: MutableList<Entry>) {
             val nameAndDates = line.splitToSequence(",").iterator()

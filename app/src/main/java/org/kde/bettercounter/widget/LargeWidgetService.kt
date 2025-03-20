@@ -13,6 +13,7 @@ import org.kde.bettercounter.ViewModel
 import org.kde.bettercounter.persistence.CounterSummary
 import org.kde.bettercounter.ui.MainActivity
 import android.os.Bundle
+import org.kde.bettercounter.ui.WidgetProvider
 
 // 定义常量，以防MainActivity中没有定义
 private const val EXTRA_COUNTER_NAME = "EXTRA_COUNTER_NAME"
@@ -43,6 +44,9 @@ class LargeWidgetFactory(
     private var counterSummaries: List<CounterSummary> = emptyList()
     private lateinit var viewModel: ViewModel
     
+    // 添加一个计数器值的Map
+    private val counterValues = mutableMapOf<String, Int>()
+    
     override fun onCreate() {
         viewModel = (context.applicationContext as BetterApplication).viewModel
         updateCounters()
@@ -51,6 +55,18 @@ class LargeWidgetFactory(
     override fun onDataSetChanged() {
         android.util.Log.d("LargeWidgetFactory", "刷新数据")
         updateCounters()
+        
+        // 直接使用ViewModel的getCounterValue方法
+        counters.forEach { counterName ->
+            try {
+                val count = viewModel.getCounterValue(counterName)
+                counterValues[counterName] = count
+                android.util.Log.d("LargeWidgetFactory", "获取计数值: $counterName = $count")
+            } catch (e: Exception) {
+                android.util.Log.e("LargeWidgetFactory", "获取计数失败: ${e.message}")
+                counterValues[counterName] = 0
+            }
+        }
     }
     
     override fun onDestroy() {
@@ -67,7 +83,8 @@ class LargeWidgetFactory(
         }
         
         val counterName = counters[position]
-        val summary = viewModel.getCounterSummary(counterName).value ?: return RemoteViews(context.packageName, R.layout.counter_widget_item)
+        val summary = viewModel.getCounterSummary(counterName).value ?: 
+            return RemoteViews(context.packageName, R.layout.counter_widget_item)
         
         // 创建列表项视图
         val rv = RemoteViews(context.packageName, R.layout.counter_widget_item)
@@ -80,24 +97,35 @@ class LargeWidgetFactory(
         }
         rv.setTextViewText(R.id.widget_counter_name, displayName)
         
-        // 使用实际计数值和目标值（如果有）
-        val count = getCountFromSummary(summary)
-        val goal = summary.goal ?: 0   // 假设CounterSummary有一个goal属性
+        // 直接从ViewModel获取正确的计数值
+        val count = counterValues[counterName] ?: 0
+        val goal = summary.goal ?: 0
         
-        // 显示格式：如果达成目标则添加对号，然后是计数/目标
+        android.util.Log.d("WidgetAction", "计数器 ${summary.name} 当前计数: $count, 目标: $goal")
+        
+        // 设置目标达成状态 - 只在真正达到目标时显示
+        if (goal > 0 && count >= goal) {
+            android.util.Log.d("WidgetAction", "计数器 ${summary.name} 已达成目标")
+            rv.setTextViewText(R.id.widget_goal_status, "👍")
+        } else {
+            rv.setTextViewText(R.id.widget_goal_status, "")
+        }
+        
+        // 设置计数文本 - 特别注意：如果count=0就不显示数字
         val countText = if (goal > 0) {
-            if (count >= goal) {
-                "✓$count/$goal"
+            if (count == 0) {
+                "0/$goal"  // 对于有目标的计数器，即使是0也要显示
             } else {
                 "$count/$goal"
             }
         } else {
-            // 如果没有目标，不显示数字，只在计数为0时显示""
-            if (count == 0) "" else count.toString()
+            if (count == 0) {
+                ""  // 如果计数为0且没有目标，就不显示任何内容
+            } else {
+                count.toString()
+            }
         }
         rv.setTextViewText(R.id.widget_counter_count, countText)
-        
-        // 文本标签不填充Intent，只填充按钮
         
         // 增加按钮的填充意图 - 使用Bundle保证extras不丢失
         val incrementBundle = Bundle()
@@ -147,24 +175,51 @@ class LargeWidgetFactory(
         counterSummaries = counters.mapNotNull { 
             viewModel.getCounterSummary(it).value 
         }
+        
+        // 简化：不在这里尝试获取计数值
     }
 
     private fun getCountFromSummary(summary: CounterSummary): Int {
-        // 尝试不同的可能属性名
-        return try {
-            val field = CounterSummary::class.java.getDeclaredFields().find { 
-                it.name in listOf("count", "total", "value", "number", "sum") 
+        try {
+            // 记录整个对象的内容
+            android.util.Log.d("WidgetAction", "CounterSummary对象: $summary")
+            
+            // 直接查找所有字段并打印值
+            val fields = summary.javaClass.declaredFields
+            android.util.Log.d("WidgetAction", "发现 ${fields.size} 个字段")
+            
+            for (field in fields) {
+                field.isAccessible = true
+                try {
+                    val value = field.get(summary)
+                    android.util.Log.d("WidgetAction", "===> 字段 ${field.name} = $value (${value?.javaClass?.simpleName})")
+                    
+                    // 对于"total"字段特别处理（可能是计数值）
+                    if (field.name == "total" && value is Int) {
+                        return value
+                    }
+                } catch (e: Exception) {
+                    // 忽略访问错误
+                }
             }
             
-            if (field != null) {
-                field.isAccessible = true
-                field.get(summary) as? Int ?: 0
-            } else {
-                0 // 默认值
+            // 找不到合适的字段，尝试从toString中提取数字
+            val text = summary.toString()
+            android.util.Log.d("WidgetAction", "CounterSummary.toString(): $text")
+            
+            // 查找第一个数字序列
+            val match = Regex("""(\d+)""").find(text)
+            if (match != null) {
+                val value = match.groupValues[1].toIntOrNull() ?: 0
+                android.util.Log.d("WidgetAction", "从toString()中提取到的数字: $value")
+                return value
             }
+            
+            return 0
         } catch (e: Exception) {
-            android.util.Log.e("LargeWidgetFactory", "获取计数值失败: ${e.message}")
-            0
+            android.util.Log.e("WidgetAction", "获取计数值失败: ${e.message}")
+            e.printStackTrace()
+            return 0
         }
     }
 
