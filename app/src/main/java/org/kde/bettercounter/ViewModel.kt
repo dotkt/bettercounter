@@ -256,7 +256,6 @@ class ViewModel(application: Application) {
     }
 
     fun exportAll(outputStream: OutputStream, progressHandler: Handler?, closeStreamWhenDone: Boolean = false) {
-        // 定义发送进度的辅助函数
         fun sendProgress(progress: Int, total: Int, handler: Handler?) {
             val message = Message()
             message.arg1 = progress
@@ -271,18 +270,19 @@ class ViewModel(application: Application) {
                 var exported = 0
 
                 for (counterName in counters) {
-                    // 获取此计数器的所有条目
+                    // 获取计数器数据和配置
+                    val summary = repo.getCounterSummary(counterName)
                     val counterEntries = repo.getAllEntriesSortedByDate(counterName)
                     if (counterEntries.isEmpty()) continue
 
-                    // 创建CSV行
-                    val line = StringBuilder(counterName)
-                    for (entry in counterEntries) {
-                        line.append(',').append(entry.date.time)
-                    }
+                    // 创建JSON配置部分
+                    val configJson = """{"name":"$counterName","color":${summary.color},"interval":"${summary.interval}","goal":${summary.goal}}"""
+                    
+                    // 创建时间戳部分
+                    val timestamps = counterEntries.joinToString(",") { it.date.time.toString() }
                     
                     // 写入并刷新
-                    writer.write(line.toString())
+                    writer.write("$configJson,[$timestamps]")
                     writer.newLine()
                     writer.flush()
                     
@@ -290,10 +290,8 @@ class ViewModel(application: Application) {
                     sendProgress(exported, counters.size, progressHandler)
                 }
                 
-                // 最后再次刷新确保所有数据都写入
                 writer.flush()
                 
-                // 只在需要时关闭流
                 if (closeStreamWhenDone) {
                     try {
                         writer.close()
@@ -320,36 +318,224 @@ class ViewModel(application: Application) {
         fun sendProgress(progress: Int, done: Int) {
             val message = Message()
             message.arg1 = progress
-            message.arg2 = done // -1 -> error, 0 -> wip, 1 -> done
+            message.arg2 = done // -1->error, 0->wip, 1->done
             progressHandler?.sendMessage(message)
         }
+        
         CoroutineScope(Dispatchers.IO).launch {
             stream.use { stream ->
-                // We read everything into memory before we update the DB so we know there are no errors
-                val namesToImport: MutableList<String> = mutableListOf()
-                val entriesToImport: MutableList<Entry> = mutableListOf()
+                val namesToImport = mutableListOf<String>()
+                val entriesToImport = mutableListOf<Entry>()
+                val metadataToUpdate = mutableMapOf<String, CounterMetadata>()
+                
                 try {
                     stream.bufferedReader().use { reader ->
                         reader.forEachLine { line ->
-                            parseImportLine(line, namesToImport, entriesToImport)
+                            parseImportLineWithJSON(line, namesToImport, entriesToImport, metadataToUpdate, context)
                             sendProgress(namesToImport.size, 0)
                         }
                     }
-                    val reusedCounterMetadata = CounterMetadata("", Interval.DEFAULT, 0, CounterColor.getDefault(context))
+                    
+                    // 处理计数器和元数据
                     namesToImport.forEach { name ->
-                        if (!counterExists(name)) {
-                            reusedCounterMetadata.name = name
-                            addCounter(reusedCounterMetadata)
+                        val metadata = metadataToUpdate[name]
+                        if (metadata != null) {
+                            if (!counterExists(name)) {
+                                // 新计数器，添加
+                                addCounter(metadata)
+                            } else {
+                                // 现有计数器，更新配置
+                                editCounter(name, metadata)
+                            }
+                        } else if (!counterExists(name)) {
+                            // 没有元数据但需要创建计数器
+                            val defaultMetadata = CounterMetadata(
+                                name, 
+                                Interval.DEFAULT, 
+                                0, 
+                                CounterColor.getDefault(context)
+                            )
+                            addCounter(defaultMetadata)
                         }
                     }
+                    
+                    // 批量添加条目
                     repo.bulkAddEntries(entriesToImport)
                     sendProgress(namesToImport.size, 1)
                 } catch (e: Exception) {
+                    Log.e(TAG, "Import failed: ${e.message}")
                     e.printStackTrace()
                     sendProgress(namesToImport.size, -1)
                 }
             }
         }
+    }
+
+    // 解析带JSON配置的导入行
+    private fun parseImportLineWithJSON(
+        line: String,
+        namesToImport: MutableList<String>,
+        entriesToImport: MutableList<Entry>,
+        metadataToUpdate: MutableMap<String, CounterMetadata>,
+        context: Context? = null
+    ) {
+        if (line.isEmpty()) return
+        
+        try {
+            // 检查是否包含JSON
+            if (line.startsWith("{")) {
+                // 新格式: {"name":"名称","color":123,"interval":"DAILY","goal":5},[时间戳1,时间戳2,...]
+                val jsonEnd = line.indexOf("},[")
+                if (jsonEnd > 0) {
+                    val jsonPart = line.substring(0, jsonEnd + 1)
+                    val timestampsPart = line.substring(jsonEnd + 1)
+                    
+                    // 解析JSON部分
+                    val configMap = parseJsonObject(jsonPart)
+                    val name = configMap["name"] as? String ?: return
+                    
+                    // 获取颜色对象 - 使用Context创建默认颜色
+                    val colorInt = (configMap["color"] as? Number)?.toInt() ?: 0
+                    // 确保context非空
+                    val safeContext = context ?: return
+                    val color = when (colorInt % 10) {
+                        0 -> CounterColor.getDefault(safeContext)
+                        1 -> getColorForName("RED", safeContext)
+                        2 -> getColorForName("GREEN", safeContext)
+                        3 -> getColorForName("BLUE", safeContext)
+                        4 -> getColorForName("YELLOW", safeContext)
+                        5 -> getColorForName("PURPLE", safeContext)
+                        6 -> getColorForName("ORANGE", safeContext)
+                        7 -> getColorForName("CYAN", safeContext)
+                        8 -> getColorForName("PINK", safeContext)
+                        else -> CounterColor.getDefault(safeContext)
+                    }
+                    
+                    val intervalStr = configMap["interval"] as? String ?: Interval.DEFAULT.toString()
+                    val interval = try {
+                        Interval.valueOf(intervalStr)
+                    } catch (e: Exception) {
+                        Interval.DEFAULT
+                    }
+                    val goal = (configMap["goal"] as? Number)?.toInt() ?: 0
+                    
+                    // 创建元数据，使用颜色对象
+                    val metadata = CounterMetadata(name, interval, goal, color)
+                    metadataToUpdate[name] = metadata
+                    
+                    // 解析时间戳数组
+                    parseTimestamps(timestampsPart, name, entriesToImport)
+                    
+                    if (!namesToImport.contains(name)) {
+                        namesToImport.add(name)
+                    }
+                }
+            } else {
+                // 旧CSV格式: name,timestamp1,timestamp2,...
+                val parts = line.split(",")
+                if (parts.isNotEmpty()) {
+                    val name = parts[0]
+                    if (name.isNotEmpty()) {
+                        for (i in 1 until parts.size) {
+                            try {
+                                val timestamp = parts[i].toLong()
+                                entriesToImport.add(Entry(name = name, date = Date(timestamp)))
+                            } catch (e: Exception) {
+                                Log.w(TAG, "无法解析时间戳: ${parts[i]}")
+                            }
+                        }
+                        
+                        if (!namesToImport.contains(name)) {
+                            namesToImport.add(name)
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "解析行失败: $line", e)
+        }
+    }
+
+    // 简单的JSON对象解析
+    private fun parseJsonObject(jsonStr: String): Map<String, Any> {
+        val result = mutableMapOf<String, Any>()
+        
+        try {
+            // 移除大括号
+            val content = jsonStr.trim().removePrefix("{").removeSuffix("}")
+            
+            // 分割键值对
+            var inQuotes = false
+            var start = 0
+            val pairs = mutableListOf<String>()
+            
+            for (i in content.indices) {
+                val c = content[i]
+                if (c == '"') {
+                    inQuotes = !inQuotes
+                } else if (c == ',' && !inQuotes) {
+                    pairs.add(content.substring(start, i).trim())
+                    start = i + 1
+                }
+            }
+            
+            // 添加最后一个键值对
+            if (start < content.length) {
+                pairs.add(content.substring(start).trim())
+            }
+            
+            // 解析每个键值对
+            for (pair in pairs) {
+                val colonPos = pair.indexOf(':')
+                if (colonPos > 0) {
+                    val key = pair.substring(0, colonPos).trim().removeSurrounding("\"")
+                    val value = parseJsonValue(pair.substring(colonPos + 1).trim())
+                    result[key] = value
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "JSON解析错误: $jsonStr", e)
+        }
+        
+        return result
+    }
+
+    // 解析JSON值
+    private fun parseJsonValue(valueStr: String): Any {
+        return when {
+            valueStr.startsWith("\"") && valueStr.endsWith("\"") -> 
+                valueStr.removeSurrounding("\"")
+            valueStr == "true" -> true
+            valueStr == "false" -> false
+            valueStr == "null" -> ""
+            valueStr.contains('.') -> try { valueStr.toDouble() } catch (e: Exception) { 0.0 }
+            else -> try { valueStr.toInt() } catch (e: Exception) { 0 }
+        }
+    }
+
+    // 解析时间戳数组
+    private fun parseTimestamps(timestampsStr: String, counterName: String, entries: MutableList<Entry>) {
+        try {
+            val cleaned = timestampsStr.trim().removePrefix("[").removeSuffix("]")
+            if (cleaned.isEmpty()) return
+            
+            val timestamps = cleaned.split(",")
+            for (timestamp in timestamps) {
+                try {
+                    val time = timestamp.trim().toLong()
+                    entries.add(Entry(name = counterName, date = Date(time)))
+                } catch (e: Exception) {
+                    Log.w(TAG, "无法解析时间戳: $timestamp")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "解析时间戳数组失败: $timestampsStr", e)
+        }
+    }
+
+    // 辅助方法
+    private fun CounterColor.Companion.getDefaultInt(): Int {
+        return 0xFF2196F3.toInt() // 默认蓝色
     }
 
     fun getEntriesForRangeSortedByDate(name: String, since: Date, until: Date): LiveData<List<Entry>> {
@@ -391,6 +577,23 @@ class ViewModel(application: Application) {
                 entriesToImport.add(Entry(name = name, date = Date(timestampLong)))
             }
             namesToImport.add(name)
+        }
+    }
+
+    // 根据颜色名称获取CounterColor对象
+    private fun getColorForName(colorName: String, context: Context): CounterColor {
+        // 默认使用应用的主题颜色
+        val defaultColor = CounterColor.getDefault(context)
+        
+        return try {
+            // 尝试反射获取颜色常量
+            val field = CounterColor::class.java.getDeclaredField(colorName)
+            field.isAccessible = true
+            field.get(null) as? CounterColor ?: defaultColor
+        } catch (e: Exception) {
+            // 如果反射失败，返回默认颜色
+            Log.w(TAG, "无法获取颜色: $colorName", e)
+            defaultColor
         }
     }
 
