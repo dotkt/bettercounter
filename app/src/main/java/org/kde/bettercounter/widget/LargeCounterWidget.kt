@@ -10,6 +10,9 @@ import android.widget.RemoteViews
 import org.kde.bettercounter.BetterApplication
 import org.kde.bettercounter.R
 import org.kde.bettercounter.ui.MainActivity
+import android.content.ComponentName
+import org.kde.bettercounter.ViewModel
+import java.util.*
 
 /**
  * 大型计数器Widget，支持按分组显示计数器
@@ -27,6 +30,46 @@ class LargeCounterWidget : AppWidgetProvider() {
         // 删除Widget时清除偏好设置
         for (appWidgetId in appWidgetIds) {
             LargeWidgetConfigureActivity.deletePref(appWidgetId)
+        }
+    }
+
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        // 注册监听计数器变化的广播接收器
+        val viewModel = (context.applicationContext as BetterApplication).viewModel
+        viewModel.observeCounterChange(object : ViewModel.CounterObserver {
+            override fun onInitialCountersLoaded() {
+                updateAllWidgets(context)
+            }
+            
+            override fun onCounterAdded(counterName: String) {
+                updateAllWidgets(context)
+            }
+            
+            override fun onCounterRemoved(counterName: String) {
+                updateAllWidgets(context)
+            }
+            
+            override fun onCounterRenamed(oldName: String, newName: String) {
+                updateAllWidgets(context)
+            }
+            
+            override fun onCounterDecremented(counterName: String, oldEntryDate: Date) {
+                updateAllWidgets(context)
+            }
+        })
+    }
+
+    private fun updateAllWidgets(context: Context) {
+        val appWidgetManager = AppWidgetManager.getInstance(context)
+        val appWidgetIds = appWidgetManager.getAppWidgetIds(ComponentName(context, LargeCounterWidget::class.java))
+        
+        // 通知数据变化
+        appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetIds, R.id.widget_list)
+        
+        // 额外调用updateAppWidget确保更新
+        for (widgetId in appWidgetIds) {
+            updateAppWidget(context, appWidgetManager, widgetId)
         }
     }
 

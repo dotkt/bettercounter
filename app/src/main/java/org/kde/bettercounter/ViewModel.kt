@@ -27,6 +27,7 @@ import java.util.Date
 import kotlin.collections.set
 import android.media.MediaPlayer
 import org.kde.bettercounter.persistence.Group
+import org.kde.bettercounter.widget.WidgetUpdateManager
 
 private const val TAG = "ViewModel"
 
@@ -113,7 +114,9 @@ class ViewModel(application: Application) {
             }
             summaryMap[name]?.postValue(repo.getCounterSummary(name))
             // Switch to Main thread to play the sound
-
+            
+            // 增加计数后更新Widget
+            WidgetUpdateManager.updateAllWidgets(appContext)
         }
     }
 
@@ -162,7 +165,9 @@ class ViewModel(application: Application) {
             CoroutineScope(Dispatchers.Main).launch {
                 callback()
             }
-
+            
+            // 增加计数后更新Widget
+            WidgetUpdateManager.updateAllWidgets(appContext)
         }
     }
 
@@ -176,6 +181,9 @@ class ViewModel(application: Application) {
                     //observer.onCounterDecremented(name, oldEntryDate)
                 }
             }
+            
+            // 减少计数后更新Widget
+            WidgetUpdateManager.updateAllWidgets(appContext)
         }
     }
 
