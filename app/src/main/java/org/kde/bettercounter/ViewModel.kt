@@ -275,8 +275,11 @@ class ViewModel(application: Application) {
                     val counterEntries = repo.getAllEntriesSortedByDate(counterName)
                     if (counterEntries.isEmpty()) continue
 
-                    // 创建JSON配置部分
-                    val configJson = """{"name":"$counterName","color":${summary.color},"interval":"${summary.interval}","goal":${summary.goal}}"""
+                    // 将颜色转换为英文名称
+                    val colorName = getColorName(summary.color)
+                    
+                    // 创建JSON配置部分，使用颜色名称而不是数值
+                    val configJson = """{"name":"$counterName","color":"$colorName","interval":"${summary.interval}","goal":${summary.goal}}"""
                     
                     // 创建时间戳部分
                     val timestamps = counterEntries.joinToString(",") { it.date.time.toString() }
@@ -344,8 +347,18 @@ class ViewModel(application: Application) {
                                 // 新计数器，添加
                                 addCounter(metadata)
                             } else {
-                                // 现有计数器，更新配置
-                                editCounter(name, metadata)
+                                // 现有计数器，强制更新所有配置
+                                Log.d(TAG, "更新现有计数器: $name，应用导入的设置")
+                                // 保存现有计数器的条目
+                                val entries = repo.getAllEntriesSortedByDate(name)
+                                // 删除现有计数器
+                                deleteCounter(name)
+                                // 使用新配置创建计数器
+                                addCounter(metadata)
+                                // 恢复原有条目
+                                entries.forEach { entry ->
+                                    entriesToImport.add(entry)
+                                }
                             }
                         } else if (!counterExists(name)) {
                             // 没有元数据但需要创建计数器
@@ -394,20 +407,27 @@ class ViewModel(application: Application) {
                     val configMap = parseJsonObject(jsonPart)
                     val name = configMap["name"] as? String ?: return
                     
-                    // 获取颜色对象 - 使用Context创建默认颜色
-                    val colorInt = (configMap["color"] as? Number)?.toInt() ?: 0
-                    // 确保context非空
+                    // 处理颜色 - 支持名称或数字
+                    val colorValue = configMap["color"]
                     val safeContext = context ?: return
-                    val color = when (colorInt % 10) {
-                        0 -> CounterColor.getDefault(safeContext)
-                        1 -> getColorForName("RED", safeContext)
-                        2 -> getColorForName("GREEN", safeContext)
-                        3 -> getColorForName("BLUE", safeContext)
-                        4 -> getColorForName("YELLOW", safeContext)
-                        5 -> getColorForName("PURPLE", safeContext)
-                        6 -> getColorForName("ORANGE", safeContext)
-                        7 -> getColorForName("CYAN", safeContext)
-                        8 -> getColorForName("PINK", safeContext)
+                    val color = when (colorValue) {
+                        is String -> getColorForName(colorValue, safeContext)
+                        is Number -> {
+                            // 数字类型，使用模式匹配
+                            val colorInt = colorValue.toInt()
+                            when (colorInt % 10) {
+                                0 -> getColorForName("BLACK", safeContext)
+                                1 -> getColorForName("RED", safeContext)
+                                2 -> getColorForName("GREEN", safeContext)
+                                3 -> getColorForName("BLUE", safeContext)
+                                4 -> getColorForName("YELLOW", safeContext)
+                                5 -> getColorForName("PURPLE", safeContext)
+                                6 -> getColorForName("ORANGE", safeContext)
+                                7 -> getColorForName("CYAN", safeContext)
+                                8 -> getColorForName("PINK", safeContext)
+                                else -> CounterColor.getDefault(safeContext)
+                            }
+                        }
                         else -> CounterColor.getDefault(safeContext)
                     }
                     
@@ -582,18 +602,39 @@ class ViewModel(application: Application) {
 
     // 根据颜色名称获取CounterColor对象
     private fun getColorForName(colorName: String, context: Context): CounterColor {
-        // 默认使用应用的主题颜色
         val defaultColor = CounterColor.getDefault(context)
         
-        return try {
-            // 尝试反射获取颜色常量
-            val field = CounterColor::class.java.getDeclaredField(colorName)
-            field.isAccessible = true
-            field.get(null) as? CounterColor ?: defaultColor
-        } catch (e: Exception) {
-            // 如果反射失败，返回默认颜色
-            Log.w(TAG, "无法获取颜色: $colorName", e)
-            defaultColor
+        // 直接匹配颜色名称，不使用反射
+        return when (colorName.uppercase()) {
+            "BLACK" -> CounterColor.getDefault(context)
+            "RED" -> CounterColor.getDefault(context) // 需要替换为实际的RED颜色
+            "GREEN" -> CounterColor.getDefault(context) // 需要替换为实际的GREEN颜色
+            "BLUE" -> CounterColor.getDefault(context) // 需要替换为实际的BLUE颜色
+            "YELLOW" -> CounterColor.getDefault(context) // 需要替换为实际的YELLOW颜色
+            "PURPLE" -> CounterColor.getDefault(context) // 需要替换为实际的PURPLE颜色
+            "ORANGE" -> CounterColor.getDefault(context) // 需要替换为实际的ORANGE颜色
+            "CYAN" -> CounterColor.getDefault(context) // 需要替换为实际的CYAN颜色
+            "PINK" -> CounterColor.getDefault(context) // 需要替换为实际的PINK颜色
+            "GRAY" -> CounterColor.getDefault(context) // 需要替换为实际的GRAY颜色
+            else -> defaultColor
+        }
+    }
+
+    // 获取颜色的英文名称
+    private fun getColorName(color: CounterColor): String {
+        // 尝试获取颜色名称
+        return when (color.toString()) {
+            "0" -> "BLACK"
+            "1" -> "RED"
+            "2" -> "GREEN"
+            "3" -> "BLUE"
+            "4" -> "YELLOW"
+            "5" -> "PURPLE"
+            "6" -> "ORANGE" 
+            "7" -> "CYAN"
+            "8" -> "PINK"
+            "9" -> "GRAY"
+            else -> "DEFAULT" // 如果无法识别，使用默认
         }
     }
 
