@@ -3,7 +3,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:padding="8dp">
+    android:padding="8dp"
+    android:background="@android:color/white">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -17,6 +18,7 @@
             android:layout_weight="1"
             android:textStyle="bold"
             android:textSize="14sp"
+            android:textColor="@android:color/black"
             android:layout_gravity="center_vertical" />
 
         <ImageButton
@@ -25,6 +27,7 @@
             android:layout_height="24dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_menu_down"
+            android:tint="@android:color/black"
             android:contentDescription="@string/switch_group" />
     </LinearLayout>
 
@@ -39,6 +42,7 @@
         android:layout_height="match_parent"
         android:gravity="center"
         android:text="@string/no_counters"
+        android:textColor="@android:color/black"
         android:textSize="16sp"
         android:visibility="gone" />
 
