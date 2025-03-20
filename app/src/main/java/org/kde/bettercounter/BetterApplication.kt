@@ -8,6 +8,15 @@ class BetterApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        INSTANCE = this
         viewModel = ViewModel(this)
+    }
+
+    companion object {
+        private lateinit var INSTANCE: BetterApplication
+        
+        fun getInstance(): BetterApplication {
+            return INSTANCE
+        }
     }
 }

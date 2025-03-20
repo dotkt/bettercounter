@@ -69,4 +69,7 @@
     <string name="group_name">分组名称</string>
     <string name="new_group_name">新分组名称</string>
     <string name="delete_group_confirm">确定要删除此分组吗？此分组中的所有计数器将被移动到默认分组。</string>
+    <string name="select_group">选择分组:</string>
+    <string name="default_group">默认分组</string>
+    <string name="switch_group">切换分组</string>
 </resources>
