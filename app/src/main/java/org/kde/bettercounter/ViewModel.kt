@@ -456,16 +456,26 @@ class ViewModel(application: Application) {
                     // 批量添加条目
                     repo.bulkAddEntries(entriesToImport)
                     
+                    // 记录导入的条目数
+                    Log.d(TAG, "成功导入 ${entriesToImport.size} 个条目到 ${namesToImport.size} 个计数器")
+
                     // 确保每个计数器的摘要都被正确初始化
-                    // 这是防止闪退的关键步骤
                     namesToImport.forEach { name ->
                         if (summaryMap[name] == null) {
                             summaryMap[name] = MutableLiveData()
                         }
+                        
                         val summary = repo.getCounterSummary(name)
+                        Log.d(TAG, "刷新计数器: $name")
+                        
                         withContext(Dispatchers.Main) {
                             summaryMap[name]?.value = summary
                         }
+                    }
+                    
+                    // 强制刷新所有观察者
+                    withContext(Dispatchers.Main) {
+                        refreshLiveData()
                     }
                     
                     // 通知导入完成
@@ -492,7 +502,7 @@ class ViewModel(application: Application) {
         try {
             // 检查是否包含JSON
             if (line.startsWith("{")) {
-                // 新格式: {"name":"名称","color":123,"interval":"DAILY","goal":5},[时间戳1,时间戳2,...]
+                // 新格式: {"name":"名称","color":"#RRGGBB","colorName":"RED","interval":"DAILY","goal":5},[时间戳1,时间戳2,...]
                 val jsonEnd = line.indexOf("},[")
                 if (jsonEnd > 0) {
                     val jsonPart = line.substring(0, jsonEnd + 1)
@@ -502,27 +512,43 @@ class ViewModel(application: Application) {
                     val configMap = parseJsonObject(jsonPart)
                     val name = configMap["name"] as? String ?: return
                     
-                    // 处理颜色 - 支持多种格式
+                    // 处理颜色
                     val colorValue = configMap["color"] ?: configMap["colorName"]
                     val colorInt = getColorIntFromValue(colorValue)
                     
                     // 使用颜色整数值创建CounterColor对象
-                    val color = createCounterColorFromInt(colorInt, context ?: return)
+                    val safeContext = context ?: return
+                    val color = createCounterColorFromInt(colorInt, safeContext)
                     
-                    val intervalStr = configMap["interval"] as? String ?: Interval.DEFAULT.toString()
+                    // 修复区间格式问题 - 支持DAY、DAILY等多种格式
+                    val intervalStr = (configMap["interval"] as? String)?.uppercase() ?: Interval.DEFAULT.toString()
                     val interval = try {
-                        Interval.valueOf(intervalStr)
+                        when (intervalStr) {
+                            "DAY" -> Interval.DAY
+                            "WEEK" -> Interval.WEEK
+                            "MONTH" -> Interval.MONTH
+                            "YEAR" -> Interval.YEAR
+                            else -> Interval.valueOf(intervalStr)
+                        }
                     } catch (e: Exception) {
+                        Log.w(TAG, "无法识别的区间值: $intervalStr，使用默认值")
                         Interval.DEFAULT
                     }
+                    
                     val goal = (configMap["goal"] as? Number)?.toInt() ?: 0
                     
-                    // 创建元数据，使用颜色对象
+                    // 创建元数据
                     val metadata = CounterMetadata(name, interval, goal, color)
                     metadataToUpdate[name] = metadata
                     
+                    Log.d(TAG, "导入计数器: $name, 颜色: $colorInt, 区间: $interval, 目标: $goal")
+                    
                     // 解析时间戳数组
                     parseTimestamps(timestampsPart, name, entriesToImport)
+                    
+                    // 记录导入的时间戳数量
+                    val importedTimestampsCount = timestampsPart.split(",").size - 2 // 减去两个括号
+                    Log.d(TAG, "导入时间戳: $importedTimestampsCount 个")
                     
                     if (!namesToImport.contains(name)) {
                         namesToImport.add(name)
@@ -822,6 +848,26 @@ class ViewModel(application: Application) {
             }
         }
         return false
+    }
+
+    // 强制刷新所有LiveData
+    private fun refreshLiveData() {
+        CoroutineScope(Dispatchers.IO).launch {
+            val counters = repo.getCounterList()
+            for (name in counters) {
+                val summary = repo.getCounterSummary(name)
+                withContext(Dispatchers.Main) {
+                    summaryMap[name]?.value = summary
+                }
+            }
+            
+            // 通知所有观察者数据已更新
+            withContext(Dispatchers.Main) {
+                for (observer in counterObservers) {
+                    observer.onInitialCountersLoaded()
+                }
+            }
+        }
     }
 
 }
