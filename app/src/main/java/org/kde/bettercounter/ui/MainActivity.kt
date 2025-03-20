@@ -31,6 +31,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.kde.bettercounter.BetterApplication
 import org.kde.bettercounter.ChartsAdapter
 import org.kde.bettercounter.EntryListViewAdapter
@@ -48,6 +49,9 @@ import org.kde.bettercounter.persistence.Tutorial
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import java.util.Date
+import android.app.Activity
+import androidx.activity.result.contract.ActivityResultContracts
+import android.widget.Toast
 
 class MainActivity : AppCompatActivity() {
 
@@ -71,6 +75,9 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    // 在类级别声明权限请求码
+    private val STORAGE_PERMISSION_CODE = 101
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -273,50 +280,8 @@ class MainActivity : AppCompatActivity() {
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
             R.id.export_csv -> {
-                try {
-                    val fileName = "bettercounter_export.csv"
-                    val values = ContentValues().apply {
-                        put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                        put(MediaStore.MediaColumns.MIME_TYPE, "text/csv")
-                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                        }
-                    }
-
-                    val resolver = applicationContext.contentResolver
-                    val uri = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                        MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
-                    } else {
-                        MediaStore.Files.getContentUri("external")
-                    }
-
-                    // 删除可能存在的同名文件
-                    val selection = "${MediaStore.MediaColumns.DISPLAY_NAME} = ?"
-                    val selectionArgs = arrayOf(fileName)
-                    resolver.delete(uri, selection, selectionArgs)
-
-                    // 创建新文件
-                    val itemUri = resolver.insert(uri, values)
-                    if (itemUri != null) {
-                        val outputStream = resolver.openOutputStream(itemUri)
-                        if (outputStream != null) {
-                            val progressHandler = Handler(Looper.getMainLooper()) {
-                                if (it.arg1 == it.arg2) {
-                                    Snackbar.make(binding.recycler, "已导出到下载目录: $fileName", Snackbar.LENGTH_LONG).show()
-                                }
-                                true
-                            }
-                            viewModel.exportAll(outputStream, progressHandler)
-                        } else {
-                            throw Exception("无法打开输出流")
-                        }
-                    } else {
-                        throw Exception("无法创建文件")
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to export: ${e.message}")
-                    Snackbar.make(binding.recycler, "导出失败: ${e.message}", Snackbar.LENGTH_LONG).show()
-                }
+                // 检查并请求权限，然后导出
+                checkPermissionAndExport()
             }
             R.id.import_csv -> {
                 importFilePicker.launch(OpenFileParams("text/*"))
@@ -440,6 +405,125 @@ class MainActivity : AppCompatActivity() {
                         .show()
                 }
                 .show()
+        }
+    }
+
+    // 添加权限请求相关方法
+    private fun checkPermissionAndExport() {
+        Log.d(TAG, "检查导出权限")
+        // 对于Android 10及以上版本，需要特殊处理
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            if (Environment.isExternalStorageManager()) {
+                // 已有权限，直接导出
+                exportToDownloads()
+            } else {
+                // 引导用户到设置页面授予权限
+                try {
+                    Log.d(TAG, "请求完整存储权限")
+                    val intent = Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                    val uri = Uri.fromParts("package", packageName, null)
+                    intent.data = uri
+                    startActivityForResult(intent, STORAGE_PERMISSION_CODE)
+                    Toast.makeText(this, "请在设置中授予存储权限", Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    Log.e(TAG, "打开权限设置页面失败: ${e.message}")
+                    // 如果Intent不可用，尝试回退到旧版权限请求
+                    if (android.os.Build.VERSION.SDK_INT <= android.os.Build.VERSION_CODES.Q) {
+                        requestLegacyStoragePermission()
+                    } else {
+                        Snackbar.make(binding.recycler, "无法请求权限，请在系统设置中手动授予", Snackbar.LENGTH_LONG).show()
+                    }
+                }
+            }
+        } else {
+            // Android 9及以下版本使用传统权限请求
+            requestLegacyStoragePermission()
+        }
+    }
+
+    private fun requestLegacyStoragePermission() {
+        Log.d(TAG, "强制请求存储权限")
+        
+        // 不检查是否已经有权限，直接请求
+        // 这将确保始终显示权限对话框（如果系统允许）
+        requestPermissions(
+            arrayOf(
+                android.Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                android.Manifest.permission.READ_EXTERNAL_STORAGE
+            ),
+            STORAGE_PERMISSION_CODE
+        )
+    }
+
+    // 处理权限请求结果
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == STORAGE_PERMISSION_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                // 权限已授予，执行导出
+                exportToDownloads()
+            } else {
+                Snackbar.make(binding.recycler, "需要存储权限才能导出文件", Snackbar.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    // 处理Activity结果
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        
+        if (requestCode == STORAGE_PERMISSION_CODE) {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                // 检查是否获得了管理所有文件的权限
+                if (Environment.isExternalStorageManager()) {
+                    // 有权限，执行导出
+                    exportToDownloads()
+                } else {
+                    Snackbar.make(binding.recycler, "需要存储权限才能导出文件", Snackbar.LENGTH_LONG).show()
+                }
+            }
+        } else if (requestCode == 1001 && resultCode == Activity.RESULT_OK) {
+            // 处理SAF选择器的结果（保留作为后备）
+            val uri = data?.data
+            if (uri != null) {
+                // ... 现有代码
+            }
+        }
+    }
+
+    // 执行导出操作
+    private fun exportToDownloads() {
+        val fileName = "bettercounter_export.csv"
+        
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                // 使用传统的File API直接写入下载目录
+                val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                if (!downloadsDir.exists()) {
+                    downloadsDir.mkdirs()
+                }
+                
+                val file = java.io.File(downloadsDir, fileName)
+                Log.d(TAG, "开始导出到: ${file.absolutePath}")
+                
+                // 创建输出流，让viewModel负责关闭
+                val outputStream = java.io.FileOutputStream(file)
+                val progressHandler = Handler(Looper.getMainLooper()) {
+                    if (it.arg1 == it.arg2) {
+                        Snackbar.make(binding.recycler, "已导出到下载目录: $fileName", Snackbar.LENGTH_LONG).show()
+                    }
+                    true
+                }
+                
+                // 传递true参数，让viewModel在完成后关闭流
+                viewModel.exportAll(outputStream, progressHandler, true)
+            } catch (e: Exception) {
+                Log.e(TAG, "导出失败: ${e.javaClass.name}: ${e.message}")
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Snackbar.make(binding.recycler, "导出失败: ${e.message}", Snackbar.LENGTH_LONG).show()
+                }
+            }
         }
     }
 }

@@ -255,44 +255,63 @@ class ViewModel(application: Application) {
         repo.setCounterList(list)
     }
 
-    fun exportAll(stream: OutputStream, progressHandler: Handler?) {
-        fun sendProgress(progress: Int) {
+    fun exportAll(outputStream: OutputStream, progressHandler: Handler?, closeStreamWhenDone: Boolean = false) {
+        // 定义发送进度的辅助函数
+        fun sendProgress(progress: Int, total: Int, handler: Handler?) {
             val message = Message()
             message.arg1 = progress
-            message.arg2 = repo.getCounterList().size
-            progressHandler?.sendMessage(message)
+            message.arg2 = total
+            handler?.sendMessage(message)
         }
 
         CoroutineScope(Dispatchers.IO).launch {
+            val writer = outputStream.bufferedWriter()
             try {
-                val writer = stream.bufferedWriter()
-                for ((i, name) in repo.getCounterList().withIndex()) {
-                    sendProgress(i)
-                    val entries = repo.getAllEntriesSortedByDate(name)
-                    writer.write(name)
-                    for (entry in entries) {
-                        writer.write(",")
-                        writer.write(entry.date.time.toString())
+                val counters = repo.getCounterList()
+                var exported = 0
+
+                for (counterName in counters) {
+                    // 获取此计数器的所有条目
+                    val counterEntries = repo.getAllEntriesSortedByDate(counterName)
+                    if (counterEntries.isEmpty()) continue
+
+                    // 创建CSV行
+                    val line = StringBuilder(counterName)
+                    for (entry in counterEntries) {
+                        line.append(',').append(entry.date.time)
                     }
-                    writer.write("\n")
-                    writer.flush()  // 每写完一个计数器就刷新缓冲区
+                    
+                    // 写入并刷新
+                    writer.write(line.toString())
+                    writer.newLine()
+                    writer.flush()
+                    
+                    exported++
+                    sendProgress(exported, counters.size, progressHandler)
                 }
-                sendProgress(repo.getCounterList().size)
-                writer.flush()  // 最后再次刷新确保所有数据都写入
-                withContext(Dispatchers.Main) {
-                    writer.close()  // 在主线程中关闭流
-                    stream.close()
+                
+                // 最后再次刷新确保所有数据都写入
+                writer.flush()
+                
+                // 只在需要时关闭流
+                if (closeStreamWhenDone) {
+                    try {
+                        writer.close()
+                        outputStream.close()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "关闭流时出错: ${e.message}")
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Export failed: ${e.message}")
-                e.printStackTrace()
-                withContext(Dispatchers.Main) {
-                    try {
-                        stream.close()
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to close stream: ${e.message}")
+                try {
+                    if (closeStreamWhenDone) {
+                        outputStream.close()
                     }
+                } catch (closeEx: Exception) {
+                    // 忽略关闭异常
                 }
+                throw e
             }
         }
     }
