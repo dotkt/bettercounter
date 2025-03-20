@@ -455,6 +455,20 @@ class ViewModel(application: Application) {
                     
                     // 批量添加条目
                     repo.bulkAddEntries(entriesToImport)
+                    
+                    // 确保每个计数器的摘要都被正确初始化
+                    // 这是防止闪退的关键步骤
+                    namesToImport.forEach { name ->
+                        if (summaryMap[name] == null) {
+                            summaryMap[name] = MutableLiveData()
+                        }
+                        val summary = repo.getCounterSummary(name)
+                        withContext(Dispatchers.Main) {
+                            summaryMap[name]?.value = summary
+                        }
+                    }
+                    
+                    // 通知导入完成
                     sendProgress(namesToImport.size, 1)
                 } catch (e: Exception) {
                     Log.e(TAG, "Import failed: ${e.message}")
