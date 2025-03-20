@@ -26,6 +26,7 @@ import java.util.Calendar
 import java.util.Date
 import kotlin.collections.set
 import android.media.MediaPlayer
+import android.graphics.Color
 
 private const val TAG = "ViewModel"
 
@@ -274,13 +275,17 @@ class ViewModel(application: Application) {
                     val counterEntries = repo.getAllEntriesSortedByDate(counterName)
                     if (counterEntries.isEmpty()) continue
 
-                    // 从日志我们看到颜色对象格式是: CounterColor(colorInt=-10341712)
-                    // 直接提取颜色整数值
+                    // 提取颜色整数值
                     val colorInt = extractColorInt(summary.color)
-                    Log.d(TAG, "导出计数器: $counterName, 提取的颜色值: $colorInt")
                     
-                    // 直接使用颜色整数值，不转换为名称
-                    val configJson = """{"name":"$counterName","color":$colorInt,"interval":"${summary.interval}","goal":${summary.goal}}"""
+                    // 将颜色转换为RGB格式和颜色名称
+                    val colorRGB = intToRGBString(colorInt)
+                    val colorName = getClosestColorName(colorInt)
+                    
+                    Log.d(TAG, "导出计数器: $counterName, 颜色RGB: $colorRGB, 颜色名称: $colorName")
+                    
+                    // 创建JSON，同时包含颜色名称和RGB格式
+                    val configJson = """{"name":"$counterName","color":"$colorRGB","colorName":"$colorName","interval":"${summary.interval}","goal":${summary.goal}}"""
                     
                     // 创建时间戳部分
                     val timestamps = counterEntries.joinToString(",") { it.date.time.toString() }
@@ -316,6 +321,63 @@ class ViewModel(application: Application) {
                 throw e
             }
         }
+    }
+
+    // 将整数颜色值转换为#RRGGBB格式
+    private fun intToRGBString(colorInt: Int): String {
+        val red = (colorInt shr 16) and 0xFF
+        val green = (colorInt shr 8) and 0xFF
+        val blue = colorInt and 0xFF
+        return "#%02X%02X%02X".format(red, green, blue) 
+    }
+
+    // 获取最接近的标准颜色名称
+    private fun getClosestColorName(colorInt: Int): String {
+        // 定义标准颜色和名称的映射
+        val colorMap = mapOf(
+            0xFF000000.toInt() to "BLACK",
+            0xFFFFFFFF.toInt() to "WHITE",
+            0xFFFF0000.toInt() to "RED",
+            0xFF00FF00.toInt() to "GREEN",
+            0xFF0000FF.toInt() to "BLUE",
+            0xFFFFFF00.toInt() to "YELLOW",
+            0xFF800080.toInt() to "PURPLE",
+            0xFFFFA500.toInt() to "ORANGE",
+            0xFF00FFFF.toInt() to "CYAN",
+            0xFFFFC0CB.toInt() to "PINK",
+            0xFF808080.toInt() to "GRAY",
+            0xFF8B4513.toInt() to "BROWN",
+            0xFF2196F3.toInt() to "BLUE_MATERIAL"
+        )
+        
+        // 获取红绿蓝分量
+        val red = (colorInt shr 16) and 0xFF
+        val green = (colorInt shr 8) and 0xFF
+        val blue = colorInt and 0xFF
+        
+        // 找到最接近的标准颜色
+        var closestColor = "CUSTOM"
+        var minDistance = Int.MAX_VALUE
+        
+        for ((stdColorInt, name) in colorMap) {
+            val stdRed = (stdColorInt shr 16) and 0xFF
+            val stdGreen = (stdColorInt shr 8) and 0xFF
+            val stdBlue = stdColorInt and 0xFF
+            
+            // 计算颜色距离（欧几里得距离）
+            val distance = Math.sqrt(
+                Math.pow((red - stdRed).toDouble(), 2.0) +
+                Math.pow((green - stdGreen).toDouble(), 2.0) +
+                Math.pow((blue - stdBlue).toDouble(), 2.0)
+            ).toInt()
+            
+            if (distance < minDistance) {
+                minDistance = distance
+                closestColor = name
+            }
+        }
+        
+        return closestColor
     }
 
     // 从CounterColor对象中提取颜色整数值
@@ -426,29 +488,12 @@ class ViewModel(application: Application) {
                     val configMap = parseJsonObject(jsonPart)
                     val name = configMap["name"] as? String ?: return
                     
-                    // 处理颜色 - 直接使用整数值
-                    val colorValue = configMap["color"]
-                    val safeContext = context ?: return
-                    
-                    // 获取颜色整数值
-                    val colorInt = when (colorValue) {
-                        is Number -> colorValue.toInt()
-                        is String -> try {
-                            // 如果是数字字符串，转为整数
-                            if (colorValue.matches(Regex("-?\\d+"))) {
-                                colorValue.toInt()
-                            } else {
-                                // 否则尝试匹配颜色名称
-                                getColorIntForName(colorValue)
-                            }
-                        } catch (e: Exception) {
-                            0
-                        }
-                        else -> 0
-                    }
+                    // 处理颜色 - 支持多种格式
+                    val colorValue = configMap["color"] ?: configMap["colorName"]
+                    val colorInt = getColorIntFromValue(colorValue)
                     
                     // 使用颜色整数值创建CounterColor对象
-                    val color = createCounterColorFromInt(colorInt, safeContext)
+                    val color = createCounterColorFromInt(colorInt, context ?: return)
                     
                     val intervalStr = configMap["interval"] as? String ?: Interval.DEFAULT.toString()
                     val interval = try {
@@ -713,6 +758,39 @@ class ViewModel(application: Application) {
             "PINK" -> -65281 // 粉色
             "GRAY" -> -7829368 // Color.GRAY
             else -> 0 // 默认值
+        }
+    }
+
+    // 获取颜色整数值，支持多种格式
+    private fun getColorIntFromValue(colorValue: Any?): Int {
+        return when (colorValue) {
+            is Number -> colorValue.toInt()
+            is String -> {
+                val colorStr = colorValue.toString()
+                when {
+                    // RGB格式: #RRGGBB
+                    colorStr.startsWith("#") && (colorStr.length == 7 || colorStr.length == 9) -> {
+                        try {
+                            Color.parseColor(colorStr)
+                        } catch (e: Exception) {
+                            getColorIntForName("DEFAULT")
+                        }
+                    }
+                    // 数字字符串
+                    colorStr.matches(Regex("-?\\d+")) -> {
+                        try {
+                            colorStr.toInt()
+                        } catch (e: Exception) {
+                            getColorIntForName("DEFAULT")
+                        }
+                    }
+                    // 颜色名称
+                    else -> {
+                        getColorIntForName(colorStr)
+                    }
+                }
+            }
+            else -> getColorIntForName("DEFAULT")
         }
     }
 
