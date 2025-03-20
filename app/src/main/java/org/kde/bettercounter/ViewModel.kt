@@ -270,16 +270,17 @@ class ViewModel(application: Application) {
                 var exported = 0
 
                 for (counterName in counters) {
-                    // 获取计数器数据和配置
                     val summary = repo.getCounterSummary(counterName)
                     val counterEntries = repo.getAllEntriesSortedByDate(counterName)
                     if (counterEntries.isEmpty()) continue
 
-                    // 将颜色转换为英文名称
-                    val colorName = getColorName(summary.color)
+                    // 从日志我们看到颜色对象格式是: CounterColor(colorInt=-10341712)
+                    // 直接提取颜色整数值
+                    val colorInt = extractColorInt(summary.color)
+                    Log.d(TAG, "导出计数器: $counterName, 提取的颜色值: $colorInt")
                     
-                    // 创建JSON配置部分，使用颜色名称而不是数值
-                    val configJson = """{"name":"$counterName","color":"$colorName","interval":"${summary.interval}","goal":${summary.goal}}"""
+                    // 直接使用颜色整数值，不转换为名称
+                    val configJson = """{"name":"$counterName","color":$colorInt,"interval":"${summary.interval}","goal":${summary.goal}}"""
                     
                     // 创建时间戳部分
                     val timestamps = counterEntries.joinToString(",") { it.date.time.toString() }
@@ -314,6 +315,24 @@ class ViewModel(application: Application) {
                 }
                 throw e
             }
+        }
+    }
+
+    // 从CounterColor对象中提取颜色整数值
+    private fun extractColorInt(color: CounterColor): Int {
+        // 解析颜色字符串，格式如: CounterColor(colorInt=-10341712)
+        val colorStr = color.toString()
+        return try {
+            val startIndex = colorStr.indexOf("colorInt=") + 9
+            val endIndex = colorStr.indexOf(")", startIndex)
+            if (startIndex > 9 && endIndex > startIndex) {
+                colorStr.substring(startIndex, endIndex).toInt()
+            } else {
+                0 // 默认值
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "无法提取颜色值: $colorStr", e)
+            0 // 默认值
         }
     }
 
@@ -407,29 +426,29 @@ class ViewModel(application: Application) {
                     val configMap = parseJsonObject(jsonPart)
                     val name = configMap["name"] as? String ?: return
                     
-                    // 处理颜色 - 支持名称或数字
+                    // 处理颜色 - 直接使用整数值
                     val colorValue = configMap["color"]
                     val safeContext = context ?: return
-                    val color = when (colorValue) {
-                        is String -> getColorForName(colorValue, safeContext)
-                        is Number -> {
-                            // 数字类型，使用模式匹配
-                            val colorInt = colorValue.toInt()
-                            when (colorInt % 10) {
-                                0 -> getColorForName("BLACK", safeContext)
-                                1 -> getColorForName("RED", safeContext)
-                                2 -> getColorForName("GREEN", safeContext)
-                                3 -> getColorForName("BLUE", safeContext)
-                                4 -> getColorForName("YELLOW", safeContext)
-                                5 -> getColorForName("PURPLE", safeContext)
-                                6 -> getColorForName("ORANGE", safeContext)
-                                7 -> getColorForName("CYAN", safeContext)
-                                8 -> getColorForName("PINK", safeContext)
-                                else -> CounterColor.getDefault(safeContext)
+                    
+                    // 获取颜色整数值
+                    val colorInt = when (colorValue) {
+                        is Number -> colorValue.toInt()
+                        is String -> try {
+                            // 如果是数字字符串，转为整数
+                            if (colorValue.matches(Regex("-?\\d+"))) {
+                                colorValue.toInt()
+                            } else {
+                                // 否则尝试匹配颜色名称
+                                getColorIntForName(colorValue)
                             }
+                        } catch (e: Exception) {
+                            0
                         }
-                        else -> CounterColor.getDefault(safeContext)
+                        else -> 0
                     }
+                    
+                    // 使用颜色整数值创建CounterColor对象
+                    val color = createCounterColorFromInt(colorInt, safeContext)
                     
                     val intervalStr = configMap["interval"] as? String ?: Interval.DEFAULT.toString()
                     val interval = try {
@@ -635,6 +654,65 @@ class ViewModel(application: Application) {
             "8" -> "PINK"
             "9" -> "GRAY"
             else -> "DEFAULT" // 如果无法识别，使用默认
+        }
+    }
+
+    // 根据颜色值映射到名称
+    private fun mapColorValueToName(colorValue: Int): String {
+        // 通过颜色值的模式识别颜色
+        return when (colorValue % 10) {
+            0 -> "BLACK"
+            1 -> "RED"
+            2 -> "GREEN"
+            3 -> "BLUE"
+            4 -> "YELLOW"
+            5 -> "PURPLE"
+            6 -> "ORANGE" 
+            7 -> "CYAN"
+            8 -> "PINK"
+            9 -> "GRAY"
+            else -> "DEFAULT"
+        }
+    }
+
+    // 创建具有指定colorInt的CounterColor对象
+    private fun createCounterColorFromInt(colorInt: Int, context: Context): CounterColor {
+        // 尝试使用反射动态设置颜色值
+        val defaultColor = CounterColor.getDefault(context)
+        
+        return try {
+            // 尝试使用构造函数
+            val constructor = CounterColor::class.java.getDeclaredConstructor(Int::class.java)
+            constructor.isAccessible = true
+            constructor.newInstance(colorInt)
+        } catch (e: Exception) {
+            try {
+                // 尝试通过Field设置值
+                val field = CounterColor::class.java.getDeclaredField("colorInt")
+                field.isAccessible = true
+                field.set(defaultColor, colorInt)
+                defaultColor
+            } catch (e2: Exception) {
+                Log.e(TAG, "无法创建指定颜色值的CounterColor: $colorInt", e2)
+                defaultColor
+            }
+        }
+    }
+
+    // 根据名称获取颜色整数值
+    private fun getColorIntForName(colorName: String): Int {
+        return when (colorName.uppercase()) {
+            "BLACK" -> -16777216 // Color.BLACK
+            "RED" -> -65536 // Color.RED
+            "GREEN" -> -16711936 // Color.GREEN
+            "BLUE" -> -16776961 // Color.BLUE
+            "YELLOW" -> -256 // Color.YELLOW
+            "PURPLE" -> -8388480 // 紫色
+            "ORANGE" -> -23296 // 橙色
+            "CYAN" -> -16711681 // Color.CYAN
+            "PINK" -> -65281 // 粉色
+            "GRAY" -> -7829368 // Color.GRAY
+            else -> 0 // 默认值
         }
     }
 
