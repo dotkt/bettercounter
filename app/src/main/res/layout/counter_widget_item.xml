@@ -9,21 +9,43 @@
 
     <TextView
         android:id="@+id/widget_counter_name"
-        android:layout_width="0dp"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_weight="1"
         android:textSize="16sp"
         android:textColor="@android:color/black"
-        android:layout_gravity="center_vertical" />
+        android:layout_gravity="center_vertical"
+        android:ellipsize="end"
+        android:maxLength="5" />
 
     <TextView
         android:id="@+id/widget_counter_count"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_weight="1"
         android:textSize="18sp"
         android:textStyle="bold"
         android:textColor="@android:color/black"
         android:layout_gravity="center_vertical"
-        android:layout_marginStart="8dp" />
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:gravity="end" />
+
+    <ImageButton
+        android:id="@+id/widget_decrease_button"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_minus"
+        android:tint="@android:color/black"
+        android:contentDescription="@string/decrease" />
+
+    <ImageButton
+        android:id="@+id/widget_increase_button"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:src="@drawable/ic_plus"
+        android:tint="@android:color/black"
+        android:contentDescription="@string/increase" />
 
 </LinearLayout> 

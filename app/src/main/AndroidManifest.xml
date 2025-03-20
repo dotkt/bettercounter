@@ -103,6 +103,16 @@
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".widget.WidgetCounterActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.kde.bettercounter.widget.ACTION_INCREMENT" />
+                <action android:name="org.kde.bettercounter.widget.ACTION_DECREMENT" />
+                <action android:name="org.kde.bettercounter.widget.HANDLE_CLICK" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

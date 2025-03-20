@@ -57,22 +57,64 @@ class LargeCounterWidget : AppWidgetProvider() {
             // 设置列表适配器
             val intent = Intent(context, LargeWidgetService::class.java).apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-                putExtra("GROUP_ID", groupId) // 传递分组ID给RemoteViewsFactory
+                putExtra("GROUP_ID", groupId)
                 data = Uri.parse(toUri(Intent.URI_INTENT_SCHEME))
             }
             
             views.setRemoteAdapter(R.id.widget_list, intent)
             views.setEmptyView(R.id.widget_list, R.id.empty_view)
             
-            // 设置点击事件处理
-            val clickIntent = Intent(context, MainActivity::class.java)
-            val pendingIntent = PendingIntent.getActivity(
+            // 设置点击事件模板
+            val viewIntent = Intent(context, MainActivity::class.java)
+            val viewPendingIntent = PendingIntent.getActivity(
                 context, 
                 appWidgetId, 
-                clickIntent, 
+                viewIntent, 
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
-            views.setPendingIntentTemplate(R.id.widget_list, pendingIntent)
+            
+            // 增加计数意图
+            val incrementIntent = Intent(context, WidgetCounterActionReceiver::class.java).apply {
+                action = WidgetCounterActionReceiver.ACTION_INCREMENT
+            }
+            val incrementPendingIntent = PendingIntent.getBroadcast(
+                context,
+                appWidgetId * 10 + 1,
+                incrementIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            
+            // 减少计数意图
+            val decrementIntent = Intent(context, WidgetCounterActionReceiver::class.java).apply {
+                action = WidgetCounterActionReceiver.ACTION_DECREMENT
+            }
+            val decrementPendingIntent = PendingIntent.getBroadcast(
+                context,
+                appWidgetId * 10 + 2,
+                decrementIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            
+            // 设置点击事件分发器
+            val clickHandlerIntent = Intent(context, WidgetCounterActionReceiver::class.java)
+            clickHandlerIntent.action = "org.kde.bettercounter.widget.HANDLE_CLICK"
+            
+            // 重要：必须使用FLAG_MUTABLE才能正确合并Intent extras
+            val flags = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            } else {
+                PendingIntent.FLAG_UPDATE_CURRENT
+            }
+            
+            val clickPendingIntent = PendingIntent.getBroadcast(
+                context,
+                appWidgetId,
+                clickHandlerIntent,
+                flags
+            )
+            
+            // 为组件设置点击模板
+            views.setPendingIntentTemplate(R.id.widget_list, clickPendingIntent)
             
             // 添加分组切换按钮的点击事件
             val switchGroupIntent = Intent(context, GroupSelectorActivity::class.java).apply {
