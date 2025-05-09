@@ -50,54 +50,83 @@
         android:orientation="horizontal"
         android:gravity="center">
 
-        <Button
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnMinus10"
+            style="@style/Widget.MaterialComponents.Button"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_margin="4dp"
             android:text="10"
-            android:backgroundTint="@android:color/holo_red_light" />
-        <Button
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            app:backgroundTint="@android:color/holo_red_light"
+            app:cornerRadius="24dp" />
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnMinus5"
+            style="@style/Widget.MaterialComponents.Button"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_margin="4dp"
             android:text="5"
-            android:backgroundTint="@android:color/holo_red_light" />
-        <Button
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            app:backgroundTint="@android:color/holo_red_light"
+            app:cornerRadius="24dp" />
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnMinus1"
+            style="@style/Widget.MaterialComponents.Button"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_margin="4dp"
             android:text="1"
-            android:backgroundTint="@android:color/holo_red_light" />
-        <Button
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            app:backgroundTint="@android:color/holo_red_light"
+            app:cornerRadius="24dp" />
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnPlus1"
+            style="@style/Widget.MaterialComponents.Button"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_margin="4dp"
             android:text="1"
-            android:backgroundTint="@android:color/holo_green_light" />
-        <Button
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            app:backgroundTint="@android:color/holo_green_light"
+            app:cornerRadius="24dp" />
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnPlus5"
+            style="@style/Widget.MaterialComponents.Button"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_margin="4dp"
             android:text="5"
-            android:backgroundTint="@android:color/holo_green_light" />
-        <Button
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            app:backgroundTint="@android:color/holo_green_light"
+            app:cornerRadius="24dp" />
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnPlus10"
+            style="@style/Widget.MaterialComponents.Button"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_margin="4dp"
             android:text="10"
-            android:backgroundTint="@android:color/holo_green_light" />
-        <Button
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            app:backgroundTint="@android:color/holo_green_light"
+            app:cornerRadius="24dp" />
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/btnCustom"
+            style="@style/Widget.MaterialComponents.Button"
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:layout_margin="4dp"
-            android:text="设" />
+            android:text="设"
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            app:backgroundTint="@android:color/darker_gray"
+            app:cornerRadius="24dp" />
     </LinearLayout>
 
 </LinearLayout>
