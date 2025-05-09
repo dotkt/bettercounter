@@ -52,46 +52,52 @@
 
         <Button
             android:id="@+id/btnMinus10"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="-10" />
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:text="10"
+            android:backgroundTint="@android:color/holo_red_light" />
         <Button
             android:id="@+id/btnMinus5"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="-5" />
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:text="5"
+            android:backgroundTint="@android:color/holo_red_light" />
         <Button
             android:id="@+id/btnMinus1"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="-1" />
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:text="1"
+            android:backgroundTint="@android:color/holo_red_light" />
         <Button
             android:id="@+id/btnPlus1"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="+1" />
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:text="1"
+            android:backgroundTint="@android:color/holo_green_light" />
         <Button
             android:id="@+id/btnPlus5"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="+5" />
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:text="5"
+            android:backgroundTint="@android:color/holo_green_light" />
         <Button
             android:id="@+id/btnPlus10"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="+10" />
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:text="10"
+            android:backgroundTint="@android:color/holo_green_light" />
         <Button
             android:id="@+id/btnCustom"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="自定义" />
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:text="设" />
     </LinearLayout>
 
 </LinearLayout>
