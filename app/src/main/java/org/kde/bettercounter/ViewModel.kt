@@ -105,14 +105,36 @@ class ViewModel(application: Application) {
     }
 
     fun incrementCounter(name: String, date: Date = Calendar.getInstance().time) {
+        incrementCounterByValue(name, 1, date)
+    }
+
+    fun incrementCounterByValue(name: String, value: Int, date: Date = Calendar.getInstance().time) {
         CoroutineScope(Dispatchers.IO).launch {
-            repo.addEntry(name, date)
+            repeat(value) {
+                repo.addEntry(name, date)
+            }
             withContext(Dispatchers.Main) {
                 playDingSound()
             }
             summaryMap[name]?.postValue(repo.getCounterSummary(name))
-            // Switch to Main thread to play the sound
+        }
+    }
 
+    fun decrementCounter(name: String) {
+        decrementCounterByValue(name, 1)
+    }
+
+    fun decrementCounterByValue(name: String, value: Int) {
+        CoroutineScope(Dispatchers.IO).launch {
+            repeat(value) {
+                val oldEntryDate = repo.removeEntry(name)
+                if (oldEntryDate != null) {
+                    for (observer in counterObservers) {
+                        observer.onCounterDecremented(name, oldEntryDate)
+                    }
+                }
+            }
+            summaryMap[name]?.postValue(repo.getCounterSummary(name))
         }
     }
 
@@ -162,19 +184,6 @@ class ViewModel(application: Application) {
                 callback()
             }
 
-        }
-    }
-
-    fun decrementCounter(name: String) {
-        CoroutineScope(Dispatchers.IO).launch {
-            val oldEntryDate = repo.removeEntry(name)
-            summaryMap[name]?.postValue(repo.getCounterSummary(name))
-            if (oldEntryDate != null) {
-                for (observer in counterObservers) {
-                    //return 0
-                    //observer.onCounterDecremented(name, oldEntryDate)
-                }
-            }
         }
     }
 

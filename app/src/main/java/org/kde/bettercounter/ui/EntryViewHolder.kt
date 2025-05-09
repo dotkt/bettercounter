@@ -23,25 +23,45 @@ class EntryViewHolder(
 
     fun onBind(counter: CounterSummary) {
         binding.root.setBackgroundColor(counter.color.colorInt)
-        binding.increaseButton.setOnClickListener {
-            viewModel.incrementCounter(counter.name)
+        
+        // 新加减按钮绑定
+        binding.btnMinus10.setOnClickListener { viewModel.decrementCounterByValue(counter.name, 10) }
+        binding.btnMinus5.setOnClickListener { viewModel.decrementCounterByValue(counter.name, 5) }
+        binding.btnMinus1.setOnClickListener { viewModel.decrementCounterByValue(counter.name, 1) }
+        binding.btnPlus1.setOnClickListener {
+            viewModel.incrementCounterByValue(counter.name, 1)
             if (!viewModel.isTutorialShown(Tutorial.PICK_DATE)) {
                 viewModel.setTutorialShown(Tutorial.PICK_DATE)
                 showPickDateTutorial()
             }
         }
-        binding.increaseButton.setOnLongClickListener {
-            showDateTimePicker(activity, Calendar.getInstance()) { pickedDateTime ->
-                viewModel.incrementCounter(counter.name, pickedDateTime.time)
-            }
-            true
+        binding.btnPlus5.setOnClickListener { viewModel.incrementCounterByValue(counter.name, 5) }
+        binding.btnPlus10.setOnClickListener { viewModel.incrementCounterByValue(counter.name, 10) }
+
+        // 自定义按钮弹窗
+        binding.btnCustom.setOnClickListener {
+            val editText = android.widget.EditText(activity)
+            editText.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+            editText.hint = "输入正负分数"
+            androidx.appcompat.app.AlertDialog.Builder(activity)
+                .setTitle("自定义加减分数")
+                .setView(editText)
+                .setPositiveButton("确定") { _, _ ->
+                    val value = editText.text.toString().toIntOrNull()
+                    if (value != null && value != 0) {
+                        if (value > 0) viewModel.incrementCounterByValue(counter.name, value)
+                        else viewModel.decrementCounterByValue(counter.name, -value)
+                    }
+                }
+                .setNegativeButton("取消", null)
+                .show()
         }
-        binding.decreaseButton.setOnClickListener { viewModel.decrementCounter(counter.name) }
-        binding.draggableArea.setOnClickListener { onClickListener(counter) }
-        binding.draggableArea.setOnLongClickListener {
+
+        binding.infoArea.setOnClickListener { onClickListener(counter) }
+        binding.infoArea.setOnLongClickListener {
             touchHelper.startDrag(this@EntryViewHolder)
             @Suppress("DEPRECATION")
-            binding.draggableArea.performHapticFeedback(
+            binding.infoArea.performHapticFeedback(
                 HapticFeedbackConstants.LONG_PRESS,
                 HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
             )
@@ -56,15 +76,13 @@ class EntryViewHolder(
         val mostRecentDate = counter.mostRecent
         if (mostRecentDate != null) {
             binding.timestampText.referenceTime = mostRecentDate.time
-            binding.decreaseButton.isEnabled = true
         } else {
             binding.timestampText.referenceTime = -1L
-            binding.decreaseButton.isEnabled = false
         }
     }
 
     fun showPickDateTutorial(onDismissListener: OnDismissListener? = null) {
-        Tutorial.PICK_DATE.show(activity, binding.increaseButton, onDismissListener)
+        Tutorial.PICK_DATE.show(activity, binding.btnPlus1, onDismissListener)
     }
 
 }
