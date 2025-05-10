@@ -15,23 +15,99 @@
         android:orientation="vertical"
         android:padding="16dp">
 
+        <!-- 计数器名称 -->
         <TextView
             android:id="@+id/nameText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textColor="@color/colorDarkBackground"
-            android:textSize="16sp"
-            tools:text="My Counter" />
+            android:textStyle="bold"
+            android:textSize="18sp"
+            tools:text="计数器名称: aaa" />
 
-        <TextView
-            android:id="@+id/countText"
+        <!-- 状态、实际/目标计数、目标调节区 -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/colorDarkBackground"
-            android:textSize="24sp"
-            tools:text="42" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginTop="4dp">
 
-        <org.kde.bettercounter.ui.BetterRelativeTimeTextView
+            <TextView
+                android:id="@+id/statusText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="(完成状态)"
+                android:textStyle="bold"
+                android:textColor="@color/colorDarkBackground"
+                android:textSize="16sp"
+                android:layout_marginEnd="8dp" />
+
+            <TextView
+                android:id="@+id/actualCountText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="实际计数"
+                android:textStyle="bold"
+                android:textColor="@color/colorDarkBackground"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/slashText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="/"
+                android:textStyle="bold"
+                android:textColor="@color/colorDarkBackground"
+                android:textSize="16sp"
+                android:layout_marginStart="2dp"
+                android:layout_marginEnd="2dp" />
+
+            <TextView
+                android:id="@+id/targetCountText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="目标计数"
+                android:textStyle="bold"
+                android:textColor="@color/colorDarkBackground"
+                android:textSize="16sp"
+                android:layout_marginEnd="8dp" />
+
+            <!-- 目标调节区 -->
+            <Button
+                android:id="@+id/btnTargetMinus"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:text="-"
+                android:textSize="16sp"
+                android:layout_marginEnd="2dp" />
+            <EditText
+                android:id="@+id/targetInput"
+                android:layout_width="48dp"
+                android:layout_height="32dp"
+                android:inputType="numberSigned"
+                android:textSize="14sp"
+                android:gravity="center"
+                android:background="@android:color/white"
+                android:layout_marginEnd="2dp"
+                android:hint="设定" />
+            <Button
+                android:id="@+id/btnTargetPlus"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:text="+"
+                android:textSize="16sp"
+                android:layout_marginEnd="2dp" />
+            <Button
+                android:id="@+id/btnTargetSet"
+                android:layout_width="40dp"
+                android:layout_height="32dp"
+                android:text="设"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <!-- 上次时间 -->
+        <TextView
             android:id="@+id/timestampText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -40,7 +116,8 @@
             android:textAlignment="center"
             android:drawableStart="@drawable/ic_time"
             android:drawablePadding="4.5dip"
-            tools:text="2h ago" />
+            android:layout_marginTop="4dp"
+            tools:text="上次时间: 2025-05-10 19:30:22" />
     </LinearLayout>
 
     <LinearLayout

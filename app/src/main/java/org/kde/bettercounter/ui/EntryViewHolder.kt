@@ -71,17 +71,57 @@ class EntryViewHolder(
             true
         }
         binding.nameText.text = counter.name
-        binding.countText.text = counter.getFormattedCount()
+        binding.statusText.text = if (counter.isGoalMet()) "(已完成)" else "(未完成)"
+        binding.actualCountText.text = counter.lastIntervalCount.toString()
+        binding.targetCountText.text = counter.goal.toString()
+        binding.targetInput.setText("")
 
-        val checkDrawable = if (counter.isGoalMet()) R.drawable.ic_check else 0
-        binding.countText.setCompoundDrawablesRelativeWithIntrinsicBounds(checkDrawable, 0, 0, 0)
+        // 目标+/-按钮
+        binding.btnTargetMinus.setOnClickListener {
+            val newGoal = (counter.goal - 1).coerceAtLeast(0)
+            updateGoal(counter, newGoal)
+        }
+        binding.btnTargetPlus.setOnClickListener {
+            val newGoal = counter.goal + 1
+            updateGoal(counter, newGoal)
+        }
+        // 目标设定按钮
+        binding.btnTargetSet.setOnClickListener {
+            val input = binding.targetInput.text.toString().trim()
+            val value = input.toIntOrNull()
+            if (value != null && value >= 0) {
+                updateGoal(counter, value)
+            } else {
+                binding.targetInput.error = "请输入有效数字"
+            }
+        }
+        // 回车也可设定
+        binding.targetInput.setOnEditorActionListener { v, actionId, event ->
+            val input = binding.targetInput.text.toString().trim()
+            val value = input.toIntOrNull()
+            if (value != null && value >= 0) {
+                updateGoal(counter, value)
+                true
+            } else {
+                false
+            }
+        }
 
         val mostRecentDate = counter.mostRecent
         if (mostRecentDate != null) {
-            binding.timestampText.referenceTime = mostRecentDate.time
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+            binding.timestampText.text = "上次时间: ${sdf.format(mostRecentDate)}"
         } else {
-            binding.timestampText.referenceTime = -1L
+            binding.timestampText.text = "上次时间: -"
         }
+    }
+
+    private fun updateGoal(counter: CounterSummary, newGoal: Int) {
+        if (newGoal == counter.goal) return
+        val meta = org.kde.bettercounter.persistence.CounterMetadata(
+            counter.name, counter.interval, newGoal, counter.color
+        )
+        viewModel.editCounterSameName(meta)
     }
 
     fun showPickDateTutorial(onDismissListener: OnDismissListener? = null) {
