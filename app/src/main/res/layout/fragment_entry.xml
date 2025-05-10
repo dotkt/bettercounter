@@ -79,6 +79,8 @@
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:text="-"
+                android:textColor="@android:color/black"
+                android:backgroundTint="@android:color/darker_gray"
                 android:textSize="16sp"
                 android:layout_marginEnd="2dp" />
             <EditText
@@ -96,6 +98,8 @@
                 android:layout_width="32dp"
                 android:layout_height="32dp"
                 android:text="+"
+                android:textColor="@android:color/black"
+                android:backgroundTint="@android:color/darker_gray"
                 android:textSize="16sp"
                 android:layout_marginEnd="2dp" />
             <Button
@@ -103,6 +107,8 @@
                 android:layout_width="40dp"
                 android:layout_height="32dp"
                 android:text="设"
+                android:textColor="@android:color/black"
+                android:backgroundTint="@android:color/darker_gray"
                 android:textSize="14sp" />
         </LinearLayout>
 
