@@ -45,6 +45,8 @@ class EntryListViewAdapter(
 
     private var recyclerView: RecyclerView? = null
 
+    private var currentTooltip: SimpleTooltip? = null
+
     override fun onAttachedToRecyclerView(view: RecyclerView) {
         recyclerView = view
         touchHelper.attachToRecyclerView(view)
@@ -140,16 +142,25 @@ class EntryListViewAdapter(
     }
 
     fun showDragTutorial(holder: EntryViewHolder, onDismissListener: OnDismissListener? = null) {
-        SimpleTooltip.Builder(activity)
+        currentTooltip?.dismiss()
+        currentTooltip = SimpleTooltip.Builder(activity)
             .anchorView(holder.binding.nameText)
             .text(R.string.tutorial_drag)
             .gravity(Gravity.BOTTOM)
             .animated(true)
-            .focusable(true) // modal requires focusable
+            .focusable(true)
             .modal(true)
-            .onDismissListener(onDismissListener)
+            .onDismissListener(OnDismissListener { p0 ->
+                onDismissListener?.onDismiss(p0)
+                currentTooltip = null
+            })
             .build()
-            .show()
+        currentTooltip?.show()
+    }
+
+    fun dismissTooltip() {
+        currentTooltip?.dismiss()
+        currentTooltip = null
     }
 
     fun showPickDateTutorial(holder: EntryViewHolder, onDismissListener: OnDismissListener? = null) {
