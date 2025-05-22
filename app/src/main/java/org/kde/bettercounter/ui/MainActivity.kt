@@ -218,11 +218,14 @@ class MainActivity : AppCompatActivity() {
                     val position = viewModel.getCounterList().indexOf(counterName)
                     Log.d(TAG, "Counter position: $position")
                     if (position != -1) {
-                        // 使用 post 确保在布局完成后执行
                         binding.recycler.post {
-                            binding.recycler.smoothScrollToPosition(position)
-                            // 自动展开详情面板
-                            entryViewAdapter.selectItem(position)
+                            // 先滚到最下面
+                            binding.recycler.scrollToPosition(entryViewAdapter.itemCount - 1)
+                            // 再 post 一次，等 layout 完成后滚回目标
+                            binding.recycler.post {
+                                entryViewAdapter.selectItem(position) // 展开详情面板
+                                binding.recycler.scrollToPosition(position)
+                            }
                         }
                     }
                     viewModel.removeCounterChangeObserver(this)
