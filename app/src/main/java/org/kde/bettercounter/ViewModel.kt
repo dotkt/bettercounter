@@ -282,6 +282,10 @@ class ViewModel(application: Application) {
                 for (counterName in counters) {
                     val summary = repo.getCounterSummary(counterName)
                     val counterEntries = repo.getAllEntriesSortedByDate(counterName)
+                    Log.d(TAG, "[导出] 计数器: $counterName, 条目数: ${counterEntries.size}")
+                    counterEntries.forEachIndexed { idx, entry ->
+                        Log.d(TAG, "[导出] $counterName 第${idx+1}条: 时间戳=${entry.date.time}")
+                    }
                     if (counterEntries.isEmpty()) continue
 
                     // 提取颜色整数值
@@ -428,6 +432,11 @@ class ViewModel(application: Application) {
                             sendProgress(namesToImport.size, 0)
                         }
                     }
+                    Log.d(TAG, "[导入] 解析后待导入计数器: ${namesToImport.joinToString()}")
+                    namesToImport.forEach { name ->
+                        val count = entriesToImport.count { it.name == name }
+                        Log.d(TAG, "[导入] 计数器: $name, 待导入条目数: $count")
+                    }
                     
                     // 处理计数器和元数据
                     namesToImport.forEach { name ->
@@ -464,6 +473,7 @@ class ViewModel(application: Application) {
                     
                     // 批量添加条目
                     repo.bulkAddEntries(entriesToImport)
+                    Log.d(TAG, "[导入] 实际导入条目总数: ${entriesToImport.size}")
                     
                     // 记录导入的条目数
                     Log.d(TAG, "成功导入 ${entriesToImport.size} 个条目到 ${namesToImport.size} 个计数器")
@@ -488,9 +498,13 @@ class ViewModel(application: Application) {
                     }
                     
                     // 通知导入完成
+                    namesToImport.forEach { name ->
+                        val count = repo.getAllEntriesSortedByDate(name).size
+                        Log.d(TAG, "[导入] 导入后计数器: $name, 条目数: $count")
+                    }
                     sendProgress(namesToImport.size, 1)
                 } catch (e: Exception) {
-                    Log.e(TAG, "Import failed: ${e.message}")
+                    Log.e(TAG, "[导入] Import failed", e)
                     e.printStackTrace()
                     sendProgress(namesToImport.size, -1)
                 }
@@ -656,13 +670,14 @@ class ViewModel(application: Application) {
             for (timestamp in timestamps) {
                 try {
                     val time = timestamp.trim().toLong()
+                    Log.d(TAG, "[导入] 解析到 entry: $counterName, 时间戳: $time")
                     entries.add(Entry(name = counterName, date = Date(time)))
                 } catch (e: Exception) {
-                    Log.w(TAG, "无法解析时间戳: $timestamp")
+                    Log.w(TAG, "[导入] 无法解析时间戳: ${timestamp}", e)
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "解析时间戳数组失败: $timestampsStr", e)
+            Log.e(TAG, "[导入] 解析时间戳数组失败: $timestampsStr", e)
         }
     }
 

@@ -141,7 +141,7 @@ class EntryListViewAdapter(
 
     fun showDragTutorial(holder: EntryViewHolder, onDismissListener: OnDismissListener? = null) {
         SimpleTooltip.Builder(activity)
-            .anchorView(holder.binding.countText)
+            .anchorView(holder.binding.nameText)
             .text(R.string.tutorial_drag)
             .gravity(Gravity.BOTTOM)
             .animated(true)
