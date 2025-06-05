@@ -193,7 +193,7 @@ class MainActivity : AppCompatActivity() {
         // refreshes the widgets after installing doesn't trigger. Do it manually here.
         forceRefreshWidgets(this)
 
-        startRefreshEveryHourBoundary()
+        startRefreshEveryMinuteBoundary()
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -246,23 +246,16 @@ class MainActivity : AppCompatActivity() {
         return ChronoUnit.MILLIS.between(current, nextHour)
     }
 
-    private fun startRefreshEveryHourBoundary() {
+    private fun startRefreshEveryMinuteBoundary() {
         lifecycleScope.launch(Dispatchers.IO) {
             var lastDate = LocalDateTime.now().toLocalDate()
-            
             while (isActive) {
-                delay(millisecondsUntilNextHour())
-                
-                // 检查日期是否变化
+                delay(60 * 1000) // 每分钟检测一次
                 val currentDate = LocalDateTime.now().toLocalDate()
                 if (currentDate != lastDate) {
-                    // 日期已变化，刷新所有计数器
-                    Log.d(TAG, "Date changed from $lastDate to $currentDate, refreshing counters")
+                    viewModel.refreshAllObservers() // 只在IO线程调用
                     lastDate = currentDate
                 }
-                
-                // 刷新所有观察者
-                viewModel.refreshAllObservers()
             }
         }
     }
@@ -270,6 +263,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         val inflater: MenuInflater = menuInflater
         inflater.inflate(R.menu.main, menu)
+        // 添加测试菜单项
+        menu.add(Menu.NONE, 999, Menu.NONE, "测试日期变化")
         return true
     }
 
@@ -300,6 +295,16 @@ class MainActivity : AppCompatActivity() {
                             viewModel.resetTutorialShown(Tutorial.CHANGE_GRAPH_INTERVAL)
                             sheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
                         }
+                    }
+                }
+            }
+            999 -> {
+                // 测试日期变化
+                lifecycleScope.launch(Dispatchers.IO) {
+                    Log.d(TAG, "手动触发日期变化测试")
+                    viewModel.refreshAllObservers()
+                    withContext(Dispatchers.Main) {
+                        Snackbar.make(binding.recycler, "已触发计数器刷新", Snackbar.LENGTH_SHORT).show()
                     }
                 }
             }

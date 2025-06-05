@@ -700,7 +700,10 @@ class ViewModel(application: Application) {
 
     suspend fun refreshAllObservers() {
         for ((name, summary) in summaryMap) {
-            summary.postValue(repo.getCounterSummary(name))
+            val counterSummary = repo.getCounterSummary(name) // IO线程
+            withContext(Dispatchers.Main) {
+                summary.value = counterSummary // 主线程更新LiveData
+            }
         }
     }
 

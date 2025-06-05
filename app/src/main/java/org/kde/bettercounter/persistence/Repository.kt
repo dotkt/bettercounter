@@ -115,18 +115,18 @@ class Repository(
         }
         val intervalEndDate = intervalStartDate.copy().apply { addInterval(interval, 1) }
         val firstLastAndCount = entryDao.getFirstLastAndCount(name)
-        return counterCache.getOrPut(name) {
-            CounterSummary(
-                name = name,
-                color = color,
-                interval = interval,
-                goal = goal,
-                lastIntervalCount = entryDao.getCountInRange(name, intervalStartDate.time, intervalEndDate.time),
-                totalCount = firstLastAndCount.count, // entryDao.getCount(name),
-                leastRecent = firstLastAndCount.first, // entryDao.getLeastRecent(name)?.date,
-                mostRecent = firstLastAndCount.last, // entryDao.getMostRecent(name)?.date,
-            )
-        }
+        
+        // 每次都重新计算计数器摘要，不使用缓存
+        return CounterSummary(
+            name = name,
+            color = color,
+            interval = interval,
+            goal = goal,
+            lastIntervalCount = entryDao.getCountInRange(name, intervalStartDate.time, intervalEndDate.time),
+            totalCount = firstLastAndCount.count,
+            leastRecent = firstLastAndCount.first,
+            mostRecent = firstLastAndCount.last,
+        )
     }
 
     suspend fun renameCounter(oldName: String, newName: String) {
