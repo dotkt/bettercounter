@@ -82,7 +82,6 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d(TAG, "onCreate called")
-        handleIntent(intent)
         
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -151,7 +150,7 @@ class MainActivity : AppCompatActivity() {
                         onSelectedItemUpdated(position, counter)
                     },
                     onDateChange = { newDate ->
-                        val chartPosition = findPositionForRangeStart(newDate)
+                        val chartPosition = this.findPositionForRangeStart(newDate)
                         binding.charts.scrollToPosition(chartPosition)
                     },
                     onDataDisplayed = {
@@ -194,6 +193,9 @@ class MainActivity : AppCompatActivity() {
         forceRefreshWidgets(this)
 
         startRefreshEveryMinuteBoundary()
+        
+        // Handle intent after all UI components are initialized
+        handleIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent?) {
