@@ -84,10 +84,16 @@ fun removeWidgets(context: Context, counterName: String) {
 }
 
 fun forceRefreshWidgets(context: Context) {
-    val intent = Intent(context, WidgetProvider::class.java)
-    intent.action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
-    intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, getAllWidgetIds(context))
-    context.sendBroadcast(intent)
+    val widgetIds = getAllWidgetIds(context)
+    if (widgetIds.isNotEmpty()) {
+        Log.d(TAG, "Refreshing ${widgetIds.size} widgets")
+        val intent = Intent(context, WidgetProvider::class.java)
+        intent.action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, widgetIds)
+        context.sendBroadcast(intent)
+    } else {
+        Log.d(TAG, "No widgets to refresh")
+    }
 }
 
 internal fun updateAppWidget(
@@ -96,8 +102,6 @@ internal fun updateAppWidget(
     appWidgetManager: AppWidgetManager,
     appWidgetId: Int
 ) {
-    Log.d(TAG, "updateAppWidget")
-
     if (!existsWidgetCounterNamePref(context, appWidgetId)) {
         // This gets called right after placing the widget even if it hasn't been configured yet.
         // In that case we can't do anything. This is useful for reconfigurable widgets, which don't
@@ -115,7 +119,6 @@ internal fun updateAppWidget(
         putExtra(MainActivity.EXTRA_COUNTER_NAME, counterName)
         flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
     }
-    Log.d("WidgetProvider", "Creating PendingIntent for counter: $counterName")
     
     val openAppPendingIntent = PendingIntent.getActivity(
         context, 
@@ -123,7 +126,6 @@ internal fun updateAppWidget(
         openAppIntent, 
         PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
     )
-    Log.d("WidgetProvider", "Setting click listener on widgetName")
     views.setOnClickPendingIntent(R.id.widgetName, openAppPendingIntent)
 
     if (!viewModel.counterExists(counterName)) {
@@ -149,7 +151,6 @@ internal fun updateAppWidget(
     // observeForever means it's not attached to any lifecycle so we need to call removeObserver manually
     viewModel.getCounterSummary(counterName).observeForever(object : Observer<CounterSummary> {
         override fun onChanged(value: CounterSummary) {
-            Log.d(TAG, "onChanged")
             if (!existsWidgetCounterNamePref(context, appWidgetId)) {
                 // Prevent leaking the observer once the widget has been deleted by deleting it here
                 viewModel.getCounterSummary(value.name).removeObserver(this)

@@ -188,14 +188,19 @@ class MainActivity : AppCompatActivity() {
         binding.charts.isNestedScrollingEnabled = false
         PagerSnapHelper().attachToRecyclerView(binding.charts) // Scroll one by one
 
-        // For some reason, when the app is installed via Android Studio, the broadcast that
-        // refreshes the widgets after installing doesn't trigger. Do it manually here.
-        forceRefreshWidgets(this)
-
         startRefreshEveryMinuteBoundary()
         
         // Handle intent after all UI components are initialized
         handleIntent(intent)
+        
+        // 延迟执行 widget 刷新，避免阻塞 UI 初始化
+        lifecycleScope.launch(Dispatchers.Main) {
+            delay(100) // 给 UI 更多时间初始化
+            
+            // For some reason, when the app is installed via Android Studio, the broadcast that
+            // refreshes the widgets after installing doesn't trigger. Do it manually here.
+            forceRefreshWidgets(this@MainActivity)
+        }
     }
 
     override fun onNewIntent(intent: Intent?) {
@@ -241,6 +246,8 @@ class MainActivity : AppCompatActivity() {
             })
         }
     }
+
+
 
     private fun millisecondsUntilNextHour(): Long {
         val current = LocalDateTime.now()
