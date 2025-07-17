@@ -188,6 +188,27 @@ class MainActivity : AppCompatActivity() {
         binding.charts.isNestedScrollingEnabled = false
         PagerSnapHelper().attachToRecyclerView(binding.charts) // Scroll one by one
 
+        // 搜索功能
+        // ---------
+        binding.searchEditText.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                val searchText = s?.toString()?.trim() ?: ""
+                filterCounters(searchText)
+                // 显示空状态提示
+                if (searchText.isNotEmpty() && entryViewAdapter.itemCount == 0) {
+                    Snackbar.make(binding.recycler, getString(R.string.no_search_results), Snackbar.LENGTH_SHORT).show()
+                }
+            }
+        })
+
+        // 清除搜索按钮点击事件
+        binding.searchLayout.setEndIconOnClickListener {
+            binding.searchEditText.text?.clear()
+            filterCounters("")
+        }
+
         startRefreshEveryMinuteBoundary()
         
         // Handle intent after all UI components are initialized
@@ -247,7 +268,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
+    /**
+     * 根据搜索文本过滤计数器
+     */
+    private fun filterCounters(searchText: String) {
+        entryViewAdapter.filterCounters(searchText)
+    }
 
     private fun millisecondsUntilNextHour(): Long {
         val current = LocalDateTime.now()

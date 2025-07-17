@@ -57,4 +57,6 @@
     <string name="color_hint">Color %1$d</string>
     <string name="display_interval">Interval to display</string>
     <string name="goal">Goal</string>
+    <string name="search_counters">搜索计数器...</string>
+    <string name="no_search_results">没有找到匹配的计数器</string>
 </resources>

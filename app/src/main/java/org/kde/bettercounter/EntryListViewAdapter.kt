@@ -38,6 +38,8 @@ class EntryListViewAdapter(
 
     private val inflater: LayoutInflater = LayoutInflater.from(activity)
     private var counters: MutableList<String> = mutableListOf()
+    private var originalCounters: MutableList<String> = mutableListOf() // 备份原始数据
+    private var currentFilter: String =""
 
     override fun getItemCount(): Int = counters.size
 
@@ -69,6 +71,7 @@ class EntryListViewAdapter(
             override fun onInitialCountersLoaded() {
                 activity.runOnUiThread {
                     counters = viewModel.getCounterList().toMutableList()
+                    originalCounters = counters.toMutableList() // 备份原始数据
                     notifyDataSetChanged()
                     for (counterName in counters) {
                         observeNewCounter(counterName)
@@ -79,6 +82,7 @@ class EntryListViewAdapter(
             override fun onCounterAdded(counterName: String) {
                 activity.runOnUiThread {
                     counters.add(counterName)
+                    originalCounters.add(counterName) // 同时更新原始数据
                     val position = counters.size - 1
                     notifyItemInserted(position)
                     observeNewCounter(counterName)
@@ -89,6 +93,7 @@ class EntryListViewAdapter(
             override fun onCounterRemoved(counterName: String) {
                 val position = counters.indexOf(counterName)
                 counters.removeAt(position)
+                originalCounters.remove(counterName) // 同时更新原始数据
                 if (currentSelectedCounterName == counterName) {
                     currentSelectedCounterName = null
                 }
@@ -100,6 +105,10 @@ class EntryListViewAdapter(
             override fun onCounterRenamed(oldName: String, newName: String) {
                 val position = counters.indexOf(oldName)
                 counters[position] = newName
+                val originalPosition = originalCounters.indexOf(oldName)
+                if (originalPosition != -1) {
+                    originalCounters[originalPosition] = newName
+                }
                 if (currentSelectedCounterName == oldName) {
                     currentSelectedCounterName = newName
                     listObserver.onSelectedItemUpdated(position, viewModel.getCounterSummary(newName).value!!)
@@ -198,10 +207,46 @@ class EntryListViewAdapter(
         viewModel.saveCounterOrder(counters)
     }
 
+    /**
+     * 更新过滤后的数据
+     */
+    @SuppressLint("NotifyDataSetChanged")
+    fun updateFilteredData(filteredCounters: List<String>) {
+        counters.clear()
+        counters.addAll(filteredCounters)
+        notifyDataSetChanged()
+    }
+
+    /**
+     * 根据搜索文本过滤计数器
+     */
+    fun filterCounters(searchText: String) {
+        currentFilter = searchText
+        val filteredCounters = if (searchText.isEmpty()) {
+            originalCounters
+        } else {
+            originalCounters.filter { counterName ->
+                counterName.contains(searchText, ignoreCase = true)
+            }
+        }
+        updateFilteredData(filteredCounters)
+    }
+
     fun selectItem(position: Int) {
         val counterName = counters[position]
         viewModel.getCounterSummary(counterName).value?.let { counter ->
             listObserver.onItemSelected(position, counter)
         }
     }
+
+    /**
+     * 根据计数器名称选择项目
+     */
+    fun selectItemByName(counterName: String) {
+        val position = counters.indexOf(counterName)
+        if (position != -1) {
+            selectItem(position)
+        }
+    }
+
 }
