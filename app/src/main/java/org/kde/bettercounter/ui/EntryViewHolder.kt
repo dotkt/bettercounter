@@ -109,21 +109,8 @@ class EntryViewHolder(
 
         val mostRecentDate = counter.mostRecent
         if (mostRecentDate != null) {
-            val now = System.currentTimeMillis()
-            val diff = now - mostRecentDate.time
-            val minute = 60 * 1000
-            val hour = 60 * minute
-            val day = 24 * hour
-            val text = when {
-                diff < minute -> "上次时间: 刚刚"
-                diff < hour -> "上次时间: ${diff / minute} 分钟前"
-                diff < day -> "上次时间: ${diff / hour} 小时前"
-                else -> {
-                    val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-                    "上次时间: ${sdf.format(mostRecentDate)}"
-                }
-            }
-            binding.timestampText.text = text
+            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+            binding.timestampText.text = "上次时间: ${sdf.format(mostRecentDate)}"
         } else {
             binding.timestampText.text = "上次时间: -"
         }

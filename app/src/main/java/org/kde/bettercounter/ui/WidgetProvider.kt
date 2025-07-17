@@ -200,12 +200,12 @@ private fun formatRecentTime(date: Date, context: Context): String {
         diffInMinutes < 1 -> "刚刚"
         diffInMinutes < 10 -> "${diffInMinutes}分钟前"
         isSameDay(now, targetDate) -> {
-            val timeFormat = SimpleDateFormat("H:mm:ss", Locale.getDefault())
-            "今${timeFormat.format(date)}"
+            val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+            "今 ${timeFormat.format(date)}"
         }
         isYesterday(now, targetDate) -> {
-            val timeFormat = SimpleDateFormat("H:mm", Locale.getDefault())
-            "昨${timeFormat.format(date)}"
+            val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+            "昨 ${timeFormat.format(date)}"
         }
         diffInDays < 30 -> "${diffInDays}天前"
         else -> {
