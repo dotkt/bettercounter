@@ -247,11 +247,11 @@ class MainActivity : AppCompatActivity() {
                     Log.d(TAG, "Counter position: $position")
                     if (position != -1) {
                         binding.recycler.post {
-                            // 先滚到最下面
+                            // 先滚到最下面，确保布局完成
                             binding.recycler.scrollToPosition(entryViewAdapter.itemCount - 1)
                             // 再 post 一次，等 layout 完成后滚回目标
                             binding.recycler.post {
-                                entryViewAdapter.selectItem(position) // 展开详情面板
+                                // 滚动到目标计数器，不展开统计页面
                                 binding.recycler.scrollToPosition(position)
                             }
                         }
