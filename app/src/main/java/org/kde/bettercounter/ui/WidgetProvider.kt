@@ -17,6 +17,8 @@ import org.kde.bettercounter.ViewModel
 import org.kde.bettercounter.persistence.CounterSummary
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Calendar
+import java.util.Locale
 
 private const val ACTION_COUNT = "org.kde.bettercounter.WidgetProvider.COUNT"
 private const val EXTRA_WIDGET_ID = "EXTRA_WIDGET_ID"
@@ -167,15 +169,7 @@ internal fun updateAppWidget(
             views.setTextViewText(R.id.widgetCounter, value.getFormattedCount(forWidget = true))
             val date = value.mostRecent
             if (date != null) {
-                val now = Date()
-                val diffInMillis = now.time - date.time
-                val isRecent = diffInMillis < (48 * 60 * 60 * 1000L) // 12 hours
-                val dateFormat = if (isRecent) {
-                    SimpleDateFormat.getTimeInstance()
-                } else {
-                    SimpleDateFormat.getDateInstance()
-                }
-                val formattedDate = dateFormat.format(date)
+                val formattedDate = formatRecentTime(date, context)
                 views.setTextViewText(R.id.widgetTime, formattedDate)
             } else {
                 views.setTextViewText(R.id.widgetTime, context.getString(R.string.never))
@@ -183,4 +177,61 @@ internal fun updateAppWidget(
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
     })
+}
+
+/**
+ * 格式化最近完成时间的显示格式
+ * 如果是1分钟内完成的，就显示刚刚
+ * 如果是10分钟内完成的，就显示几分钟以前
+ * 如果是今天内完成的，就显示 今H:M:S
+ * 如果是昨天完成的，就显示 昨H:M
+ * 如果是一个月内完成的 就显示 多少天之前
+ * 如果超过一个月才完成，就显示Y:M:D 其中年份比如225示25即可。
+ */
+private fun formatRecentTime(date: Date, context: Context): String {
+    val now = Calendar.getInstance()
+    val targetDate = Calendar.getInstance().apply { time = date }
+    
+    val diffInMillis = now.timeInMillis - targetDate.timeInMillis
+    val diffInMinutes = diffInMillis / (60 * 1000)
+    val diffInHours = diffInMillis / (60 * 60 * 1000)
+    val diffInDays = diffInMillis / (24 * 60 * 60 * 1000)
+    return when {
+        diffInMinutes < 1 -> "刚刚"
+        diffInMinutes < 10 -> "${diffInMinutes}分钟前"
+        isSameDay(now, targetDate) -> {
+            val timeFormat = SimpleDateFormat("H:mm:ss", Locale.getDefault())
+            "今${timeFormat.format(date)}"
+        }
+        isYesterday(now, targetDate) -> {
+            val timeFormat = SimpleDateFormat("H:mm", Locale.getDefault())
+            "昨${timeFormat.format(date)}"
+        }
+        diffInDays < 30 -> "${diffInDays}天前"
+        else -> {
+            val yearFormat = SimpleDateFormat("yy", Locale.getDefault())
+            val monthFormat = SimpleDateFormat("M", Locale.getDefault())
+            val dayFormat = SimpleDateFormat("d", Locale.getDefault())
+            "${yearFormat.format(date)}/${monthFormat.format(date)}/${dayFormat.format(date)}"
+        }
+    }
+}
+
+/**
+ * 检查两个日期是否是同一天
+ */
+private fun isSameDay(cal1: Calendar, cal2: Calendar): Boolean {
+    return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
+           cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
+}
+
+/**
+ * 检查目标日期是否是昨天
+ */
+private fun isYesterday(now: Calendar, targetDate: Calendar): Boolean {
+    val yesterday = Calendar.getInstance().apply {
+        timeInMillis = now.timeInMillis
+        add(Calendar.DAY_OF_YEAR, -1)
+    }
+    return isSameDay(yesterday, targetDate)
 }
