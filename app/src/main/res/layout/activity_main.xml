@@ -18,31 +18,61 @@
             android:layout_height="?attr/actionBarSize"
             android:background="@color/colorLightBackground" />
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/searchLayout"
+        <!-- 搜索和导出按钮的容器 -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_margin="8dp"
-            android:background="@color/colorLightBackground"
-            app:boxCornerRadiusTopStart="8dp"
-            app:boxCornerRadiusTopEnd="8dp"
-            app:boxCornerRadiusBottomStart="8dp"
-            app:boxCornerRadiusBottomEnd="8dp"
-            app:startIconDrawable="@drawable/ic_search"
-            app:endIconMode="clear_text"
-            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/searchEditText"
-                android:layout_width="match_parent"
+            <!-- 搜索框 -->
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/searchLayout"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:hint="@string/search_counters"
-                android:inputType="text"
-                android:maxLines="1"
-                android:textColor="@color/colorDarkBackground"
-                android:textColorHint="@android:color/darker_gray" />
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:background="@color/colorLightBackground"
+                app:boxCornerRadiusTopStart="8dp"
+                app:boxCornerRadiusTopEnd="8dp"
+                app:boxCornerRadiusBottomStart="8dp"
+                app:boxCornerRadiusBottomEnd="8dp"
+                app:startIconDrawable="@drawable/ic_search"
+                app:endIconMode="clear_text"
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
-        </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/searchEditText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:hint="@string/search_counters"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:textColor="@color/colorDarkBackground"
+                    android:textColorHint="@android:color/darker_gray" />
+
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- 导出按钮 -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/exportButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:text="@string/export_csv"
+                android:textSize="12sp"
+                android:minWidth="0dp"
+                android:insetLeft="8dp"
+                android:insetRight="8dp"
+                android:insetTop="4dp"
+                android:insetBottom="4dp"
+                app:cornerRadius="8dp"
+                app:icon="@drawable/ic_time"
+                app:iconGravity="textStart"
+                app:iconSize="16dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+        </LinearLayout>
 
     </com.google.android.material.appbar.AppBarLayout>
 

@@ -209,6 +209,11 @@ class MainActivity : AppCompatActivity() {
             filterCounters("")
         }
 
+        // 导出按钮点击事件
+        binding.exportButton.setOnClickListener {
+            checkPermissionAndExport()
+        }
+
         startRefreshEveryMinuteBoundary()
         
         // Handle intent after all UI components are initialized
