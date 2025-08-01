@@ -249,6 +249,16 @@ class ViewModel(application: Application) {
         }
     }
 
+    fun clearAllData() {
+        CoroutineScope(Dispatchers.IO).launch {
+            val counters = repo.getCounterList()
+            for (counterName in counters) {
+                repo.removeAllEntries(counterName)
+                summaryMap[counterName]?.postValue(repo.getCounterSummary(counterName))
+            }
+        }
+    }
+
     fun deleteCounter(name: String) {
         CoroutineScope(Dispatchers.IO).launch {
             repo.removeAllEntries(name)

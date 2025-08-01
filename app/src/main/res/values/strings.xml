@@ -39,6 +39,11 @@
     <string name="tutorial_drag">Long press and drag to reorder</string>
     <string name="export_csv">Export data</string>
     <string name="import_csv">Import data</string>
+    <string name="clear_all_data">Clear all data</string>
+    <string name="clear_all_data_confirm_title">Clear all data</string>
+    <string name="clear_all_data_confirm_message">Are you sure you want to clear all counter data? This will reset all counters to 0 but keep their settings and goals.</string>
+    <string name="clear">Clear</string>
+    <string name="all_data_cleared">All counter data cleared</string>
     <string name="show_tutorial">Show tutorial</string>
     <string name="exported_n">Exported %1$d/%2$d counters</string>
     <string name="imported_n">Imported %1$d counters</string>

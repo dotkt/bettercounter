@@ -36,6 +36,11 @@
     <string name="tutorial_drag">长按并拖动来重新排序</string>
     <string name="export_csv">导出数据</string>
     <string name="import_csv">导入数据</string>
+    <string name="clear_all_data">清空数据</string>
+    <string name="clear_all_data_confirm_title">清空数据</string>
+    <string name="clear_all_data_confirm_message">确定要清空所有计数器的历史数据吗？这将重置所有计数器为0，但保留计数器的设置和目标。</string>
+    <string name="clear">清空</string>
+    <string name="all_data_cleared">所有计数器数据已清空</string>
     <string name="show_tutorial">显示教程</string>
     <string name="exported_n">导出了 %1$d/%2$d 个计数器</string>
     <string name="imported_n">导入了 %1$d 个计数器</string>

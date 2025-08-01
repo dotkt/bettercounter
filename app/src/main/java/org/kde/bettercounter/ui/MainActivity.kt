@@ -324,6 +324,17 @@ class MainActivity : AppCompatActivity() {
             R.id.import_csv -> {
                 importFilePicker.launch(OpenFileParams("text/*"))
             }
+            R.id.clear_all_data -> {
+                MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.clear_all_data_confirm_title)
+                    .setMessage(R.string.clear_all_data_confirm_message)
+                    .setPositiveButton(R.string.clear) { _, _ ->
+                        viewModel.clearAllData()
+                        Snackbar.make(binding.recycler, R.string.all_data_cleared, Snackbar.LENGTH_SHORT).show()
+                    }
+                    .setNegativeButton(R.string.cancel, null)
+                    .show()
+            }
             R.id.show_tutorial -> {
                 if (viewModel.getCounterList().isEmpty()) {
                     Snackbar.make(binding.recycler, getString(R.string.no_counters), Snackbar.LENGTH_LONG).show()
