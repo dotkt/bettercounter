@@ -68,7 +68,9 @@ class ViewModel(application: Application) {
                     for (counter in counters) {
                         summaryMap[counter.name]!!.value = counter
                     }
-                    for (observer in counterObservers) {
+                    // 创建观察者的副本以避免并发修改
+                    val observersCopy = counterObservers.toList()
+                    for (observer in observersCopy) {
                         observer.onInitialCountersLoaded()
                     }
                     initialized = true
@@ -99,7 +101,8 @@ class ViewModel(application: Application) {
             }
             withContext(Dispatchers.Main) {
                 synchronized(this) {
-                    for (observer in counterObservers) {
+                    val observersCopy = counterObservers.toList()
+                    for (observer in observersCopy) {
                         observer.onCounterAdded(name)
                     }
                 }
@@ -142,7 +145,8 @@ class ViewModel(application: Application) {
                 val oldEntryDate = repo.removeEntry(name)
                 if (oldEntryDate != null) {
                     synchronized(this) {
-                        for (observer in counterObservers) {
+                        val observersCopy = counterObservers.toList()
+                        for (observer in observersCopy) {
                             observer.onCounterDecremented(name, oldEntryDate)
                         }
                     }
@@ -252,7 +256,8 @@ class ViewModel(application: Application) {
             }
             withContext(Dispatchers.Main) {
                 synchronized(this) {
-                    for (observer in counterObservers) {
+                    val observersCopy = counterObservers.toList()
+                    for (observer in observersCopy) {
                         observer.onCounterRenamed(oldName, newName)
                     }
                 }
@@ -300,7 +305,8 @@ class ViewModel(application: Application) {
             repo.removeAllEntries(name)
             withContext(Dispatchers.Main) {
                 synchronized(this) {
-                    for (observer in counterObservers) {
+                    val observersCopy = counterObservers.toList()
+                    for (observer in observersCopy) {
                         observer.onCounterRemoved(name)
                     }
                 }
@@ -953,7 +959,8 @@ class ViewModel(application: Application) {
             // 通知所有观察者数据已更新
             withContext(Dispatchers.Main) {
                 synchronized(this) {
-                    for (observer in counterObservers) {
+                    val observersCopy = counterObservers.toList()
+                    for (observer in observersCopy) {
                         observer.onInitialCountersLoaded()
                     }
                 }
