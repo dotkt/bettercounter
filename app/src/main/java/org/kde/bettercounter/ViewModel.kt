@@ -53,8 +53,10 @@ class ViewModel(application: Application) {
         val prefs = application.getSharedPreferences("prefs", Context.MODE_PRIVATE)
         repo = Repository(application, db.entryDao(), prefs)
         val initialCounters = repo.getCounterList()
-        for (name in initialCounters) {
-            summaryMap[name] = MutableLiveData()
+        synchronized(this) {
+            for (name in initialCounters) {
+                summaryMap[name] = MutableLiveData()
+            }
         }
         CoroutineScope(Dispatchers.IO).launch {
             val counters = mutableListOf<CounterSummary>()
@@ -62,10 +64,10 @@ class ViewModel(application: Application) {
                 counters.add(repo.getCounterSummary(name))
             }
             withContext(Dispatchers.Main) {
-                for (counter in counters) {
-                    summaryMap[counter.name]!!.value = counter
-                }
                 synchronized(this) {
+                    for (counter in counters) {
+                        summaryMap[counter.name]!!.value = counter
+                    }
                     for (observer in counterObservers) {
                         observer.onInitialCountersLoaded()
                     }
@@ -77,8 +79,8 @@ class ViewModel(application: Application) {
 
     @MainThread
     fun observeCounterChange(observer: CounterObserver) {
-        Log.d(TAG, "observeCounterChange SIZE" + counterObservers.size)
         synchronized(this) {
+            Log.d(TAG, "observeCounterChange SIZE" + counterObservers.size)
             counterObservers.add(observer)
             if (initialized) {
                 observer.onInitialCountersLoaded()
@@ -91,17 +93,24 @@ class ViewModel(application: Application) {
         repo.setCounterList(repo.getCounterList().toMutableList() + name)
         repo.setCounterMetadata(counter)
         CoroutineScope(Dispatchers.IO).launch {
-            summaryMap[name] = MutableLiveData(repo.getCounterSummary(name))
+            val counterSummary = repo.getCounterSummary(name)
+            synchronized(this) {
+                summaryMap[name] = MutableLiveData(counterSummary)
+            }
             withContext(Dispatchers.Main) {
-                for (observer in counterObservers) {
-                    observer.onCounterAdded(name)
+                synchronized(this) {
+                    for (observer in counterObservers) {
+                        observer.onCounterAdded(name)
+                    }
                 }
             }
         }
     }
 
     fun removeCounterChangeObserver(observer: CounterObserver) {
-        counterObservers.remove(observer)
+        synchronized(this) {
+            counterObservers.remove(observer)
+        }
     }
 
     fun incrementCounter(name: String, date: Date = Calendar.getInstance().time) {
@@ -116,7 +125,10 @@ class ViewModel(application: Application) {
             withContext(Dispatchers.Main) {
                 playDingSound()
             }
-            summaryMap[name]?.postValue(repo.getCounterSummary(name))
+            val counterSummary = repo.getCounterSummary(name)
+            synchronized(this) {
+                summaryMap[name]?.postValue(counterSummary)
+            }
         }
     }
 
@@ -129,12 +141,17 @@ class ViewModel(application: Application) {
             repeat(value) {
                 val oldEntryDate = repo.removeEntry(name)
                 if (oldEntryDate != null) {
-                    for (observer in counterObservers) {
-                        observer.onCounterDecremented(name, oldEntryDate)
+                    synchronized(this) {
+                        for (observer in counterObservers) {
+                            observer.onCounterDecremented(name, oldEntryDate)
+                        }
                     }
                 }
             }
-            summaryMap[name]?.postValue(repo.getCounterSummary(name))
+            val counterSummary = repo.getCounterSummary(name)
+            synchronized(this) {
+                summaryMap[name]?.postValue(counterSummary)
+            }
         }
     }
 
@@ -179,7 +196,10 @@ class ViewModel(application: Application) {
             withContext(Dispatchers.Main) {
                 playDingSound()
             }
-            summaryMap[name]?.postValue(repo.getCounterSummary(name))
+            val counterSummary = repo.getCounterSummary(name)
+            synchronized(this) {
+                summaryMap[name]?.postValue(counterSummary)
+            }
             CoroutineScope(Dispatchers.Main).launch {
                 callback()
             }
@@ -203,7 +223,10 @@ class ViewModel(application: Application) {
         val name = counterMetadata.name
         repo.setCounterMetadata(counterMetadata)
         CoroutineScope(Dispatchers.IO).launch {
-            summaryMap[name]?.postValue(repo.getCounterSummary(name))
+            val counterSummary = repo.getCounterSummary(name)
+            synchronized(this) {
+                summaryMap[name]?.postValue(counterSummary)
+            }
         }
     }
 
@@ -217,23 +240,30 @@ class ViewModel(application: Application) {
 
         CoroutineScope(Dispatchers.IO).launch {
             repo.renameCounter(oldName, newName)
-            val counter: MutableLiveData<CounterSummary>? = summaryMap.remove(oldName)
-            if (counter == null) {
-                Log.e(TAG, "Trying to rename a counter but the old counter doesn't exist")
-                return@launch
+            val newCounterSummary = repo.getCounterSummary(newName)
+            synchronized(this) {
+                val counter: MutableLiveData<CounterSummary>? = summaryMap.remove(oldName)
+                if (counter == null) {
+                    Log.e(TAG, "Trying to rename a counter but the old counter doesn't exist")
+                    return@launch
+                }
+                summaryMap[newName] = counter
+                counter.postValue(newCounterSummary)
             }
-            summaryMap[newName] = counter
-            counter.postValue(repo.getCounterSummary(newName))
             withContext(Dispatchers.Main) {
-                for (observer in counterObservers) {
-                    observer.onCounterRenamed(oldName, newName)
+                synchronized(this) {
+                    for (observer in counterObservers) {
+                        observer.onCounterRenamed(oldName, newName)
+                    }
                 }
             }
         }
     }
 
     fun getCounterSummary(name: String): LiveData<CounterSummary> {
-        return summaryMap[name]!!
+        synchronized(this) {
+            return summaryMap[name]!!
+        }
     }
 
     fun counterExists(name: String): Boolean = repo.getCounterList().contains(name)
@@ -245,7 +275,10 @@ class ViewModel(application: Application) {
     fun resetCounter(name: String) {
         CoroutineScope(Dispatchers.IO).launch {
             repo.removeAllEntries(name)
-            summaryMap[name]?.postValue(repo.getCounterSummary(name))
+            val counterSummary = repo.getCounterSummary(name)
+            synchronized(this) {
+                summaryMap[name]?.postValue(counterSummary)
+            }
         }
     }
 
@@ -254,7 +287,10 @@ class ViewModel(application: Application) {
             val counters = repo.getCounterList()
             for (counterName in counters) {
                 repo.removeAllEntries(counterName)
-                summaryMap[counterName]?.postValue(repo.getCounterSummary(counterName))
+                val counterSummary = repo.getCounterSummary(counterName)
+                synchronized(this) {
+                    summaryMap[counterName]?.postValue(counterSummary)
+                }
             }
         }
     }
@@ -263,12 +299,16 @@ class ViewModel(application: Application) {
         CoroutineScope(Dispatchers.IO).launch {
             repo.removeAllEntries(name)
             withContext(Dispatchers.Main) {
-                for (observer in counterObservers) {
-                    observer.onCounterRemoved(name)
+                synchronized(this) {
+                    for (observer in counterObservers) {
+                        observer.onCounterRemoved(name)
+                    }
                 }
             }
         }
-        summaryMap.remove(name)
+        synchronized(this) {
+            summaryMap.remove(name)
+        }
         repo.deleteCounterMetadata(name)
         val list = repo.getCounterList().toMutableList()
         list.remove(name)
@@ -497,7 +537,7 @@ class ViewModel(application: Application) {
                         val summary = repo.getCounterSummary(name)
                         Log.d(TAG, "刷新计数器: $name")
                         
-                        withContext(Dispatchers.Main) {
+                        synchronized(this) {
                             summaryMap[name]?.value = summary
                         }
                     }
@@ -709,10 +749,22 @@ class ViewModel(application: Application) {
     }
 
     suspend fun refreshAllObservers() {
-        for ((name, summary) in summaryMap) {
+        val entries: List<Pair<String, MutableLiveData<CounterSummary>>>
+        synchronized(this) {
+            entries = summaryMap.toList() // 创建副本避免并发修改
+        }
+        // 在同步块外获取所有计数器摘要
+        val summaries = mutableListOf<Pair<String, CounterSummary>>()
+        for ((name, _) in entries) {
             val counterSummary = repo.getCounterSummary(name) // IO线程
-            withContext(Dispatchers.Main) {
-                summary.value = counterSummary // 主线程更新LiveData
+            summaries.add(Pair(name, counterSummary))
+        }
+        // 在主线程中更新LiveData
+        withContext(Dispatchers.Main) {
+            synchronized(this) {
+                for ((name, counterSummary) in summaries) {
+                    summaryMap[name]?.value = counterSummary
+                }
             }
         }
     }
@@ -893,15 +945,17 @@ class ViewModel(application: Application) {
             val counters = repo.getCounterList()
             for (name in counters) {
                 val summary = repo.getCounterSummary(name)
-                withContext(Dispatchers.Main) {
+                synchronized(this) {
                     summaryMap[name]?.value = summary
                 }
             }
             
             // 通知所有观察者数据已更新
             withContext(Dispatchers.Main) {
-                for (observer in counterObservers) {
-                    observer.onInitialCountersLoaded()
+                synchronized(this) {
+                    for (observer in counterObservers) {
+                        observer.onInitialCountersLoaded()
+                    }
                 }
             }
         }
