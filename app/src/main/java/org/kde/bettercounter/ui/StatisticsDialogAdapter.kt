@@ -229,16 +229,6 @@ class StatisticsDialogAdapter(
                     TableLayout.LayoutParams.WRAP_CONTENT
                 )
 
-                // 周号
-                val weekCell = TextView(view.context)
-                weekCell.text = week.toString()
-                weekCell.textSize = 11f
-                weekCell.setTextColor(android.graphics.Color.BLACK)
-                weekCell.gravity = android.view.Gravity.CENTER
-                weekCell.setPadding(8, 8, 8, 8)
-                weekCell.layoutParams = TableRow.LayoutParams(60, TableRow.LayoutParams.WRAP_CONTENT)
-                row.addView(weekCell)
-
                 // 计算这一周的周一
                 val weekCalendar = Calendar.getInstance()
                 weekCalendar.firstDayOfWeek = Calendar.MONDAY
@@ -250,6 +240,24 @@ class StatisticsDialogAdapter(
                 weekCalendar.set(Calendar.MINUTE, 0)
                 weekCalendar.set(Calendar.SECOND, 0)
                 weekCalendar.set(Calendar.MILLISECOND, 0)
+                
+                // 获取周一的日期（可能跨年）
+                val mondayYear = weekCalendar.get(Calendar.YEAR)
+                val mondayMonth = weekCalendar.get(Calendar.MONTH) + 1 // Calendar.MONTH从0开始
+                val mondayDay = weekCalendar.get(Calendar.DAY_OF_MONTH)
+                
+                // 格式化周号：周数.年-月-日
+                val weekText = String.format("%02d.%04d-%02d-%02d", week, mondayYear, mondayMonth, mondayDay)
+                
+                // 周号
+                val weekCell = TextView(view.context)
+                weekCell.text = weekText
+                weekCell.textSize = 9f
+                weekCell.setTextColor(android.graphics.Color.BLACK)
+                weekCell.gravity = android.view.Gravity.CENTER
+                weekCell.setPadding(4, 2, 4, 2)
+                weekCell.layoutParams = TableRow.LayoutParams(100, TableRow.LayoutParams.WRAP_CONTENT)
+                row.addView(weekCell)
 
                 // 星期一到星期日
                 // Calendar.MONDAY=2, Calendar.TUESDAY=3, ..., Calendar.SATURDAY=7, Calendar.SUNDAY=1
@@ -265,10 +273,10 @@ class StatisticsDialogAdapter(
                 
                 for (dayOfWeek in daysOfWeek) {
                     val dayCell = TextView(view.context)
-                    dayCell.textSize = 16f
+                    dayCell.textSize = 14f
                     dayCell.gravity = android.view.Gravity.CENTER
-                    dayCell.setPadding(4, 4, 4, 4)
-                    dayCell.layoutParams = TableRow.LayoutParams(40, TableRow.LayoutParams.WRAP_CONTENT)
+                    dayCell.setPadding(2, 2, 2, 2)
+                    dayCell.layoutParams = TableRow.LayoutParams(35, TableRow.LayoutParams.WRAP_CONTENT)
 
                     // 计算这个单元格对应的实际日期
                     val cellDate = weekCalendar.clone() as Calendar
