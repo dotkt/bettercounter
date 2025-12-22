@@ -7,7 +7,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.tabs.TabLayoutMediator
 import io.github.douglasjunior.androidSimpleTooltip.SimpleTooltip.OnDismissListener
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -187,23 +186,13 @@ class EntryViewHolder(
                 Log.d(TAG, statsText.toString())
                 Log.d(TAG, "==========================================")
                 
-                // 在手机上显示分页对话框
+                // 在手机上显示周统计对话框
                 withContext(Dispatchers.Main) {
-                    val dialogView = activity.layoutInflater.inflate(R.layout.dialog_statistics, null)
-                    val viewPager = dialogView.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.viewPager)
-                    val tabLayout = dialogView.findViewById<com.google.android.material.tabs.TabLayout>(R.id.tabLayout)
+                    val dialogView = activity.layoutInflater.inflate(R.layout.fragment_week_statistics, null)
                     
-                    val adapter = StatisticsDialogAdapter(entries, counter.name, viewPager)
-                    viewPager.adapter = adapter
-                    
-                    // 连接 TabLayout 和 ViewPager2
-                    TabLayoutMediator(tabLayout, viewPager) { tab, position ->
-                        tab.text = when (position) {
-                            0 -> "周统计"
-                            1 -> "详细信息"
-                            else -> ""
-                        }
-                    }.attach()
+                    // 直接创建并绑定周统计视图
+                    val adapter = StatisticsDialogAdapter(entries, counter.name, null)
+                    adapter.bindWeekStatisticsView(dialogView)
                     
                     val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(activity)
                         .setTitle("统计信息")

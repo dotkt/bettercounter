@@ -1,59 +1,32 @@
 package org.kde.bettercounter.ui
 
-import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
 import android.widget.TableLayout
 import android.widget.TableRow
 import android.widget.TextView
-import androidx.recyclerview.widget.RecyclerView
-import androidx.viewpager2.widget.ViewPager2
-import com.google.android.material.tabs.TabLayoutMediator
 import org.kde.bettercounter.R
 import org.kde.bettercounter.persistence.Entry
-import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Locale
 
 class StatisticsDialogAdapter(
     private val entries: List<Entry>,
     private val counterName: String,
-    private val viewPager: ViewPager2
-) : RecyclerView.Adapter<StatisticsDialogAdapter.ViewHolder>() {
+    private val viewPager: androidx.viewpager2.widget.ViewPager2?
+) {
 
-    class ViewHolder(val view: View) : RecyclerView.ViewHolder(view)
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = when (viewType) {
-            0 -> LayoutInflater.from(parent.context).inflate(R.layout.fragment_week_statistics, parent, false)
-            1 -> LayoutInflater.from(parent.context).inflate(R.layout.fragment_text_statistics, parent, false)
-            else -> throw IllegalArgumentException("Unknown view type: $viewType")
-        }
-        return ViewHolder(view)
-    }
-
-    override fun getItemViewType(position: Int): Int = position
-
-    override fun getItemCount(): Int = 2
-
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        when (position) {
-            0 -> bindWeekStatistics(holder.view)
-            1 -> bindTextStatistics(holder.view)
-        }
+    // 公共方法：直接绑定周统计视图
+    fun bindWeekStatisticsView(view: View) {
+        bindWeekStatistics(view)
     }
 
     private fun bindWeekStatistics(view: View) {
         val tableLayout = view.findViewById<TableLayout>(R.id.tableLayout)
-        val tvYear = view.findViewById<TextView>(R.id.tvYear)
-        val btnPrevYear = view.findViewById<android.widget.Button>(R.id.btnPrevYear)
-        val btnNextYear = view.findViewById<android.widget.Button>(R.id.btnNextYear)
-
-        var currentYear = Calendar.getInstance().get(Calendar.YEAR)
+        
+        // 获取当前年份
+        val currentYear = Calendar.getInstance().get(Calendar.YEAR)
 
         fun updateWeekTable(year: Int) {
             android.util.Log.d("StatisticsAdapter", "更新周统计表格，年份=$year, 条目数=${entries.size}")
-            tvYear.text = year.toString()
             tableLayout.removeViews(1, tableLayout.childCount - 1) // 保留表头
 
             // 创建日期到条目的映射（使用年月日作为key，忽略时间部分）
@@ -331,55 +304,8 @@ class StatisticsDialogAdapter(
             }
         }
 
-        btnPrevYear.setOnClickListener {
-            currentYear--
-            updateWeekTable(currentYear)
-        }
-
-        btnNextYear.setOnClickListener {
-            currentYear++
-            updateWeekTable(currentYear)
-        }
-
+        // 直接显示当前年份的周统计
         updateWeekTable(currentYear)
-    }
-
-    private fun bindTextStatistics(view: View) {
-        val textView = view.findViewById<TextView>(R.id.tvTextStats)
-        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-
-        val statsText = StringBuilder()
-        statsText.append("计数器: $counterName\n\n")
-        statsText.append("总计数: ${entries.size}\n")
-        statsText.append("区间类型: ${getIntervalType()}\n\n")
-
-        if (entries.isNotEmpty()) {
-            statsText.append("最早记录: ${sdf.format(entries.first().date)}\n")
-            statsText.append("最新记录: ${sdf.format(entries.last().date)}\n\n")
-
-            if (entries.size > 1) {
-                val totalDays = (entries.last().date.time - entries.first().date.time) / (1000.0 * 60 * 60 * 24)
-                val avgDays = totalDays / (entries.size - 1)
-                val avgFrequency = if (totalDays > 0) (entries.size - 1) / totalDays else 0.0
-                statsText.append("总天数: ${String.format("%.2f", totalDays)} 天\n")
-                statsText.append("平均间隔: ${String.format("%.2f", avgDays)} 天\n")
-                statsText.append("平均频率: ${String.format("%.2f", avgFrequency)} 次/天\n\n")
-            }
-
-            statsText.append("--- 最近10条记录 ---\n")
-            entries.takeLast(10).forEachIndexed { index, entry ->
-                statsText.append("${index + 1}. ${sdf.format(entry.date)}\n")
-            }
-        } else {
-            statsText.append("暂无记录")
-        }
-
-        textView.text = statsText.toString()
-    }
-
-    private fun getIntervalType(): String {
-        // 这里可以根据需要返回区间类型，暂时返回固定值
-        return "LIFETIME"
     }
 }
 

@@ -6,45 +6,6 @@
     android:background="@android:color/white"
     android:padding="8dp">
 
-    <!-- 年份显示和切换 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:padding="8dp">
-
-        <Button
-            android:id="@+id/btnPrevYear"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="◀"
-            android:textSize="18sp"
-            android:minWidth="48dp"
-            android:backgroundTint="@android:color/transparent" />
-
-        <TextView
-            android:id="@+id/tvYear"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="2025"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="@android:color/black"
-            android:gravity="center" />
-
-        <Button
-            android:id="@+id/btnNextYear"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="▶"
-            android:textSize="18sp"
-            android:minWidth="48dp"
-            android:backgroundTint="@android:color/transparent" />
-
-    </LinearLayout>
-
     <!-- 表格容器 -->
     <HorizontalScrollView
         android:layout_width="match_parent"
