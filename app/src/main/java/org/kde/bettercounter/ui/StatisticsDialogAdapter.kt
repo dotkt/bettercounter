@@ -26,7 +26,7 @@ class StatisticsDialogAdapter(
         val currentYear = Calendar.getInstance().get(Calendar.YEAR)
 
         fun updateWeekTable(year: Int) {
-            android.util.Log.d("StatisticsAdapter", "更新周统计表格，年份=$year, 条目数=${entries.size}")
+            android.util.Log.d("StatisticsAdapter", "更新月统计表格，年份=$year, 条目数=${entries.size}")
             tableLayout.removeViews(1, tableLayout.childCount - 1) // 保留表头
 
             // 创建日期到条目的映射（使用年月日作为key，忽略时间部分）
@@ -44,16 +44,12 @@ class StatisticsDialogAdapter(
             
             android.util.Log.d("StatisticsAdapter", "创建了 ${entryDates.size} 个日期映射")
 
-            // 创建周数和星期几到是否有记录的映射
-            // Key: Pair<周数, 星期几>，Value: 是否有记录
-            val weekDayMap = mutableMapOf<Pair<Int, Int>, Boolean>()
+            // 创建月份和日期到是否有记录的映射
+            // Key: Pair<月份(0-11), 日期(1-31)>，Value: 是否有记录
+            val monthDayMap = mutableMapOf<Pair<Int, Int>, Boolean>()
             
-            // 设置Calendar为ISO 8601标准（周从周一开始，第一周至少包含4天）
+            // 遍历该年的每一天，建立月份和日期到是否有记录的映射
             val calendar = Calendar.getInstance()
-            calendar.firstDayOfWeek = Calendar.MONDAY
-            calendar.setMinimalDaysInFirstWeek(4)
-            
-            // 设置到该年的第一天
             calendar.set(Calendar.YEAR, year)
             calendar.set(Calendar.MONTH, Calendar.JANUARY)
             calendar.set(Calendar.DAY_OF_MONTH, 1)
@@ -61,89 +57,25 @@ class StatisticsDialogAdapter(
             calendar.set(Calendar.MINUTE, 0)
             calendar.set(Calendar.SECOND, 0)
             calendar.set(Calendar.MILLISECOND, 0)
-            
-            // 获取第一天的周数
-            var firstWeek = calendar.get(Calendar.WEEK_OF_YEAR)
-            android.util.Log.d("StatisticsAdapter", "1月1日: 年份=${calendar.get(Calendar.YEAR)}, 周数=$firstWeek, 星期几=${calendar.get(Calendar.DAY_OF_WEEK)}")
-            
-            // 如果1月1日的周数很大（52或53），说明它属于上一年的最后一周
-            // 需要找到该年真正的第一周（第一个完整的周）
-            if (firstWeek >= 52) {
-                // 找到该年第一个周一的周数
-                val firstMonday = calendar.clone() as Calendar
-                while (firstMonday.get(Calendar.DAY_OF_WEEK) != Calendar.MONDAY) {
-                    firstMonday.add(Calendar.DAY_OF_MONTH, 1)
-                }
-                firstWeek = firstMonday.get(Calendar.WEEK_OF_YEAR)
-                android.util.Log.d("StatisticsAdapter", "调整后第一周=$firstWeek")
-            }
             
             // 判断该年有多少天（考虑闰年）
             val isLeapYear = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
             val daysInYear = if (isLeapYear) 366 else 365
             
-            var processedDays = 0
-            var minWeek = Int.MAX_VALUE
-            var maxWeek = Int.MIN_VALUE
-            
-            // 重置calendar到1月1日
-            calendar.set(Calendar.YEAR, year)
-            calendar.set(Calendar.MONTH, Calendar.JANUARY)
-            calendar.set(Calendar.DAY_OF_MONTH, 1)
-            calendar.set(Calendar.HOUR_OF_DAY, 0)
-            calendar.set(Calendar.MINUTE, 0)
-            calendar.set(Calendar.SECOND, 0)
-            calendar.set(Calendar.MILLISECOND, 0)
-            
             // 遍历该年的每一天
             for (dayOffset in 0 until daysInYear) {
-                // 获取当前日期
                 val currentYear = calendar.get(Calendar.YEAR)
-                val currentMonth = calendar.get(Calendar.MONTH)
-                val currentDay = calendar.get(Calendar.DAY_OF_MONTH)
+                val currentMonth = calendar.get(Calendar.MONTH) // 0-11
+                val currentDay = calendar.get(Calendar.DAY_OF_MONTH) // 1-31
                 
                 // 只处理该年的日期
                 if (currentYear == year) {
-                    // 获取周数和星期几
-                    var week = calendar.get(Calendar.WEEK_OF_YEAR)
-                    val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
-                    
-                    // 如果周数很大（52或53），且是1月，说明这是上一年的周
-                    // 需要找到该年真正的周数
-                    if (week >= 52 && currentMonth == Calendar.JANUARY) {
-                        // 找到该周的第一个周一，看它属于哪一年
-                        val weekMonday = calendar.clone() as Calendar
-                        while (weekMonday.get(Calendar.DAY_OF_WEEK) != Calendar.MONDAY) {
-                            weekMonday.add(Calendar.DAY_OF_MONTH, -1)
-                        }
-                        if (weekMonday.get(Calendar.YEAR) < year) {
-                            // 这是上一年的周，需要找到该年第一个完整的周
-                            val firstMonday = calendar.clone() as Calendar
-                            while (firstMonday.get(Calendar.DAY_OF_WEEK) != Calendar.MONDAY || firstMonday.get(Calendar.YEAR) != year) {
-                                firstMonday.add(Calendar.DAY_OF_MONTH, 1)
-                            }
-                            week = firstMonday.get(Calendar.WEEK_OF_YEAR)
-                        }
-                    }
-                    
-                    // 更新最小和最大周数
-                    if (week < minWeek) minWeek = week
-                    if (week > maxWeek) maxWeek = week
-                    
                     // 检查这一天是否有记录
                     val hasEntry = entryDates.contains(Triple(currentYear, currentMonth, currentDay))
                     
                     // 存储到映射中
-                    weekDayMap[Pair(week, dayOfWeek)] = hasEntry
-                    processedDays++
-                    
-                    // 调试前几天的数据
-                    if (dayOffset < 5) {
-                        android.util.Log.d("StatisticsAdapter", "处理: $currentYear-$currentMonth-$currentDay, 周数=$week, 星期几=$dayOfWeek, 有记录=$hasEntry")
-                    }
+                    monthDayMap[Pair(currentMonth, currentDay)] = hasEntry
                 } else {
-                    // 已经跨年了，停止处理
-                    android.util.Log.d("StatisticsAdapter", "跨年停止: $currentYear-$currentMonth-$currentDay")
                     break
                 }
                 
@@ -151,38 +83,7 @@ class StatisticsDialogAdapter(
                 calendar.add(Calendar.DAY_OF_MONTH, 1)
             }
             
-            android.util.Log.d("StatisticsAdapter", "处理了 $processedDays 天, 最小周=$minWeek, 最大周=$maxWeek")
-            
-            // 使用遍历过程中找到的最大周数作为最后一周
-            val actualLastWeek = if (maxWeek != Int.MIN_VALUE) maxWeek else {
-                // 如果遍历失败，使用12月31日的周数作为后备
-                val endCalendar = Calendar.getInstance()
-                endCalendar.firstDayOfWeek = Calendar.MONDAY
-                endCalendar.setMinimalDaysInFirstWeek(4)
-                endCalendar.set(Calendar.YEAR, year)
-                endCalendar.set(Calendar.MONTH, Calendar.DECEMBER)
-                endCalendar.set(Calendar.DAY_OF_MONTH, 31)
-                endCalendar.set(Calendar.HOUR_OF_DAY, 0)
-                endCalendar.set(Calendar.MINUTE, 0)
-                endCalendar.set(Calendar.SECOND, 0)
-                endCalendar.set(Calendar.MILLISECOND, 0)
-                
-                if (endCalendar.get(Calendar.YEAR) > year) {
-                    // 往前找到该年的最后一天
-                    while (endCalendar.get(Calendar.YEAR) > year) {
-                        endCalendar.add(Calendar.DAY_OF_MONTH, -1)
-                    }
-                    // 找到这一周的周一，获取周数
-                    while (endCalendar.get(Calendar.DAY_OF_WEEK) != Calendar.MONDAY) {
-                        endCalendar.add(Calendar.DAY_OF_MONTH, -1)
-                    }
-                    endCalendar.get(Calendar.WEEK_OF_YEAR)
-                } else {
-                    endCalendar.get(Calendar.WEEK_OF_YEAR)
-                }
-            }
-            
-            android.util.Log.d("StatisticsAdapter", "第一周=$firstWeek, 最后一周=$actualLastWeek, 映射条目数=${weekDayMap.size}")
+            android.util.Log.d("StatisticsAdapter", "映射条目数=${monthDayMap.size}")
             
             // 获取今天的日期（只比较年月日，忽略时间）
             val today = Calendar.getInstance()
@@ -207,117 +108,99 @@ class StatisticsDialogAdapter(
                 null
             }
 
-            // 从第一周开始，生成每一行（周）
-            for (week in firstWeek..actualLastWeek) {
+            // 从1月到12月，生成每一行（月）
+            for (month in Calendar.JANUARY..Calendar.DECEMBER) {
                 val row = TableRow(view.context)
                 val rowParams = TableLayout.LayoutParams(
                     TableLayout.LayoutParams.MATCH_PARENT,
                     TableLayout.LayoutParams.WRAP_CONTENT
                 )
-                rowParams.setMargins(0, 0, 0, 0) // 移除行距
+                rowParams.setMargins(0, 0, 0, 0)
                 row.layoutParams = rowParams
 
-                // 计算这一周的周一
-                val weekCalendar = Calendar.getInstance()
-                weekCalendar.firstDayOfWeek = Calendar.MONDAY
-                weekCalendar.setMinimalDaysInFirstWeek(4)
-                weekCalendar.set(Calendar.YEAR, year)
-                weekCalendar.set(Calendar.WEEK_OF_YEAR, week)
-                weekCalendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
-                weekCalendar.set(Calendar.HOUR_OF_DAY, 0)
-                weekCalendar.set(Calendar.MINUTE, 0)
-                weekCalendar.set(Calendar.SECOND, 0)
-                weekCalendar.set(Calendar.MILLISECOND, 0)
-                
-                // 获取周一的日期（可能跨年）
-                val mondayYear = weekCalendar.get(Calendar.YEAR)
-                val mondayMonth = weekCalendar.get(Calendar.MONTH) + 1 // Calendar.MONTH从0开始
-                val mondayDay = weekCalendar.get(Calendar.DAY_OF_MONTH)
-                
-                // 格式化周号：周数.年-月-日
-                val weekText = String.format("%02d.%04d-%02d-%02d", week, mondayYear, mondayMonth, mondayDay)
-                
-                // 周号
-                val weekCell = TextView(view.context)
-                weekCell.text = weekText
-                weekCell.textSize = 9f
-                weekCell.setTextColor(android.graphics.Color.BLACK)
-                weekCell.gravity = android.view.Gravity.CENTER
-                weekCell.setPadding(4, 1, 4, 1) // 减小上下padding
-                val weekCellParams = TableRow.LayoutParams(100, TableRow.LayoutParams.WRAP_CONTENT)
-                weekCellParams.setMargins(0, 0, 0, 0) // 移除边距
-                weekCell.layoutParams = weekCellParams
-                row.addView(weekCell)
+                // 月份号（1-12），11月显示为"1"，12月显示为"2"
+                val monthCell = TextView(view.context)
+                val monthNumber = month + 1 // Calendar.MONTH从0开始，显示时+1
+                monthCell.text = if (monthNumber >= 11) {
+                    (monthNumber - 10).toString() // 11月显示"1"，12月显示"2"
+                } else {
+                    monthNumber.toString()
+                }
+                monthCell.textSize = 9f
+                monthCell.setTextColor(android.graphics.Color.BLACK)
+                monthCell.gravity = android.view.Gravity.CENTER
+                monthCell.setPadding(2, 1, 2, 1)
+                val monthCellParams = TableRow.LayoutParams(20, TableRow.LayoutParams.WRAP_CONTENT)
+                monthCellParams.setMargins(0, 0, 0, 0)
+                monthCell.layoutParams = monthCellParams
+                row.addView(monthCell)
 
-                // 星期一到星期日
-                // Calendar.MONDAY=2, Calendar.TUESDAY=3, ..., Calendar.SATURDAY=7, Calendar.SUNDAY=1
-                val daysOfWeek = listOf(
-                    Calendar.MONDAY,    // 2
-                    Calendar.TUESDAY,   // 3
-                    Calendar.WEDNESDAY, // 4
-                    Calendar.THURSDAY,  // 5
-                    Calendar.FRIDAY,    // 6
-                    Calendar.SATURDAY,  // 7
-                    Calendar.SUNDAY     // 1
-                )
-                
-                for (dayOfWeek in daysOfWeek) {
+                // 获取该月的天数
+                val monthCalendar = Calendar.getInstance()
+                monthCalendar.set(Calendar.YEAR, year)
+                monthCalendar.set(Calendar.MONTH, month)
+                monthCalendar.set(Calendar.DAY_OF_MONTH, 1)
+                val daysInMonth = monthCalendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+
+                // 1-31号
+                for (day in 1..31) {
                     val dayCell = TextView(view.context)
-                    dayCell.textSize = 14f
+                    dayCell.textSize = 12f
                     dayCell.gravity = android.view.Gravity.CENTER
-                    dayCell.setPadding(2, 1, 2, 1) // 减小上下padding
-                    val dayCellParams = TableRow.LayoutParams(35, TableRow.LayoutParams.WRAP_CONTENT)
-                    dayCellParams.setMargins(0, 0, 0, 0) // 移除边距
+                    dayCell.setPadding(1, 1, 1, 1)
+                    val dayCellParams = TableRow.LayoutParams(25, TableRow.LayoutParams.WRAP_CONTENT)
+                    dayCellParams.setMargins(0, 0, 0, 0)
                     dayCell.layoutParams = dayCellParams
 
-                    // 计算这个单元格对应的实际日期
-                    val cellDate = weekCalendar.clone() as Calendar
-                    // 计算从周一到当前星期几的天数差
-                    val dayOffset = when (dayOfWeek) {
-                        Calendar.MONDAY -> 0
-                        Calendar.TUESDAY -> 1
-                        Calendar.WEDNESDAY -> 2
-                        Calendar.THURSDAY -> 3
-                        Calendar.FRIDAY -> 4
-                        Calendar.SATURDAY -> 5
-                        Calendar.SUNDAY -> 6
-                        else -> 0
-                    }
-                    cellDate.add(Calendar.DAY_OF_MONTH, dayOffset)
-                    
-                    val cellYear = cellDate.get(Calendar.YEAR)
-                    val cellMonth = cellDate.get(Calendar.MONTH)
-                    val cellDay = cellDate.get(Calendar.DAY_OF_MONTH)
-                    
-                    // 判断日期类型
-                    val isThisYear = cellYear == year
-                    val isToday = cellYear == todayYear && cellMonth == todayMonth && cellDay == todayDay
-                    val isFuture = cellDate.after(today)
-                    val isBeforeEarliest = earliestDate != null && cellDate.before(earliestDate)
-                    
-                    if (!isThisYear || isFuture) {
-                        // 非今年或未来日期，显示空白
+                    if (day > daysInMonth) {
+                        // 该月没有这一天，显示空白
                         dayCell.text = ""
                         dayCell.setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     } else {
-                        // 从映射中查找
-                        val hasEntry = weekDayMap[Pair(week, dayOfWeek)] ?: false
+                        // 计算这个单元格对应的实际日期
+                        val cellDate = Calendar.getInstance()
+                        cellDate.set(Calendar.YEAR, year)
+                        cellDate.set(Calendar.MONTH, month)
+                        cellDate.set(Calendar.DAY_OF_MONTH, day)
+                        cellDate.set(Calendar.HOUR_OF_DAY, 0)
+                        cellDate.set(Calendar.MINUTE, 0)
+                        cellDate.set(Calendar.SECOND, 0)
+                        cellDate.set(Calendar.MILLISECOND, 0)
                         
-                        if (hasEntry) {
-                            dayCell.text = "✅"
-                            dayCell.setTextColor(android.graphics.Color.parseColor("#4CAF50")) // 绿色
-                        } else if (isToday) {
-                            // 今天是今天且没有记录，显示❓
-                            dayCell.text = "❓"
-                            dayCell.setTextColor(android.graphics.Color.parseColor("#FF9800")) // 橙色
-                        } else if (isBeforeEarliest) {
-                            // 早于最早数据点且没有记录，显示空白
+                        val cellYear = cellDate.get(Calendar.YEAR)
+                        val cellMonth = cellDate.get(Calendar.MONTH)
+                        val cellDay = cellDate.get(Calendar.DAY_OF_MONTH)
+                        
+                        // 判断日期类型
+                        val isThisYear = cellYear == year
+                        val isToday = cellYear == todayYear && cellMonth == todayMonth && cellDay == todayDay
+                        val isFuture = cellDate.after(today)
+                        val isBeforeEarliest = earliestDate != null && cellDate.before(earliestDate)
+                        
+                        if (!isThisYear || isFuture) {
+                            // 非今年或未来日期，显示空白
                             dayCell.text = ""
                             dayCell.setBackgroundColor(android.graphics.Color.TRANSPARENT)
                         } else {
-                            // 等于或晚于最早数据点且没有记录，显示❌
-                            dayCell.text = "❌"
-                            dayCell.setTextColor(android.graphics.Color.parseColor("#F44336")) // 红色
+                            // 从映射中查找
+                            val hasEntry = monthDayMap[Pair(month, day)] ?: false
+                            
+                            if (hasEntry) {
+                                dayCell.text = "✅"
+                                dayCell.setTextColor(android.graphics.Color.parseColor("#4CAF50")) // 绿色
+                            } else if (isToday) {
+                                // 今天是今天且没有记录，显示❓
+                                dayCell.text = "❓"
+                                dayCell.setTextColor(android.graphics.Color.parseColor("#FF9800")) // 橙色
+                            } else if (isBeforeEarliest) {
+                                // 早于最早数据点且没有记录，显示空白
+                                dayCell.text = ""
+                                dayCell.setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                            } else {
+                                // 等于或晚于最早数据点且没有记录，显示❌
+                                dayCell.text = "❌"
+                                dayCell.setTextColor(android.graphics.Color.parseColor("#F44336")) // 红色
+                            }
                         }
                     }
 
