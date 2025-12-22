@@ -193,6 +193,19 @@ class StatisticsDialogAdapter(
             val todayYear = today.get(Calendar.YEAR)
             val todayMonth = today.get(Calendar.MONTH)
             val todayDay = today.get(Calendar.DAY_OF_MONTH)
+            
+            // 找到最早的数据点日期
+            val earliestDate = if (entries.isNotEmpty()) {
+                val earliest = Calendar.getInstance()
+                earliest.time = entries.minByOrNull { it.date.time }?.date ?: entries.first().date
+                earliest.set(Calendar.HOUR_OF_DAY, 0)
+                earliest.set(Calendar.MINUTE, 0)
+                earliest.set(Calendar.SECOND, 0)
+                earliest.set(Calendar.MILLISECOND, 0)
+                earliest
+            } else {
+                null
+            }
 
             // 从第一周开始，生成每一行（周）
             for (week in firstWeek..actualLastWeek) {
@@ -280,6 +293,7 @@ class StatisticsDialogAdapter(
                     val isThisYear = cellYear == year
                     val isToday = cellYear == todayYear && cellMonth == todayMonth && cellDay == todayDay
                     val isFuture = cellDate.after(today)
+                    val isBeforeEarliest = earliestDate != null && cellDate.before(earliestDate)
                     
                     if (!isThisYear || isFuture) {
                         // 非今年或未来日期，显示空白
@@ -296,8 +310,12 @@ class StatisticsDialogAdapter(
                             // 今天是今天且没有记录，显示❓
                             dayCell.text = "❓"
                             dayCell.setTextColor(android.graphics.Color.parseColor("#FF9800")) // 橙色
+                        } else if (isBeforeEarliest) {
+                            // 早于最早数据点且没有记录，显示空白
+                            dayCell.text = ""
+                            dayCell.setBackgroundColor(android.graphics.Color.TRANSPARENT)
                         } else {
-                            // 过去日期且没有记录
+                            // 等于或晚于最早数据点且没有记录，显示❌
                             dayCell.text = "❌"
                             dayCell.setTextColor(android.graphics.Color.parseColor("#F44336")) // 红色
                         }
