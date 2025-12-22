@@ -513,18 +513,37 @@ class ViewModel(application: Application) {
                         Log.d(TAG, "[导入] 计数器: $name, 待导入条目数: $count")
                     }
                     
+                    // 特别追踪"泽熙刷牙"计数器
+                    val trackingCounterName = "泽熙刷牙"
+                    val trackingEntriesBeforeProcessing = entriesToImport.count { it.name == trackingCounterName }
+                    if (trackingEntriesBeforeProcessing > 0) {
+                        Log.d(TAG, "[导入追踪] 泽熙刷牙: 处理计数器前，entriesToImport中有 $trackingEntriesBeforeProcessing 个条目")
+                    }
+                    
                     // 处理计数器和元数据
                     namesToImport.forEach { name ->
                         val metadata = metadataToUpdate[name]
+                        val isTracking = name == trackingCounterName
+                        
                         if (metadata != null) {
                             if (!counterExists(name)) {
                                 // 新计数器，添加
+                                if (isTracking) {
+                                    Log.d(TAG, "[导入追踪] 泽熙刷牙: 是新计数器，直接添加")
+                                }
                                 addCounter(metadata)
                             } else {
                                 // 现有计数器，强制更新所有配置
+                                if (isTracking) {
+                                    val existingCount = repo.getAllEntriesSortedByDate(name).size
+                                    Log.d(TAG, "[导入追踪] 泽熙刷牙: 是现有计数器，现有条目数=$existingCount")
+                                }
                                 Log.d(TAG, "更新现有计数器: $name，应用导入的设置")
                                 // 保存现有计数器的条目
                                 val entries = repo.getAllEntriesSortedByDate(name)
+                                if (isTracking) {
+                                    Log.d(TAG, "[导入追踪] 泽熙刷牙: 保存了 ${entries.size} 个现有条目")
+                                }
                                 // 删除现有计数器
                                 deleteCounter(name)
                                 // 使用新配置创建计数器
@@ -533,9 +552,16 @@ class ViewModel(application: Application) {
                                 entries.forEach { entry ->
                                     entriesToImport.add(entry)
                                 }
+                                if (isTracking) {
+                                    val afterRestore = entriesToImport.count { it.name == trackingCounterName }
+                                    Log.d(TAG, "[导入追踪] 泽熙刷牙: 恢复原有条目后，entriesToImport中有 $afterRestore 个条目")
+                                }
                             }
                         } else if (!counterExists(name)) {
                             // 没有元数据但需要创建计数器
+                            if (isTracking) {
+                                Log.d(TAG, "[导入追踪] 泽熙刷牙: 没有元数据，创建默认计数器")
+                            }
                             val defaultMetadata = CounterMetadata(
                                 name, 
                                 Interval.DEFAULT, 
@@ -546,12 +572,30 @@ class ViewModel(application: Application) {
                         }
                     }
                     
+                    // 特别追踪"泽熙刷牙"计数器
+                    val trackingEntriesBefore = entriesToImport.count { it.name == trackingCounterName }
+                    if (trackingEntriesBefore > 0) {
+                        Log.d(TAG, "[导入追踪] 泽熙刷牙: 批量插入前，entriesToImport中有 $trackingEntriesBefore 个条目")
+                        entriesToImport.filter { it.name == trackingCounterName }.forEachIndexed { index, entry ->
+                            Log.d(TAG, "[导入追踪] 泽熙刷牙: 第${index+1}个条目，时间戳=${entry.date.time}")
+                        }
+                    }
+                    
                     // 批量添加条目
                     repo.bulkAddEntries(entriesToImport)
                     Log.d(TAG, "[导入] 实际导入条目总数: ${entriesToImport.size}")
                     
                     // 记录导入的条目数
                     Log.d(TAG, "成功导入 ${entriesToImport.size} 个条目到 ${namesToImport.size} 个计数器")
+                    
+                    // 检查"泽熙刷牙"导入后的实际数量
+                    if (trackingEntriesBefore > 0) {
+                        val trackingEntriesAfter = repo.getAllEntriesSortedByDate(trackingCounterName).size
+                        Log.d(TAG, "[导入追踪] 泽熙刷牙: 批量插入后，数据库中实际有 $trackingEntriesAfter 个条目（插入前准备 $trackingEntriesBefore 个）")
+                        if (trackingEntriesAfter != trackingEntriesBefore) {
+                            Log.e(TAG, "[导入追踪] 泽熙刷牙: 数据丢失！准备插入 $trackingEntriesBefore 个，但数据库中只有 $trackingEntriesAfter 个")
+                        }
+                    }
 
                     // 确保每个计数器的摘要都被正确初始化
                     namesToImport.forEach { name ->
@@ -614,10 +658,18 @@ class ViewModel(application: Application) {
                         return
                     }
                     jsonPart = line.substring(0, jsonEnd + 1)
-                    timestampsPart = line.substring(jsonEnd + 1).trim()
+                    // jsonEnd 是 "}, [" 中 "}" 的位置，需要跳过 "}, [" 这4个字符
+                    timestampsPart = line.substring(jsonEnd + 4).trim()
                 } else {
                     jsonPart = line.substring(0, jsonEnd + 1)
-                    timestampsPart = line.substring(jsonEnd + 1)
+                    // jsonEnd 是 "},[" 中 "}" 的位置，需要跳过 "},[" 这3个字符
+                    timestampsPart = line.substring(jsonEnd + 3)
+                }
+                
+                // 特别追踪"泽熙刷牙"计数器
+                val isTrackingCounter = timestampsPart.contains("1746800049417") || line.contains("\"泽熙刷牙\"")
+                if (isTrackingCounter) {
+                    Log.d(TAG, "[导入追踪] 泽熙刷牙: 找到分隔符，jsonEnd=$jsonEnd, timestampsPart前50字符=${timestampsPart.take(50)}")
                 }
                 
                 // 解析JSON部分
@@ -752,12 +804,26 @@ class ViewModel(application: Application) {
     private fun parseTimestamps(timestampsStr: String, counterName: String, entries: MutableList<Entry>) {
         try {
             var cleaned = timestampsStr.trim()
+            
+            // 特别追踪"泽熙刷牙"计数器
+            val isTrackingCounter = counterName == "泽熙刷牙"
+            
+            if (isTrackingCounter) {
+                Log.d(TAG, "[导入追踪] 泽熙刷牙: parseTimestamps 开始，原始字符串前100字符=${timestampsStr.take(100)}")
+            }
+            
             // 移除开头的 [ 和结尾的 ]
             if (cleaned.startsWith("[")) {
                 cleaned = cleaned.removePrefix("[")
+                if (isTrackingCounter) {
+                    Log.d(TAG, "[导入追踪] 泽熙刷牙: 移除了开头的 [")
+                }
             }
             if (cleaned.endsWith("]")) {
                 cleaned = cleaned.removeSuffix("]")
+                if (isTrackingCounter) {
+                    Log.d(TAG, "[导入追踪] 泽熙刷牙: 移除了结尾的 ]")
+                }
             }
             cleaned = cleaned.trim()
             
@@ -767,14 +833,35 @@ class ViewModel(application: Application) {
             }
             
             val timestamps = cleaned.split(",")
-            for (timestamp in timestamps) {
+            var parsedCount = 0
+            var failedCount = 0
+            
+            if (isTrackingCounter) {
+                Log.d(TAG, "[导入追踪] 泽熙刷牙: 清理后字符串前100字符=${cleaned.take(100)}")
+                Log.d(TAG, "[导入追踪] 泽熙刷牙: 开始解析，时间戳字符串长度=${timestampsStr.length}, 清理后长度=${cleaned.length}, 分割后数量=${timestamps.size}")
+                Log.d(TAG, "[导入追踪] 泽熙刷牙: 第一个分割结果=${timestamps.firstOrNull()}")
+            }
+            
+            for ((index, timestamp) in timestamps.withIndex()) {
                 try {
                     val time = timestamp.trim().toLong()
-                    Log.d(TAG, "[导入] 解析到 entry: $counterName, 时间戳: $time")
+                    if (isTrackingCounter) {
+                        Log.d(TAG, "[导入追踪] 泽熙刷牙: 第${index+1}/${timestamps.size}个时间戳=$time, 解析成功")
+                    }
                     entries.add(Entry(name = counterName, date = Date(time)))
+                    parsedCount++
                 } catch (e: Exception) {
-                    Log.w(TAG, "[导入] 无法解析时间戳: ${timestamp}", e)
+                    failedCount++
+                    if (isTrackingCounter) {
+                        Log.e(TAG, "[导入追踪] 泽熙刷牙: 第${index+1}/${timestamps.size}个时间戳解析失败: ${timestamp}", e)
+                    } else {
+                        Log.w(TAG, "[导入] 无法解析时间戳: ${timestamp}", e)
+                    }
                 }
+            }
+            
+            if (isTrackingCounter) {
+                Log.d(TAG, "[导入追踪] 泽熙刷牙: 解析完成，成功=$parsedCount, 失败=$failedCount, entries列表大小=${entries.size}")
             }
         } catch (e: Exception) {
             Log.e(TAG, "[导入] 解析时间戳数组失败: $timestampsStr", e)

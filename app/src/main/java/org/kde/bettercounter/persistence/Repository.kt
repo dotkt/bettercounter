@@ -161,7 +161,25 @@ class Repository(
     }
 
     suspend fun bulkAddEntries(entries: List<Entry>) {
+        val trackingCounter = "泽熙刷牙"
+        val trackingEntries = entries.filter { it.name == trackingCounter }
+        if (trackingEntries.isNotEmpty()) {
+            android.util.Log.d("Repository", "[导入追踪] 泽熙刷牙: bulkAddEntries 被调用，准备插入 ${trackingEntries.size} 个条目")
+            trackingEntries.forEachIndexed { index, entry ->
+                android.util.Log.d("Repository", "[导入追踪] 泽熙刷牙: 第${index+1}个条目，时间戳=${entry.date.time}")
+            }
+        }
+        
         entryDao.bulkInsert(entries)
+        
+        if (trackingEntries.isNotEmpty()) {
+            val afterInsert = entryDao.getAllEntriesSortedByDate(trackingCounter).size
+            android.util.Log.d("Repository", "[导入追踪] 泽熙刷牙: bulkInsert 完成后，数据库中实际有 $afterInsert 个条目（准备插入 ${trackingEntries.size} 个）")
+            if (afterInsert != trackingEntries.size) {
+                android.util.Log.e("Repository", "[导入追踪] 泽熙刷牙: 数据丢失！准备插入 ${trackingEntries.size} 个，但数据库中只有 $afterInsert 个")
+            }
+        }
+        
         counterCache.clear() // we don't know what changed
     }
 }
