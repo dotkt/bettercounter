@@ -197,10 +197,12 @@ class StatisticsDialogAdapter(
             // 从第一周开始，生成每一行（周）
             for (week in firstWeek..actualLastWeek) {
                 val row = TableRow(view.context)
-                row.layoutParams = TableLayout.LayoutParams(
+                val rowParams = TableLayout.LayoutParams(
                     TableLayout.LayoutParams.MATCH_PARENT,
                     TableLayout.LayoutParams.WRAP_CONTENT
                 )
+                rowParams.setMargins(0, 0, 0, 0) // 移除行距
+                row.layoutParams = rowParams
 
                 // 计算这一周的周一
                 val weekCalendar = Calendar.getInstance()
@@ -228,8 +230,10 @@ class StatisticsDialogAdapter(
                 weekCell.textSize = 9f
                 weekCell.setTextColor(android.graphics.Color.BLACK)
                 weekCell.gravity = android.view.Gravity.CENTER
-                weekCell.setPadding(4, 2, 4, 2)
-                weekCell.layoutParams = TableRow.LayoutParams(100, TableRow.LayoutParams.WRAP_CONTENT)
+                weekCell.setPadding(4, 1, 4, 1) // 减小上下padding
+                val weekCellParams = TableRow.LayoutParams(100, TableRow.LayoutParams.WRAP_CONTENT)
+                weekCellParams.setMargins(0, 0, 0, 0) // 移除边距
+                weekCell.layoutParams = weekCellParams
                 row.addView(weekCell)
 
                 // 星期一到星期日
@@ -248,8 +252,10 @@ class StatisticsDialogAdapter(
                     val dayCell = TextView(view.context)
                     dayCell.textSize = 14f
                     dayCell.gravity = android.view.Gravity.CENTER
-                    dayCell.setPadding(2, 2, 2, 2)
-                    dayCell.layoutParams = TableRow.LayoutParams(35, TableRow.LayoutParams.WRAP_CONTENT)
+                    dayCell.setPadding(2, 1, 2, 1) // 减小上下padding
+                    val dayCellParams = TableRow.LayoutParams(35, TableRow.LayoutParams.WRAP_CONTENT)
+                    dayCellParams.setMargins(0, 0, 0, 0) // 移除边距
+                    dayCell.layoutParams = dayCellParams
 
                     // 计算这个单元格对应的实际日期
                     val cellDate = weekCalendar.clone() as Calendar

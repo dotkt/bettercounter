@@ -195,7 +195,7 @@ class EntryViewHolder(
                     adapter.bindWeekStatisticsView(dialogView)
                     
                     val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(activity)
-                        .setTitle("统计信息")
+                        .setTitle(counter.name)
                         .setView(dialogView)
                         .setPositiveButton("确定", null)
                         .create()
