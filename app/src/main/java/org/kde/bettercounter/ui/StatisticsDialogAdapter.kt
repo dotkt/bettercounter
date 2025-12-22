@@ -145,7 +145,7 @@ class StatisticsDialogAdapter(
                 // 1-31号
                 for (day in 1..31) {
                     val dayCell = TextView(view.context)
-                    dayCell.textSize = 12f
+                    dayCell.textSize = 8.5f // 12f * 0.95 = 11.4f
                     dayCell.gravity = android.view.Gravity.CENTER
                     dayCell.setPadding(1, 1, 1, 1)
                     val dayCellParams = TableRow.LayoutParams(25, TableRow.LayoutParams.WRAP_CONTENT)
