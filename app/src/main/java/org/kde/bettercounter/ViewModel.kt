@@ -339,9 +339,6 @@ class ViewModel(application: Application) {
                     val summary = repo.getCounterSummary(counterName)
                     val counterEntries = repo.getAllEntriesSortedByDate(counterName)
                     Log.d(TAG, "[导出] 计数器: $counterName, 条目数: ${counterEntries.size}")
-                    counterEntries.forEachIndexed { idx, entry ->
-                        Log.d(TAG, "[导出] $counterName 第${idx+1}条: 时间戳=${entry.date.time}")
-                    }
                     if (counterEntries.isEmpty()) continue
 
                     // 提取颜色整数值
