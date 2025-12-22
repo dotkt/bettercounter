@@ -118,11 +118,11 @@ class StatisticsDialogAdapter(
                 rowParams.setMargins(0, 0, 0, 0)
                 row.layoutParams = rowParams
 
-                // 月份号（1-12），11月显示为"1"，12月显示为"2"
+                // 月份号（1-12），10月显示为"0"，11月显示为"1"，12月显示为"2"
                 val monthCell = TextView(view.context)
                 val monthNumber = month + 1 // Calendar.MONTH从0开始，显示时+1
-                monthCell.text = if (monthNumber >= 11) {
-                    (monthNumber - 10).toString() // 11月显示"1"，12月显示"2"
+                monthCell.text = if (monthNumber >= 10) {
+                    (monthNumber - 10).toString() // 10月显示"0"，11月显示"1"，12月显示"2"
                 } else {
                     monthNumber.toString()
                 }

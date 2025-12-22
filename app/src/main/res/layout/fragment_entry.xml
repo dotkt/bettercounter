@@ -137,14 +137,20 @@
         android:id="@+id/btnStats"
         style="@style/Widget.MaterialComponents.Button"
         android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
+        android:layout_height="28dp"
+        android:layout_marginStart="4dp"
         android:layout_gravity="center_vertical"
+        android:minWidth="0dp"
+        android:minHeight="0dp"
+        android:paddingLeft="8dp"
+        android:paddingRight="8dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="2dp"
         android:text="统计"
         android:textColor="@android:color/white"
-        android:textSize="14sp"
+        android:textSize="12sp"
         app:backgroundTint="@android:color/holo_blue_dark"
-        app:cornerRadius="8dp" />
+        app:cornerRadius="6dp" />
     </LinearLayout>
 
     <LinearLayout
