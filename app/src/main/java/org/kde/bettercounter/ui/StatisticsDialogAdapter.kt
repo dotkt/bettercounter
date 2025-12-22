@@ -211,14 +211,15 @@ class StatisticsDialogAdapter(
             
             android.util.Log.d("StatisticsAdapter", "第一周=$firstWeek, 最后一周=$actualLastWeek, 映射条目数=${weekDayMap.size}")
             
-            // 调试：检查前几周的映射数据
-            for (testWeek in firstWeek..minOf(firstWeek + 2, actualLastWeek)) {
-                for (testDay in listOf(Calendar.MONDAY, Calendar.TUESDAY, Calendar.WEDNESDAY)) {
-                    val testKey = Pair(testWeek, testDay)
-                    val testValue = weekDayMap[testKey]
-                    android.util.Log.d("StatisticsAdapter", "调试: 周$testWeek 星期$testDay -> $testValue")
-                }
-            }
+            // 获取今天的日期（只比较年月日，忽略时间）
+            val today = Calendar.getInstance()
+            today.set(Calendar.HOUR_OF_DAY, 0)
+            today.set(Calendar.MINUTE, 0)
+            today.set(Calendar.SECOND, 0)
+            today.set(Calendar.MILLISECOND, 0)
+            val todayYear = today.get(Calendar.YEAR)
+            val todayMonth = today.get(Calendar.MONTH)
+            val todayDay = today.get(Calendar.DAY_OF_MONTH)
 
             // 从第一周开始，生成每一行（周）
             for (week in firstWeek..actualLastWeek) {
@@ -237,6 +238,18 @@ class StatisticsDialogAdapter(
                 weekCell.setPadding(8, 8, 8, 8)
                 weekCell.layoutParams = TableRow.LayoutParams(60, TableRow.LayoutParams.WRAP_CONTENT)
                 row.addView(weekCell)
+
+                // 计算这一周的周一
+                val weekCalendar = Calendar.getInstance()
+                weekCalendar.firstDayOfWeek = Calendar.MONDAY
+                weekCalendar.setMinimalDaysInFirstWeek(4)
+                weekCalendar.set(Calendar.YEAR, year)
+                weekCalendar.set(Calendar.WEEK_OF_YEAR, week)
+                weekCalendar.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+                weekCalendar.set(Calendar.HOUR_OF_DAY, 0)
+                weekCalendar.set(Calendar.MINUTE, 0)
+                weekCalendar.set(Calendar.SECOND, 0)
+                weekCalendar.set(Calendar.MILLISECOND, 0)
 
                 // 星期一到星期日
                 // Calendar.MONDAY=2, Calendar.TUESDAY=3, ..., Calendar.SATURDAY=7, Calendar.SUNDAY=1
@@ -257,15 +270,50 @@ class StatisticsDialogAdapter(
                     dayCell.setPadding(4, 4, 4, 4)
                     dayCell.layoutParams = TableRow.LayoutParams(40, TableRow.LayoutParams.WRAP_CONTENT)
 
-                    // 从映射中查找
-                    val hasEntry = weekDayMap[Pair(week, dayOfWeek)] ?: false
-
-                    if (hasEntry) {
-                        dayCell.text = "✅"
-                        dayCell.setTextColor(android.graphics.Color.parseColor("#4CAF50")) // 绿色
+                    // 计算这个单元格对应的实际日期
+                    val cellDate = weekCalendar.clone() as Calendar
+                    // 计算从周一到当前星期几的天数差
+                    val dayOffset = when (dayOfWeek) {
+                        Calendar.MONDAY -> 0
+                        Calendar.TUESDAY -> 1
+                        Calendar.WEDNESDAY -> 2
+                        Calendar.THURSDAY -> 3
+                        Calendar.FRIDAY -> 4
+                        Calendar.SATURDAY -> 5
+                        Calendar.SUNDAY -> 6
+                        else -> 0
+                    }
+                    cellDate.add(Calendar.DAY_OF_MONTH, dayOffset)
+                    
+                    val cellYear = cellDate.get(Calendar.YEAR)
+                    val cellMonth = cellDate.get(Calendar.MONTH)
+                    val cellDay = cellDate.get(Calendar.DAY_OF_MONTH)
+                    
+                    // 判断日期类型
+                    val isThisYear = cellYear == year
+                    val isToday = cellYear == todayYear && cellMonth == todayMonth && cellDay == todayDay
+                    val isFuture = cellDate.after(today)
+                    
+                    if (!isThisYear || isFuture) {
+                        // 非今年或未来日期，显示空白
+                        dayCell.text = ""
+                        dayCell.setBackgroundColor(android.graphics.Color.TRANSPARENT)
                     } else {
-                        dayCell.text = "❌"
-                        dayCell.setTextColor(android.graphics.Color.parseColor("#F44336")) // 红色
+                        // 从映射中查找
+                        val hasEntry = weekDayMap[Pair(week, dayOfWeek)] ?: false
+                        
+                        if (hasEntry) {
+                            dayCell.text = "✅"
+                            dayCell.setTextColor(android.graphics.Color.parseColor("#4CAF50")) // 绿色
+                        } else if (isToday) {
+                            // 今天是今天且没有记录，显示❓
+                            dayCell.text = "❓"
+                            dayCell.setTextColor(android.graphics.Color.parseColor("#FF9800")) // 橙色
+                        } else {
+                            // 过去日期且没有记录
+                            dayCell.text = "❌"
+                            dayCell.setTextColor(android.graphics.Color.parseColor("#F44336")) // 红色
+                        }
                     }
 
                     row.addView(dayCell)
