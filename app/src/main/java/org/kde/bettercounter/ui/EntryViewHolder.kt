@@ -1,17 +1,24 @@
 package org.kde.bettercounter.ui
 
 
+import android.util.Log
 import android.view.HapticFeedbackConstants
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import io.github.douglasjunior.androidSimpleTooltip.SimpleTooltip.OnDismissListener
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.kde.bettercounter.R
 import org.kde.bettercounter.ViewModel
 import org.kde.bettercounter.databinding.FragmentEntryBinding
 import org.kde.bettercounter.persistence.CounterSummary
 import org.kde.bettercounter.persistence.Tutorial
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
 
 class EntryViewHolder(
     private val activity: AppCompatActivity,
@@ -37,6 +44,11 @@ class EntryViewHolder(
         }
         binding.btnPlus5.setOnClickListener { viewModel.incrementCounterByValue(counter.name, 5) }
         binding.btnPlus10.setOnClickListener { viewModel.incrementCounterByValue(counter.name, 10) }
+
+        // 统计按钮
+        binding.btnStats.setOnClickListener {
+            printStatistics(counter)
+        }
 
         // 自定义按钮弹窗
         binding.btnCustom.setOnClickListener {
@@ -126,6 +138,51 @@ class EntryViewHolder(
 
     fun showPickDateTutorial(onDismissListener: OnDismissListener? = null) {
         Tutorial.PICK_DATE.show(activity, binding.btnPlus1, onDismissListener)
+    }
+
+    private fun printStatistics(counter: CounterSummary) {
+        val TAG = "CounterStatistics"
+        activity.lifecycleScope.launch {
+            try {
+                val entries = withContext(Dispatchers.IO) {
+                    viewModel.getAllEntriesSortedByDate(counter.name)
+                }
+                
+                val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault())
+                
+                Log.d(TAG, "========== 计数器统计: ${counter.name} ==========")
+                Log.d(TAG, "总计数: ${entries.size}")
+                Log.d(TAG, "当前区间计数: ${counter.lastIntervalCount}")
+                Log.d(TAG, "目标: ${counter.goal}")
+                Log.d(TAG, "区间类型: ${counter.interval}")
+                
+                if (entries.isNotEmpty()) {
+                    Log.d(TAG, "最早记录: ${sdf.format(entries.first().date)}")
+                    Log.d(TAG, "最新记录: ${sdf.format(entries.last().date)}")
+                    
+                    // 计算平均间隔
+                    if (entries.size > 1) {
+                        val totalDays = (entries.last().date.time - entries.first().date.time) / (1000.0 * 60 * 60 * 24)
+                        val avgDays = totalDays / (entries.size - 1)
+                        Log.d(TAG, "总天数: ${String.format("%.2f", totalDays)}")
+                        Log.d(TAG, "平均间隔: ${String.format("%.2f", avgDays)} 天")
+                        Log.d(TAG, "平均频率: ${String.format("%.2f", (entries.size - 1) / totalDays)} 次/天")
+                    }
+                    
+                    // 最近10条记录
+                    Log.d(TAG, "--- 最近10条记录 ---")
+                    entries.takeLast(10).forEachIndexed { index, entry ->
+                        Log.d(TAG, "${index + 1}. ${sdf.format(entry.date)}")
+                    }
+                } else {
+                    Log.d(TAG, "暂无记录")
+                }
+                
+                Log.d(TAG, "==========================================")
+            } catch (e: Exception) {
+                Log.e(TAG, "获取统计信息失败: ${e.message}", e)
+            }
+        }
     }
 
 }
