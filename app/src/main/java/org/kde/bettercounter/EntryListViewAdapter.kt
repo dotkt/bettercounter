@@ -60,10 +60,16 @@ class EntryListViewAdapter(
 
             fun observeNewCounter(counterName: String) {
                 viewModel.getCounterSummary(counterName).observe(activity) {
-                    notifyItemChanged(counters.indexOf(it.name), Unit)
-                    if (currentSelectedCounterName == it.name) {
-                        listObserver.onSelectedItemUpdated(counters.indexOf(it.name), it)
+                    // 检查计数器是否在当前过滤后的列表中
+                    val position = counters.indexOf(it.name)
+                    if (position != -1) {
+                        // 只在计数器可见时更新UI
+                        notifyItemChanged(position, Unit)
+                        if (currentSelectedCounterName == it.name) {
+                            listObserver.onSelectedItemUpdated(position, it)
+                        }
                     }
+                    // 如果计数器不在过滤列表中（被搜索过滤掉了），不需要更新UI
                 }
             }
 
@@ -81,41 +87,84 @@ class EntryListViewAdapter(
 
             override fun onCounterAdded(counterName: String) {
                 activity.runOnUiThread {
-                    counters.add(counterName)
-                    originalCounters.add(counterName) // 同时更新原始数据
-                    val position = counters.size - 1
-                    notifyItemInserted(position)
-                    observeNewCounter(counterName)
-                    listObserver.onItemAdded(position)
+                    // 先添加到原始列表
+                    originalCounters.add(counterName)
+                    
+                    // 检查新计数器是否应该出现在当前过滤结果中
+                    val shouldShow = currentFilter.isEmpty() || 
+                                    counterName.contains(currentFilter, ignoreCase = true)
+                    
+                    if (shouldShow) {
+                        // 如果应该显示，添加到过滤列表
+                        counters.add(counterName)
+                        val position = counters.size - 1
+                        notifyItemInserted(position)
+                        observeNewCounter(counterName)
+                        listObserver.onItemAdded(position)
+                    } else {
+                        // 如果不应该显示（被过滤掉了），只添加到原始列表，不更新UI
+                        observeNewCounter(counterName)
+                    }
                 }
             }
 
             override fun onCounterRemoved(counterName: String) {
+                // 先从原始列表中删除
+                originalCounters.remove(counterName)
+                
+                // 检查计数器是否在当前过滤后的列表中
                 val position = counters.indexOf(counterName)
-                counters.removeAt(position)
-                originalCounters.remove(counterName) // 同时更新原始数据
-                if (currentSelectedCounterName == counterName) {
-                    currentSelectedCounterName = null
-                }
-                activity.runOnUiThread {
-                    notifyItemRemoved(position)
+                if (position != -1) {
+                    // 如果计数器在过滤列表中，从过滤列表中删除
+                    counters.removeAt(position)
+                    if (currentSelectedCounterName == counterName) {
+                        currentSelectedCounterName = null
+                    }
+                    activity.runOnUiThread {
+                        notifyItemRemoved(position)
+                    }
+                } else {
+                    // 如果计数器不在过滤列表中，只需要更新原始数据
+                    // 重新应用当前过滤，确保数据同步
+                    if (currentSelectedCounterName == counterName) {
+                        currentSelectedCounterName = null
+                    }
+                    activity.runOnUiThread {
+                        // 重新应用过滤，确保UI与数据同步
+                        filterCounters(currentFilter)
+                    }
                 }
             }
 
             override fun onCounterRenamed(oldName: String, newName: String) {
-                val position = counters.indexOf(oldName)
-                counters[position] = newName
+                // 先更新原始列表
                 val originalPosition = originalCounters.indexOf(oldName)
                 if (originalPosition != -1) {
                     originalCounters[originalPosition] = newName
                 }
-                if (currentSelectedCounterName == oldName) {
-                    currentSelectedCounterName = newName
-                    listObserver.onSelectedItemUpdated(position, viewModel.getCounterSummary(newName).value!!)
-                }
-                activity.runOnUiThread {
-                    // passing a second parameter disables the disappear+appear animation
-                    notifyItemChanged(position, Unit)
+                
+                // 检查旧名称是否在当前过滤后的列表中
+                val position = counters.indexOf(oldName)
+                if (position != -1) {
+                    // 如果旧名称在过滤列表中，更新它
+                    counters[position] = newName
+                    if (currentSelectedCounterName == oldName) {
+                        currentSelectedCounterName = newName
+                        listObserver.onSelectedItemUpdated(position, viewModel.getCounterSummary(newName).value!!)
+                    }
+                    activity.runOnUiThread {
+                        // passing a second parameter disables the disappear+appear animation
+                        notifyItemChanged(position, Unit)
+                    }
+                } else {
+                    // 如果旧名称不在过滤列表中，检查新名称是否应该出现在过滤列表中
+                    if (currentSelectedCounterName == oldName) {
+                        currentSelectedCounterName = newName
+                    }
+                    // 重新应用过滤，因为新名称可能匹配当前过滤条件
+                    activity.runOnUiThread {
+                        filterCounters(currentFilter)
+                    }
                 }
             }
 
