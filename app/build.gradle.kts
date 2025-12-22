@@ -74,6 +74,7 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.viewpager2)
     implementation(libs.material)
     coreLibraryDesugaring(libs.android.desugarJdkLibs) // Chrono.UNITS for Android < 26
     testImplementation(libs.junit)

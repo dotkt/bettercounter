@@ -7,6 +7,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.tabs.TabLayoutMediator
 import io.github.douglasjunior.androidSimpleTooltip.SimpleTooltip.OnDismissListener
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -186,23 +187,33 @@ class EntryViewHolder(
                 Log.d(TAG, statsText.toString())
                 Log.d(TAG, "==========================================")
                 
-                // 在手机上显示对话框
+                // 在手机上显示分页对话框
                 withContext(Dispatchers.Main) {
-                    val scrollView = android.widget.ScrollView(activity).apply {
-                        val textView = android.widget.TextView(activity).apply {
-                            text = statsText.toString()
-                            textSize = 14f
-                            setPadding(32, 24, 32, 24)
-                            setTextColor(android.graphics.Color.BLACK)
-                        }
-                        addView(textView)
-                    }
+                    val dialogView = activity.layoutInflater.inflate(R.layout.dialog_statistics, null)
+                    val viewPager = dialogView.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.viewPager)
+                    val tabLayout = dialogView.findViewById<com.google.android.material.tabs.TabLayout>(R.id.tabLayout)
                     
-                    com.google.android.material.dialog.MaterialAlertDialogBuilder(activity)
+                    val adapter = StatisticsDialogAdapter(entries, counter.name, viewPager)
+                    viewPager.adapter = adapter
+                    
+                    // 连接 TabLayout 和 ViewPager2
+                    TabLayoutMediator(tabLayout, viewPager) { tab, position ->
+                        tab.text = when (position) {
+                            0 -> "周统计"
+                            1 -> "详细信息"
+                            else -> ""
+                        }
+                    }.attach()
+                    
+                    val dialog = com.google.android.material.dialog.MaterialAlertDialogBuilder(activity)
                         .setTitle("统计信息")
-                        .setView(scrollView)
+                        .setView(dialogView)
                         .setPositiveButton("确定", null)
-                        .show()
+                        .create()
+                    
+                    // 设置对话框背景为白色
+                    dialog.window?.setBackgroundDrawableResource(android.R.color.white)
+                    dialog.show()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "获取统计信息失败: ${e.message}", e)
