@@ -202,7 +202,17 @@ class EntryViewHolder(
                     
                     // 设置对话框背景为白色
                     dialog.window?.setBackgroundDrawableResource(android.R.color.white)
+                    
                     dialog.show()
+                    
+                    // 设置对话框全屏显示（需要在show()之后设置）
+                    val window = dialog.window
+                    window?.let {
+                        val layoutParams = it.attributes
+                        layoutParams.width = android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                        layoutParams.height = android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                        it.attributes = layoutParams
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "获取统计信息失败: ${e.message}", e)
