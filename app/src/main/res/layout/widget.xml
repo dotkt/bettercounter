@@ -30,11 +30,13 @@
         android:textColor="@color/colorAccent"
         android:textSize="32sp"
         android:autoSizeTextType="uniform"
-        android:autoSizeMinTextSize="24sp"
+        android:autoSizeMinTextSize="8sp"
         android:autoSizeMaxTextSize="64sp"
-        android:autoSizeStepGranularity="2sp"
+        android:autoSizeStepGranularity="1sp"
         android:maxLines="1"
         android:gravity="center"
+        android:ellipsize="none"
+        android:paddingHorizontal="2dp"
         tools:ignore="HardcodedText" />
 
     <TextView
