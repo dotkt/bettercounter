@@ -21,23 +21,40 @@
         android:ellipsize="end"
         android:textStyle="bold" />
 
-    <TextView
-        android:id="@+id/widgetCounter"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:text="..."
         android:layout_weight="1"
-        android:textColor="@color/colorAccent"
-        android:textSize="32sp"
-        android:autoSizeTextType="uniform"
-        android:autoSizeMinTextSize="8sp"
-        android:autoSizeMaxTextSize="64sp"
-        android:autoSizeStepGranularity="1sp"
-        android:maxLines="1"
-        android:gravity="center"
-        android:ellipsize="none"
-        android:paddingHorizontal="2dp"
-        tools:ignore="HardcodedText" />
+        android:orientation="vertical"
+        android:gravity="center">
+        
+        <TextView
+            android:id="@+id/widgetCheckmark"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="👍"
+            android:textSize="16sp"
+            android:visibility="gone"
+            android:layout_marginBottom="2dp" />
+        
+        <TextView
+            android:id="@+id/widgetCounter"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:text="..."
+            android:textColor="@color/colorAccent"
+            android:textSize="32sp"
+            android:autoSizeTextType="uniform"
+            android:autoSizeMinTextSize="8sp"
+            android:autoSizeMaxTextSize="64sp"
+            android:autoSizeStepGranularity="1sp"
+            android:maxLines="1"
+            android:gravity="center"
+            android:ellipsize="none"
+            android:paddingHorizontal="2dp"
+            tools:ignore="HardcodedText" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/widgetTime"

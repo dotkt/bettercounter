@@ -15,6 +15,7 @@ import org.kde.bettercounter.BuildConfig
 import org.kde.bettercounter.R
 import org.kde.bettercounter.ViewModel
 import org.kde.bettercounter.persistence.CounterSummary
+import org.kde.bettercounter.persistence.Interval
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Calendar
@@ -171,8 +172,23 @@ internal fun updateAppWidget(
             if (date != null) {
                 val formattedDate = formatRecentTime(date, context)
                 views.setTextViewText(R.id.widgetTime, formattedDate)
+                
+                // 只对LIFETIME类型的计数器，判断今天是否有记录，如果有则显示👍
+                if (value.interval == Interval.LIFETIME) {
+                    val now = Calendar.getInstance()
+                    val mostRecentDate = Calendar.getInstance().apply { time = date }
+                    val hasTodayEntry = isSameDay(now, mostRecentDate)
+                    if (hasTodayEntry) {
+                        views.setViewVisibility(R.id.widgetCheckmark, android.view.View.VISIBLE)
+                    } else {
+                        views.setViewVisibility(R.id.widgetCheckmark, android.view.View.GONE)
+                    }
+                } else {
+                    views.setViewVisibility(R.id.widgetCheckmark, android.view.View.GONE)
+                }
             } else {
                 views.setTextViewText(R.id.widgetTime, context.getString(R.string.never))
+                views.setViewVisibility(R.id.widgetCheckmark, android.view.View.GONE)
             }
             appWidgetManager.updateAppWidget(appWidgetId, views)
         }
