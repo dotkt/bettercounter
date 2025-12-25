@@ -301,5 +301,12 @@ class EntryListViewAdapter(
             selectItem(position)
         }
     }
+    
+    /**
+     * 获取计数器在列表中的位置
+     */
+    fun getItemPosition(counterName: String): Int {
+        return counters.indexOf(counterName)
+    }
 
 }

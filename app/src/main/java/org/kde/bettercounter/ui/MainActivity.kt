@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var categoryPagerAdapter: CategoryPagerAdapter
     private lateinit var binding: ActivityMainBinding
     private lateinit var sheetBehavior: BottomSheetBehavior<LinearLayout>
+    private lateinit var searchResultAdapter: SearchResultAdapter
     private var intervalOverride: Interval? = null
     private var sheetIsExpanding = false
     private var currentSelectedCounter: CounterSummary? = null
@@ -188,11 +189,12 @@ class MainActivity : AppCompatActivity() {
         
         binding.viewPager.adapter = categoryPagerAdapter
         
-        // 设置 ViewPager2 的 paddingTop，为顶部区域留出空间
+        // 设置 ViewPager2 和搜索结果 RecyclerView 的 paddingTop，为顶部区域留出空间
         binding.root.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
                 val topBarHeight = binding.topBar.height
-                binding.viewPager.setPadding(0, topBarHeight, 0, binding.viewPager.paddingBottom)
+                binding.viewPager.setPadding(0, topBarHeight, 0, 0)
+                binding.searchResultsRecyclerView.setPadding(0, topBarHeight, 0, 0)
                 binding.root.viewTreeObserver.removeOnGlobalLayoutListener(this)
             }
         })
@@ -291,16 +293,25 @@ class MainActivity : AppCompatActivity() {
 
         // 搜索功能
         // ---------
+        // 初始化搜索结果 RecyclerView
+        binding.searchResultsRecyclerView.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
+        searchResultAdapter = SearchResultAdapter(viewModel) { counterName, category ->
+            // 点击搜索结果时，跳转到对应分类并定位到计数器
+            navigateToCounter(counterName, category)
+        }
+        binding.searchResultsRecyclerView.adapter = searchResultAdapter
+        
         binding.searchEditText.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: android.text.Editable?) {
                 val searchText = s?.toString()?.trim() ?: ""
-                filterCounters(searchText)
-                // 显示空状态提示
-                val currentAdapter = getCurrentAdapter()
-                if (searchText.isNotEmpty() && (currentAdapter?.itemCount ?: 0) == 0) {
-                    Snackbar.make(binding.viewPager, getString(R.string.no_search_results), Snackbar.LENGTH_SHORT).show()
+                if (searchText.isEmpty()) {
+                    // 清空搜索，显示分类列表
+                    showCategoryList()
+                } else {
+                    // 有搜索文本，显示搜索结果
+                    showSearchResults(searchText)
                 }
             }
         })
@@ -308,7 +319,7 @@ class MainActivity : AppCompatActivity() {
         // 清除搜索按钮点击事件
         binding.searchLayout.setEndIconOnClickListener {
             binding.searchEditText.text?.clear()
-            filterCounters("")
+            showCategoryList()
         }
 
         // 导出按钮点击事件
@@ -400,13 +411,76 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * 根据搜索文本过滤计数器
+     * 显示分类列表（正常模式）
      */
-    private fun filterCounters(searchText: String) {
-        // 更新所有分类页面的搜索过滤
-        categoryPagerAdapter.updateCategories()
-        val currentAdapter = getCurrentAdapter()
-        currentAdapter?.filterCounters(searchText)
+    private fun showCategoryList() {
+        binding.viewPager.visibility = View.VISIBLE
+        binding.searchResultsRecyclerView.visibility = View.GONE
+        // 更新分类标题为当前分类
+        if (categoryPagerAdapter.itemCount > 0) {
+            val currentPosition = binding.viewPager.currentItem
+            if (currentPosition < categoryPagerAdapter.itemCount) {
+                val category = categoryPagerAdapter.getCategoryAt(currentPosition)
+                updateToolbarTitle(category)
+            }
+        }
+    }
+    
+    /**
+     * 显示搜索结果
+     */
+    private fun showSearchResults(searchText: String) {
+        binding.viewPager.visibility = View.GONE
+        binding.searchResultsRecyclerView.visibility = View.VISIBLE
+        updateToolbarTitle("搜索结果")
+        
+        // 搜索所有分类的计数器
+        val allCounters = viewModel.getCounterList()
+        val resultsByCategory = mutableMapOf<String, MutableList<String>>()
+        
+        allCounters.forEach { counterName ->
+            if (counterName.contains(searchText, ignoreCase = true)) {
+                val category = viewModel.getCounterCategory(counterName)
+                if (!resultsByCategory.containsKey(category)) {
+                    resultsByCategory[category] = mutableListOf()
+                }
+                resultsByCategory[category]!!.add(counterName)
+            }
+        }
+        
+        // 更新搜索结果适配器
+        searchResultAdapter.updateResults(resultsByCategory)
+    }
+    
+    /**
+     * 跳转到指定分类的指定计数器
+     */
+    private fun navigateToCounter(counterName: String, category: String) {
+        // 切换到对应分类页面
+        val categoryPosition = categoryPagerAdapter.findPositionForCategory(category)
+        if (categoryPosition != -1) {
+            binding.viewPager.setCurrentItem(categoryPosition, false)
+            
+            // 等待页面切换完成后再滚动到计数器
+            binding.viewPager.post {
+                val adapter = categoryPagerAdapter.getAdapterForCategory(category)
+                adapter?.let {
+                    // 找到计数器在适配器中的位置
+                    val position = it.getItemPosition(counterName)
+                    if (position != -1) {
+                        getCurrentRecyclerView()?.post {
+                            getCurrentRecyclerView()?.scrollToPosition(position)
+                            // 选中该计数器
+                            it.selectItemByName(counterName)
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 清空搜索框
+        binding.searchEditText.text?.clear()
+        showCategoryList()
     }
     
     private fun getCurrentAdapter(): EntryListViewAdapter? {
