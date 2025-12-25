@@ -187,25 +187,7 @@ class EntryListViewAdapter(
             }
 
             override fun onCounterDecremented(counterName: String, oldEntryDate: Date) {
-                // 确保在UI线程上执行，并且recyclerView不为null
-                activity.runOnUiThread {
-                    val view = recyclerView ?: activity.findViewById<android.view.View>(android.R.id.content)
-                    if (view != null) {
-                        try {
-                            Snackbar.make(
-                                view,
-                                activity.getString(R.string.decreased_entry, counterName),
-                                Snackbar.LENGTH_LONG
-                            )
-                                .setAction(R.string.undo) {
-                                    viewModel.incrementCounter(counterName, oldEntryDate)
-                                }
-                                .show()
-                        } catch (e: Exception) {
-                            android.util.Log.e("EntryListViewAdapter", "Failed to show Snackbar: ${e.message}", e)
-                        }
-                    }
-                }
+                // 不需要显示任何提示
             }
         })
     }
