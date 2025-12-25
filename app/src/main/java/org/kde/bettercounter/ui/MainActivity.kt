@@ -453,7 +453,7 @@ class MainActivity : AppCompatActivity() {
     }
     
     /**
-     * 跳转到指定分类的指定计数器
+     * 跳转到指定分类的指定计数器（仅定位，不打开配置）
      */
     private fun navigateToCounter(counterName: String, category: String) {
         // 切换到对应分类页面
@@ -469,9 +469,8 @@ class MainActivity : AppCompatActivity() {
                     val position = it.getItemPosition(counterName)
                     if (position != -1) {
                         getCurrentRecyclerView()?.post {
+                            // 只滚动到位置，不选中（不打开配置项）
                             getCurrentRecyclerView()?.scrollToPosition(position)
-                            // 选中该计数器
-                            it.selectItemByName(counterName)
                         }
                     }
                 }
