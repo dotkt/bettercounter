@@ -38,31 +38,17 @@ class EntryViewHolder(
             binding.selectionCheckBox.setOnClickListener {
                 onSelectionToggle?.invoke(counter.name)
             }
-            // 在多选模式下，点击整个区域也切换选择状态
-            binding.infoArea.setOnClickListener {
+            // 在多选模式下，点击名称也切换选择状态
+            binding.nameText.setOnClickListener {
                 onSelectionToggle?.invoke(counter.name)
             }
-            binding.infoArea.setOnLongClickListener(null)
+            binding.nameText.setOnLongClickListener(null)
         } else {
             binding.selectionCheckBox.visibility = android.view.View.GONE
             binding.selectionCheckBox.isChecked = false
-            // 恢复正常的点击和长按行为
-            binding.infoArea.setOnClickListener { onClickListener(counter) }
-            binding.infoArea.setOnLongClickListener {
-                touchHelper.startDrag(this@EntryViewHolder)
-                @Suppress("DEPRECATION")
-                binding.infoArea.performHapticFeedback(
-                    HapticFeedbackConstants.LONG_PRESS,
-                    HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
-                )
-                true
-            }
         }
         
-        // 新加减按钮绑定
-        binding.btnMinus10.setOnClickListener { viewModel.decrementCounterByValue(counter.name, 10) }
-        binding.btnMinus5.setOnClickListener { viewModel.decrementCounterByValue(counter.name, 5) }
-        binding.btnMinus1.setOnClickListener { viewModel.decrementCounterByValue(counter.name, 1) }
+        // 绿色加号按钮绑定
         binding.btnPlus1.setOnClickListener {
             viewModel.incrementCounterByValue(counter.name, 1)
             if (!viewModel.isTutorialShown(Tutorial.PICK_DATE)) {
@@ -100,52 +86,21 @@ class EntryViewHolder(
                 .show()
         }
 
-        binding.infoArea.setOnClickListener { onClickListener(counter) }
-        binding.infoArea.setOnLongClickListener {
-            touchHelper.startDrag(this@EntryViewHolder)
-            @Suppress("DEPRECATION")
-            binding.infoArea.performHapticFeedback(
-                HapticFeedbackConstants.LONG_PRESS,
-                HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
-            )
-            true
-        }
-        binding.nameText.text = counter.name
-        binding.statusText.text = if (counter.isGoalMet()) "(已完成)" else "(未完成)"
-        binding.actualCountText.text = counter.lastIntervalCount.toString()
-        binding.targetCountText.text = counter.goal.toString()
-        binding.targetInput.setText("")
-
-        // 目标+/-按钮
-        binding.btnTargetMinus.setOnClickListener {
-            val newGoal = (counter.goal - 1).coerceAtLeast(0)
-            updateGoal(counter, newGoal)
-        }
-        binding.btnTargetPlus.setOnClickListener {
-            val newGoal = counter.goal + 1
-            updateGoal(counter, newGoal)
-        }
-        // 目标设定按钮
-        binding.btnTargetSet.setOnClickListener {
-            val input = binding.targetInput.text.toString().trim()
-            val value = input.toIntOrNull()
-            if (value != null && value >= 0) {
-                updateGoal(counter, value)
-            } else {
-                binding.targetInput.error = "请输入有效数字"
-            }
-        }
-        // 回车也可设定
-        binding.targetInput.setOnEditorActionListener { v, actionId, event ->
-            val input = binding.targetInput.text.toString().trim()
-            val value = input.toIntOrNull()
-            if (value != null && value >= 0) {
-                updateGoal(counter, value)
+        // 设置点击和长按事件（仅非多选模式）
+        if (!isMultiSelectMode) {
+            binding.nameText.setOnClickListener { onClickListener(counter) }
+            binding.nameText.setOnLongClickListener {
+                touchHelper.startDrag(this@EntryViewHolder)
+                @Suppress("DEPRECATION")
+                binding.nameText.performHapticFeedback(
+                    HapticFeedbackConstants.LONG_PRESS,
+                    HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
+                )
                 true
-            } else {
-                false
             }
         }
+        
+        binding.nameText.text = counter.name
 
         val mostRecentDate = counter.mostRecent
         if (mostRecentDate != null) {
