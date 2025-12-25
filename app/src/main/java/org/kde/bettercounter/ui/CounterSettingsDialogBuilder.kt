@@ -105,6 +105,7 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
         builder.setTitle(R.string.add_counter)
         binding.fakeSpinnerInterval.setText(Interval.DEFAULT.toHumanReadableResourceId())
         binding.spinnerInterval.setSelection(intervalAdapter.positionOf(Interval.DEFAULT))
+        binding.categoryEdit.setText("默认")
         updateGoalText()
         return this
     }
@@ -119,6 +120,9 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
         binding.spinnerInterval.setSelection(intervalAdapter.positionOf(counter.interval))
         colorAdapter.selectedColor = counter.color.colorInt
         goal = counter.goal
+        // 获取并设置类别
+        val category = viewModel.getCounterCategory(counter.name)
+        binding.categoryEdit.setText(category)
         updateGoalText()
         return this
     }
@@ -151,12 +155,14 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
                     binding.nameEdit.error = context.getString(R.string.already_exists)
                 }
                 else -> {
+                    val category = binding.categoryEdit.text.toString().trim().takeIf { it.isNotBlank() } ?: "默认"
                     onSaveListener(
                         CounterMetadata(
                             name,
                             intervalAdapter.itemAt(binding.spinnerInterval.selectedItemPosition),
                             goal,
                             CounterColor(colorAdapter.selectedColor),
+                            category
                         )
                     )
                     dialog.dismiss()

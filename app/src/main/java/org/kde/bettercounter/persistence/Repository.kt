@@ -16,6 +16,7 @@ const val COUNTERS_PREFS_KEY = "counters"
 const val COUNTERS_INTERVAL_PREFS_KEY = "interval.%s"
 const val COUNTERS_COLOR_PREFS_KEY = "color.%s"
 const val COUNTERS_GOAL_PREFS_KEY = "goal.%s"
+const val COUNTERS_CATEGORY_PREFS_KEY = "category.%s"
 const val TUTORIALS_PREFS_KEY = "tutorials"
 
 class Repository(
@@ -81,14 +82,21 @@ class Repository(
         return sharedPref.getInt(key, 0)
     }
 
+    fun getCounterCategory(name: String): String {
+        val key = COUNTERS_CATEGORY_PREFS_KEY.format(name)
+        return sharedPref.getString(key, "默认") ?: "默认"
+    }
+
     fun deleteCounterMetadata(name: String) {
         val colorKey = COUNTERS_COLOR_PREFS_KEY.format(name)
         val intervalKey = COUNTERS_INTERVAL_PREFS_KEY.format(name)
         val goalKey = COUNTERS_GOAL_PREFS_KEY.format(name)
+        val categoryKey = COUNTERS_CATEGORY_PREFS_KEY.format(name)
         sharedPref.edit()
             .remove(colorKey)
             .remove(intervalKey)
             .remove(goalKey)
+            .remove(categoryKey)
             .apply()
         counterCache.remove(name)
     }
@@ -97,10 +105,12 @@ class Repository(
         val colorKey = COUNTERS_COLOR_PREFS_KEY.format(counter.name)
         val intervalKey = COUNTERS_INTERVAL_PREFS_KEY.format(counter.name)
         val goalKey = COUNTERS_GOAL_PREFS_KEY.format(counter.name)
+        val categoryKey = COUNTERS_CATEGORY_PREFS_KEY.format(counter.name)
         sharedPref.edit()
             .putInt(colorKey, counter.color.colorInt)
             .putString(intervalKey, counter.interval.toString())
             .putInt(goalKey, counter.goal)
+            .putString(categoryKey, counter.category)
             .apply()
         counterCache.remove(counter.name)
     }
@@ -156,6 +166,15 @@ class Repository(
     suspend fun getEntriesForRangeSortedByDate(name: String, since: Date, until: Date): List<Entry> {
         return entryDao.getAllEntriesInRangeSortedByDate(name, since, until)
     }
+    fun getAllCategories(): Set<String> {
+        val categories = mutableSetOf<String>()
+        counters.forEach { counterName ->
+            val category = getCounterCategory(counterName)
+            categories.add(category)
+        }
+        return categories
+    }
+
     suspend fun getAllEntriesSortedByDate(name: String): List<Entry> {
         return entryDao.getAllEntriesSortedByDate(name)
     }

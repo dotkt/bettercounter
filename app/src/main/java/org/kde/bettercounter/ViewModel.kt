@@ -275,6 +275,10 @@ class ViewModel(application: Application) {
 
     fun getCounterList() = repo.getCounterList()
 
+    fun getCounterCategory(name: String): String = repo.getCounterCategory(name)
+
+    fun getAllCategories(): Set<String> = repo.getAllCategories()
+
     fun saveCounterOrder(value: List<String>) = repo.setCounterList(value)
 
     fun resetCounter(name: String) {
@@ -350,8 +354,11 @@ class ViewModel(application: Application) {
                     
                     Log.d(TAG, "导出计数器: $counterName, 颜色RGB: $colorRGB, 颜色名称: $colorName")
                     
+                    // 获取类别
+                    val category = repo.getCounterCategory(counterName)
+                    
                     // 创建JSON，同时包含颜色名称和RGB格式
-                    val configJson = """{"name":"$counterName","color":"$colorRGB","colorName":"$colorName","interval":"${summary.interval}","goal":${summary.goal}}"""
+                    val configJson = """{"name":"$counterName","color":"$colorRGB","colorName":"$colorName","interval":"${summary.interval}","goal":${summary.goal},"category":"$category"}"""
                     
                     // 创建时间戳部分
                     val timestamps = counterEntries.joinToString(",") { it.date.time.toString() }
@@ -563,7 +570,8 @@ class ViewModel(application: Application) {
                                 name, 
                                 Interval.DEFAULT, 
                                 0, 
-                                CounterColor.getDefault(context)
+                                CounterColor.getDefault(context),
+                                "默认"
                             )
                             addCounter(defaultMetadata)
                         }
@@ -702,8 +710,11 @@ class ViewModel(application: Application) {
                 
                 val goal = (configMap["goal"] as? Number)?.toInt() ?: 0
                 
+                // 获取类别，如果没有则使用默认值
+                val category = (configMap["category"] as? String)?.takeIf { it.isNotBlank() } ?: "默认"
+                
                 // 创建元数据
-                val metadata = CounterMetadata(name, interval, goal, color)
+                val metadata = CounterMetadata(name, interval, goal, color, category)
                 metadataToUpdate[name] = metadata
                 
                 Log.d(TAG, "导入计数器: $name, 颜色: $colorInt, 区间: $interval, 目标: $goal")

@@ -122,6 +122,7 @@ class ViewModelConcurrencyTest {
         val counter = CounterMetadata(
             name = "TestCounter",
             color = CounterColor.getDefault(ApplicationProvider.getApplicationContext()),
+            category = "默认",
             interval = Interval.DAY,
             goal = 10
         )

@@ -130,8 +130,9 @@ class EntryViewHolder(
 
     private fun updateGoal(counter: CounterSummary, newGoal: Int) {
         if (newGoal == counter.goal) return
+        val category = viewModel.getCounterCategory(counter.name)
         val meta = org.kde.bettercounter.persistence.CounterMetadata(
-            counter.name, counter.interval, newGoal, counter.color
+            counter.name, counter.interval, newGoal, counter.color, category
         )
         viewModel.editCounterSameName(meta)
     }
