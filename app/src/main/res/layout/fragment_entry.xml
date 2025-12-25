@@ -8,7 +8,7 @@
     android:background="@color/colorLightBackground"
     android:orientation="vertical">
 
-    <!-- 第一行：多选复选框、计数器标题、按钮 -->
+    <!-- 第一行：多选复选框、计数器名称、时间、进度/计数、统计按钮 -->
     <LinearLayout
         android:id="@+id/infoArea"
         android:layout_width="match_parent"
@@ -17,8 +17,8 @@
         android:gravity="center_vertical"
         android:paddingLeft="12dp"
         android:paddingRight="12dp"
-        android:paddingTop="1dp"
-        android:paddingBottom="1dp">
+        android:paddingTop="8dp"
+        android:paddingBottom="4dp">
 
         <!-- 多选复选框 -->
         <CheckBox
@@ -30,11 +30,12 @@
             android:focusable="false"
             android:clickable="false" />
 
-        <!-- 计数器名称（移到最左边） -->
+        <!-- 计数器名称 -->
         <TextView
             android:id="@+id/nameText"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:layout_marginEnd="8dp"
             android:textColor="@android:color/white"
             android:textStyle="bold"
@@ -43,97 +44,34 @@
             android:ellipsize="end"
             tools:text="计数器名称" />
 
-        <!-- 相对时间和计数器数字/进度 -->
-        <LinearLayout
-            android:layout_width="0dp"
+        <!-- 最后完成时间 -->
+        <TextView
+            android:id="@+id/relativeTimeText"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical"
-            android:gravity="start|center_vertical">
-            
-            <TextView
-                android:id="@+id/relativeTimeText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@android:color/white"
-                android:textSize="11sp"
-                android:alpha="0.7"
-                tools:text="3小时前" />
-            
-            <TextView
-                android:id="@+id/counterValueText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:textColor="@android:color/white"
-                android:textSize="14sp"
-                android:textStyle="bold"
-                tools:text="3/10" />
-        </LinearLayout>
+            android:layout_marginEnd="8dp"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            android:alpha="0.8"
+            tools:text="刚刚" />
 
-        <!-- 绿色加号按钮：1 -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnPlus1"
-            style="@style/Widget.MaterialComponents.Button"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
-            android:text="1"
-            android:textColor="@android:color/black"
-            android:textSize="16sp"
-            app:backgroundTint="@android:color/holo_green_light"
-            app:cornerRadius="20dp" />
-
-        <!-- 绿色加号按钮：五 -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnPlus5"
-            style="@style/Widget.MaterialComponents.Button"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
-            android:text="五"
-            android:textColor="@android:color/black"
-            android:textSize="11sp"
-            app:backgroundTint="@android:color/holo_green_light"
-            app:cornerRadius="20dp" />
-
-        <!-- 绿色加号按钮：十 -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnPlus10"
-            style="@style/Widget.MaterialComponents.Button"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
-            android:text="十"
-            android:textColor="@android:color/black"
-            android:textSize="11sp"
-            app:backgroundTint="@android:color/holo_green_light"
-            app:cornerRadius="20dp" />
-
-        <!-- 设按钮 -->
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnCustom"
-            style="@style/Widget.MaterialComponents.Button"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
-            android:text="设"
-            android:textColor="@android:color/black"
-            android:textSize="11sp"
-            app:backgroundTint="@android:color/darker_gray"
-            app:cornerRadius="20dp" />
+        <!-- 完成进度或总计数 -->
+        <TextView
+            android:id="@+id/counterValueText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:textColor="@android:color/white"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            tools:text="3/10" />
 
         <!-- 统计按钮 -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnStats"
             style="@style/Widget.MaterialComponents.Button"
             android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:layout_marginStart="4dp"
+            android:layout_height="36dp"
             android:minWidth="48dp"
             android:paddingLeft="12dp"
             android:paddingRight="12dp"
@@ -142,6 +80,110 @@
             android:textSize="14sp"
             app:backgroundTint="@android:color/holo_blue_dark"
             app:cornerRadius="6dp" />
+    </LinearLayout>
+
+    <!-- 第二行：操作按钮 -->
+    <LinearLayout
+        android:id="@+id/buttonArea"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="8dp">
+
+        <!-- 红色减号按钮：十 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnMinus10"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:text="十"
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            app:backgroundTint="@android:color/holo_red_light"
+            app:cornerRadius="24dp" />
+
+        <!-- 红色减号按钮：五 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnMinus5"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:text="五"
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            app:backgroundTint="@android:color/holo_red_light"
+            app:cornerRadius="24dp" />
+
+        <!-- 红色减号按钮：1 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnMinus1"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:text="1"
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            app:backgroundTint="@android:color/holo_red_light"
+            app:cornerRadius="24dp" />
+
+        <!-- 绿色加号按钮：1 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPlus1"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:text="1"
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            app:backgroundTint="@android:color/holo_green_light"
+            app:cornerRadius="24dp" />
+
+        <!-- 绿色加号按钮：五 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPlus5"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:text="五"
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            app:backgroundTint="@android:color/holo_green_light"
+            app:cornerRadius="24dp" />
+
+        <!-- 绿色加号按钮：十 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnPlus10"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:text="十"
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            app:backgroundTint="@android:color/holo_green_light"
+            app:cornerRadius="24dp" />
+
+        <!-- 设按钮 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnCustom"
+            style="@style/Widget.MaterialComponents.Button"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_margin="4dp"
+            android:text="设"
+            android:textColor="@android:color/black"
+            android:textSize="18sp"
+            app:backgroundTint="@android:color/darker_gray"
+            app:cornerRadius="24dp" />
     </LinearLayout>
 
 </LinearLayout>

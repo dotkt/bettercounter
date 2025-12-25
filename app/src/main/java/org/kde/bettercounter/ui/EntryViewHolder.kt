@@ -44,42 +44,62 @@ class EntryViewHolder(
             }
             binding.nameText.setOnLongClickListener(null)
             // 隐藏所有按钮和相对时间
-            binding.btnPlus1.visibility = android.view.View.GONE
-            binding.btnPlus5.visibility = android.view.View.GONE
-            binding.btnPlus10.visibility = android.view.View.GONE
-            binding.btnCustom.visibility = android.view.View.GONE
+            binding.buttonArea.visibility = android.view.View.GONE
             binding.btnStats.visibility = android.view.View.GONE
             binding.relativeTimeText.visibility = android.view.View.GONE
             binding.counterValueText.visibility = android.view.View.GONE
         } else {
             binding.selectionCheckBox.visibility = android.view.View.GONE
             binding.selectionCheckBox.isChecked = false
-            // 显示所有按钮
-            binding.btnPlus1.visibility = android.view.View.VISIBLE
-            binding.btnPlus5.visibility = android.view.View.VISIBLE
-            binding.btnPlus10.visibility = android.view.View.VISIBLE
-            binding.btnCustom.visibility = android.view.View.VISIBLE
+            // 显示所有按钮和内容
+            binding.buttonArea.visibility = android.view.View.VISIBLE
             binding.btnStats.visibility = android.view.View.VISIBLE
         }
         
+        // 使用一个变量来跟踪按钮点击时间，防止触发标题点击
+        var lastButtonClickTime = 0L
+        
+        // 红色减号按钮绑定
+        binding.btnMinus10.setOnClickListener {
+            lastButtonClickTime = System.currentTimeMillis()
+            viewModel.decrementCounterByValue(counter.name, 10)
+        }
+        binding.btnMinus5.setOnClickListener {
+            lastButtonClickTime = System.currentTimeMillis()
+            viewModel.decrementCounterByValue(counter.name, 5)
+        }
+        binding.btnMinus1.setOnClickListener {
+            lastButtonClickTime = System.currentTimeMillis()
+            viewModel.decrementCounterByValue(counter.name, 1)
+        }
+        
         // 绿色加号按钮绑定
-        binding.btnPlus1.setOnClickListener {
+        binding.btnPlus1.setOnClickListener { 
+            lastButtonClickTime = System.currentTimeMillis()
             viewModel.incrementCounterByValue(counter.name, 1)
             if (!viewModel.isTutorialShown(Tutorial.PICK_DATE)) {
                 viewModel.setTutorialShown(Tutorial.PICK_DATE)
                 showPickDateTutorial()
             }
         }
-        binding.btnPlus5.setOnClickListener { viewModel.incrementCounterByValue(counter.name, 5) }
-        binding.btnPlus10.setOnClickListener { viewModel.incrementCounterByValue(counter.name, 10) }
+        binding.btnPlus5.setOnClickListener { 
+            lastButtonClickTime = System.currentTimeMillis()
+            viewModel.incrementCounterByValue(counter.name, 5)
+        }
+        binding.btnPlus10.setOnClickListener { 
+            lastButtonClickTime = System.currentTimeMillis()
+            viewModel.incrementCounterByValue(counter.name, 10)
+        }
 
         // 统计按钮
         binding.btnStats.setOnClickListener {
+            lastButtonClickTime = System.currentTimeMillis()
             printStatistics(counter)
         }
 
         // 自定义按钮弹窗
         binding.btnCustom.setOnClickListener {
+            lastButtonClickTime = System.currentTimeMillis()
             val editText = android.widget.EditText(activity)
             editText.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
             editText.hint = "输入正负分数"
@@ -117,7 +137,12 @@ class EntryViewHolder(
 
         // 设置点击和长按事件（仅非多选模式）
         if (!isMultiSelectMode) {
-            binding.nameText.setOnClickListener { onClickListener(counter) }
+            binding.nameText.setOnClickListener { 
+                // 如果300ms内点击过按钮，则不触发标题点击
+                if (System.currentTimeMillis() - lastButtonClickTime > 300) {
+                    onClickListener(counter)
+                }
+            }
             binding.nameText.setOnLongClickListener {
                 touchHelper.startDrag(this@EntryViewHolder)
                 @Suppress("DEPRECATION")
