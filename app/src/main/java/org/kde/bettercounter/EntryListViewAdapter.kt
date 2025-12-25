@@ -40,6 +40,7 @@ class EntryListViewAdapter(
     private var counters: MutableList<String> = mutableListOf()
     private var originalCounters: MutableList<String> = mutableListOf() // 备份原始数据
     private var currentFilter: String =""
+    private var currentCategory: String? = null // 当前分类
 
     override fun getItemCount(): Int = counters.size
 
@@ -76,63 +77,42 @@ class EntryListViewAdapter(
             @SuppressLint("NotifyDataSetChanged")
             override fun onInitialCountersLoaded() {
                 activity.runOnUiThread {
-                    counters = viewModel.getCounterList().toMutableList()
-                    originalCounters = counters.toMutableList() // 备份原始数据
-                    notifyDataSetChanged()
-                    for (counterName in counters) {
+                    val allCounters = viewModel.getCounterList().toMutableList()
+                    originalCounters = allCounters.toMutableList() // 备份原始数据
+                    applyFilters() // 应用过滤器
+                    for (counterName in allCounters) {
                         observeNewCounter(counterName)
                     }
                 }
             }
 
+            @SuppressLint("NotifyDataSetChanged")
             override fun onCounterAdded(counterName: String) {
                 activity.runOnUiThread {
-                    // 先添加到原始列表
-                    originalCounters.add(counterName)
-                    
-                    // 检查新计数器是否应该出现在当前过滤结果中
-                    val shouldShow = currentFilter.isEmpty() || 
-                                    counterName.contains(currentFilter, ignoreCase = true)
-                    
-                    if (shouldShow) {
-                        // 如果应该显示，添加到过滤列表
-                        counters.add(counterName)
-                        val position = counters.size - 1
-                        notifyItemInserted(position)
-                        observeNewCounter(counterName)
-                        listObserver.onItemAdded(position)
-                    } else {
-                        // 如果不应该显示（被过滤掉了），只添加到原始列表，不更新UI
-                        observeNewCounter(counterName)
+                    if (!originalCounters.contains(counterName)) {
+                        originalCounters.add(counterName)
+                        val oldSize = counters.size
+                        applyFilters() // 应用过滤器，如果新计数器符合当前过滤条件，会自动显示
+                        val newSize = counters.size
+                        if (newSize > oldSize) {
+                            // 新计数器被添加到显示列表
+                            val position = counters.indexOf(counterName)
+                            if (position != -1) {
+                                listObserver.onItemAdded(position)
+                            }
+                        }
                     }
+                    observeNewCounter(counterName)
                 }
             }
 
             override fun onCounterRemoved(counterName: String) {
-                // 先从原始列表中删除
-                originalCounters.remove(counterName)
-                
-                // 检查计数器是否在当前过滤后的列表中
-                val position = counters.indexOf(counterName)
-                if (position != -1) {
-                    // 如果计数器在过滤列表中，从过滤列表中删除
-                    counters.removeAt(position)
+                activity.runOnUiThread {
+                    originalCounters.remove(counterName)
                     if (currentSelectedCounterName == counterName) {
                         currentSelectedCounterName = null
                     }
-                    activity.runOnUiThread {
-                        notifyItemRemoved(position)
-                    }
-                } else {
-                    // 如果计数器不在过滤列表中，只需要更新原始数据
-                    // 重新应用当前过滤，确保数据同步
-                    if (currentSelectedCounterName == counterName) {
-                        currentSelectedCounterName = null
-                    }
-                    activity.runOnUiThread {
-                        // 重新应用过滤，确保UI与数据同步
-                        filterCounters(currentFilter)
-                    }
+                    applyFilters() // 重新应用过滤器
                 }
             }
 
@@ -271,13 +251,37 @@ class EntryListViewAdapter(
      */
     fun filterCounters(searchText: String) {
         currentFilter = searchText
-        val filteredCounters = if (searchText.isEmpty()) {
-            originalCounters
-        } else {
-            originalCounters.filter { counterName ->
-                counterName.contains(searchText, ignoreCase = true)
-            }
+        applyFilters()
+    }
+
+    /**
+     * 设置当前分类
+     */
+    fun setCategory(category: String?) {
+        currentCategory = category
+        applyFilters()
+    }
+
+    /**
+     * 应用所有过滤器（搜索文本和分类）
+     */
+    private fun applyFilters() {
+        var filteredCounters = originalCounters
+        
+        // 先按分类过滤
+        if (currentCategory != null) {
+            filteredCounters = filteredCounters.filter { counterName ->
+                viewModel.getCounterCategory(counterName) == currentCategory
+            }.toMutableList()
         }
+        
+        // 再按搜索文本过滤
+        if (currentFilter.isNotEmpty()) {
+            filteredCounters = filteredCounters.filter { counterName ->
+                counterName.contains(currentFilter, ignoreCase = true)
+            }.toMutableList()
+        }
+        
         updateFilteredData(filteredCounters)
     }
 

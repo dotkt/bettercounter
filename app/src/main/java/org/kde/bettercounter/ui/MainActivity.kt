@@ -22,6 +22,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.PagerSnapHelper
 import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetBehavior.BottomSheetCallback
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -62,10 +63,12 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var viewModel: ViewModel
     private lateinit var entryViewAdapter: EntryListViewAdapter
+    private lateinit var categoryPagerAdapter: CategoryPagerAdapter
     private lateinit var binding: ActivityMainBinding
     private lateinit var sheetBehavior: BottomSheetBehavior<LinearLayout>
     private var intervalOverride: Interval? = null
     private var sheetIsExpanding = false
+    private var currentSelectedCounter: CounterSummary? = null
     private var onBackPressedCloseSheetCallback = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() {
             if (sheetBehavior.state == BottomSheetBehavior.STATE_EXPANDED) {
@@ -85,7 +88,7 @@ class MainActivity : AppCompatActivity() {
         
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        setSupportActionBar(binding.toolbar)
+        // 不再使用 toolbar，改用自定义按钮
 
         viewModel = (application as BetterApplication).viewModel
 
@@ -95,7 +98,7 @@ class MainActivity : AppCompatActivity() {
         sheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
 
         sheetIsExpanding = false
-        val sheetFoldedPadding = binding.recycler.paddingBottom // padding so the fab is in view
+        val sheetFoldedPadding = 100 // padding so the fab is in view
         var sheetUnfoldedPadding = 0 // padding to fit the bottomSheet. We read it once and assume all sheets are going to be the same height
         binding.root.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
@@ -115,8 +118,9 @@ class MainActivity : AppCompatActivity() {
                     }
                 } else if (newState == BottomSheetBehavior.STATE_HIDDEN) {
                     onBackPressedCloseSheetCallback.isEnabled = false
-                    setFabToCreate()
                     entryViewAdapter.clearItemSelected()
+                    currentSelectedCounter = null
+                    binding.editCounterButton.visibility = View.GONE
                 }
             }
 
@@ -124,25 +128,28 @@ class MainActivity : AppCompatActivity() {
                 if (!sheetIsExpanding) { // only do this when collapsing. when expanding we set the final padding at once so smoothScrollToPosition can do its job
                     val bottomPadding =
                         sheetFoldedPadding + ((1.0 + slideOffset) * (sheetUnfoldedPadding - sheetFoldedPadding)).toInt()
-                    binding.recycler.setPadding(0, 0, 0, bottomPadding)
+                    // 更新当前页面的RecyclerView的padding
+                    getCurrentRecyclerView()?.setPadding(0, 0, 0, bottomPadding)
                 }
             }
         })
 
         onBackPressedDispatcher.addCallback(onBackPressedCloseSheetCallback)
 
-        // Create counter dialog
-        // ---------------------
-        setFabToCreate()
-
-        // Counter list
+        // Counter list with category pager
         // ------------
-        entryViewAdapter = EntryListViewAdapter(this, viewModel, object : EntryListViewAdapter.EntryListObserver {
+        categoryPagerAdapter = CategoryPagerAdapter(this, viewModel, object : EntryListViewAdapter.EntryListObserver {
             override fun onItemAdded(position: Int) {
-                binding.recycler.smoothScrollToPosition(position)
+                getCurrentRecyclerView()?.smoothScrollToPosition(position)
             }
             override fun onSelectedItemUpdated(position: Int, counter: CounterSummary) {
                 binding.detailsTitle.text = counter.name
+                currentSelectedCounter = counter
+                // 设置编辑按钮的点击事件
+                binding.editCounterButton.visibility = View.VISIBLE
+                binding.editCounterButton.setOnClickListener {
+                    showEditCounterDialog(counter)
+                }
                 val interval = intervalOverride ?: counter.interval.toChartDisplayableInterval()
                 val adapter = ChartsAdapter(this@MainActivity, viewModel, counter, interval,
                     onIntervalChange = { newInterval ->
@@ -168,18 +175,112 @@ class MainActivity : AppCompatActivity() {
                     onBackPressedCloseSheetCallback.isEnabled = true
                     sheetIsExpanding = true
                 }
-                binding.recycler.setPadding(0, 0, 0, sheetUnfoldedPadding)
-                binding.recycler.smoothScrollToPosition(position)
-
-                setFabToEdit(counter)
+                getCurrentRecyclerView()?.let { recyclerView ->
+                    recyclerView.setPadding(0, 0, 0, sheetUnfoldedPadding)
+                    recyclerView.smoothScrollToPosition(position)
+                }
 
                 intervalOverride = null
 
                 onSelectedItemUpdated(position, counter)
             }
         })
-        binding.recycler.adapter = entryViewAdapter
-        binding.recycler.layoutManager = LinearLayoutManager(this)
+        
+        binding.viewPager.adapter = categoryPagerAdapter
+        
+        // 设置 ViewPager2 的 paddingTop，为顶部区域留出空间
+        binding.root.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+            override fun onGlobalLayout() {
+                val topBarHeight = binding.topBar.height
+                binding.viewPager.setPadding(0, topBarHeight, 0, binding.viewPager.paddingBottom)
+                binding.root.viewTreeObserver.removeOnGlobalLayoutListener(this)
+            }
+        })
+        
+        // 如果有分类，预先创建第一个分类的适配器
+        if (categoryPagerAdapter.itemCount > 0) {
+            val firstCategory = categoryPagerAdapter.getCategoryAt(0)
+            categoryPagerAdapter.ensureAdapterForCategory(firstCategory)
+            entryViewAdapter = categoryPagerAdapter.getAdapterForCategory(firstCategory)!!
+            // 更新 toolbar 标题为第一个分类
+            updateToolbarTitle(firstCategory)
+        } else {
+            // 如果没有分类，创建一个默认的适配器（显示所有计数器）
+            entryViewAdapter = EntryListViewAdapter(this, viewModel, object : EntryListViewAdapter.EntryListObserver {
+                override fun onItemAdded(position: Int) {
+                    getCurrentRecyclerView()?.smoothScrollToPosition(position)
+                }
+                override fun onSelectedItemUpdated(position: Int, counter: CounterSummary) {
+                    binding.detailsTitle.text = counter.name
+                    currentSelectedCounter = counter
+                    // 设置编辑按钮的点击事件
+                    binding.editCounterButton.visibility = View.VISIBLE
+                    binding.editCounterButton.setOnClickListener {
+                        showEditCounterDialog(counter)
+                    }
+                    val interval = intervalOverride ?: counter.interval.toChartDisplayableInterval()
+                    val adapter = ChartsAdapter(this@MainActivity, viewModel, counter, interval,
+                        onIntervalChange = { newInterval ->
+                            intervalOverride = newInterval
+                            onSelectedItemUpdated(position, counter)
+                        },
+                        onDateChange = { newDate ->
+                            val chartPosition = this.findPositionForRangeStart(newDate)
+                            binding.charts.scrollToPosition(chartPosition)
+                        },
+                        onDataDisplayed = {
+                            sheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+                        }
+                    )
+                    binding.charts.swapAdapter(adapter, true)
+                    binding.charts.scrollToPosition(adapter.itemCount - 1)
+                }
+                override fun onItemSelected(position: Int, counter: CounterSummary) {
+                    if (sheetBehavior.state == BottomSheetBehavior.STATE_HIDDEN) {
+                        sheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+                        onBackPressedCloseSheetCallback.isEnabled = true
+                        sheetIsExpanding = true
+                    }
+                    getCurrentRecyclerView()?.let { recyclerView ->
+                        recyclerView.setPadding(0, 0, 0, sheetUnfoldedPadding)
+                        recyclerView.smoothScrollToPosition(position)
+                    }
+                    intervalOverride = null
+                    onSelectedItemUpdated(position, counter)
+                }
+            })
+            updateToolbarTitle(getString(R.string.app_name))
+        }
+        
+        // 添加页面切换监听器，更新 toolbar 标题并输出日志
+        var previousPosition = binding.viewPager.currentItem
+        binding.viewPager.registerOnPageChangeCallback(object : androidx.viewpager2.widget.ViewPager2.OnPageChangeCallback() {
+            override fun onPageSelected(position: Int) {
+                super.onPageSelected(position)
+                if (categoryPagerAdapter.itemCount > 0) {
+                    val oldCategory = if (previousPosition == position) {
+                        "初始加载"
+                    } else if (previousPosition < categoryPagerAdapter.itemCount) {
+                        categoryPagerAdapter.getCategoryAt(previousPosition)
+                    } else {
+                        "未知"
+                    }
+                    val newCategory = categoryPagerAdapter.getCategoryAt(position)
+                    Log.d(TAG, "========== 分类切换 ==========")
+                    Log.d(TAG, "旧位置: $previousPosition -> 新位置: $position")
+                    Log.d(TAG, "旧分类: $oldCategory")
+                    Log.d(TAG, "新分类: $newCategory")
+                    Log.d(TAG, "总页面数: ${categoryPagerAdapter.itemCount}")
+                    Log.d(TAG, "所有分类列表: ${categoryPagerAdapter.getAllCategoriesForLog()}")
+                    Log.d(TAG, "ViewModel中的分类: ${viewModel.getAllCategories()}")
+                    Log.d(TAG, "============================")
+                    
+                    // 更新 toolbar 标题为当前分类名称
+                    updateToolbarTitle(newCategory)
+                    previousPosition = position
+                }
+            }
+        })
 
         binding.charts.layoutManager = LinearLayoutManager(this, RecyclerView.HORIZONTAL, false).apply {
             stackFromEnd = true
@@ -197,8 +298,9 @@ class MainActivity : AppCompatActivity() {
                 val searchText = s?.toString()?.trim() ?: ""
                 filterCounters(searchText)
                 // 显示空状态提示
-                if (searchText.isNotEmpty() && entryViewAdapter.itemCount == 0) {
-                    Snackbar.make(binding.recycler, getString(R.string.no_search_results), Snackbar.LENGTH_SHORT).show()
+                val currentAdapter = getCurrentAdapter()
+                if (searchText.isNotEmpty() && (currentAdapter?.itemCount ?: 0) == 0) {
+                    Snackbar.make(binding.viewPager, getString(R.string.no_search_results), Snackbar.LENGTH_SHORT).show()
                 }
             }
         })
@@ -214,6 +316,9 @@ class MainActivity : AppCompatActivity() {
             checkPermissionAndExport()
         }
 
+        // 设置菜单按钮
+        setupMenuButton()
+        
         startRefreshEveryMinuteBoundary()
         
         // Handle intent after all UI components are initialized
@@ -248,16 +353,37 @@ class MainActivity : AppCompatActivity() {
             // 等待数据加载完成后再滚动
             viewModel.observeCounterChange(object : ViewModel.CounterObserver {
                 override fun onInitialCountersLoaded() {
-                    val position = viewModel.getCounterList().indexOf(counterName)
-                    Log.d(TAG, "Counter position: $position")
-                    if (position != -1) {
-                        binding.recycler.post {
-                            // 先滚到最下面，确保布局完成
-                            binding.recycler.scrollToPosition(entryViewAdapter.itemCount - 1)
-                            // 再 post 一次，等 layout 完成后滚回目标
-                            binding.recycler.post {
-                                // 滚动到目标计数器，不展开统计页面
-                                binding.recycler.scrollToPosition(position)
+                    // 找到计数器所属的分类
+                    val category = viewModel.getCounterCategory(counterName)
+                    if (categoryPagerAdapter.itemCount > 0) {
+                        val categoryPosition = categoryPagerAdapter.findPositionForCategory(category)
+                        
+                        // 切换到对应的分类页面
+                        binding.viewPager.setCurrentItem(categoryPosition, false)
+                        
+                        // 更新 toolbar 标题
+                        updateToolbarTitle(category)
+                        
+                        // 等待页面切换完成后再滚动
+                        binding.viewPager.post {
+                            val adapter = categoryPagerAdapter.getAdapterForCategory(category)
+                            val position = adapter?.let { adapter ->
+                                val counters = viewModel.getCounterList()
+                                counters.indexOf(counterName)
+                            } ?: -1
+                            
+                            if (position != -1) {
+                                getCurrentRecyclerView()?.post {
+                                    getCurrentRecyclerView()?.scrollToPosition(position)
+                                }
+                            }
+                        }
+                    } else {
+                        // 如果没有分类页面，直接滚动
+                        getCurrentRecyclerView()?.post {
+                            val position = viewModel.getCounterList().indexOf(counterName)
+                            if (position != -1) {
+                                getCurrentRecyclerView()?.scrollToPosition(position)
                             }
                         }
                     }
@@ -277,7 +403,50 @@ class MainActivity : AppCompatActivity() {
      * 根据搜索文本过滤计数器
      */
     private fun filterCounters(searchText: String) {
-        entryViewAdapter.filterCounters(searchText)
+        // 更新所有分类页面的搜索过滤
+        categoryPagerAdapter.updateCategories()
+        val currentAdapter = getCurrentAdapter()
+        currentAdapter?.filterCounters(searchText)
+    }
+    
+    private fun getCurrentAdapter(): EntryListViewAdapter? {
+        if (categoryPagerAdapter.itemCount == 0) {
+            return entryViewAdapter
+        }
+        val currentPosition = binding.viewPager.currentItem
+        if (currentPosition < categoryPagerAdapter.itemCount) {
+            val category = categoryPagerAdapter.getCategoryAt(currentPosition)
+            return categoryPagerAdapter.getAdapterForCategory(category)
+        }
+        return null
+    }
+    
+    private fun updateToolbarTitle(categoryName: String) {
+        binding.categoryTitle.text = categoryName
+    }
+
+    private fun getCurrentRecyclerView(): RecyclerView? {
+        // ViewPager2 内部使用 RecyclerView，我们需要获取当前页面的 RecyclerView
+        // ViewPager2 的第一个子视图就是内部的 RecyclerView
+        val viewPagerRecyclerView = binding.viewPager.getChildAt(0) as? RecyclerView ?: return null
+        
+        // 获取当前显示的页面位置
+        val currentItem = binding.viewPager.currentItem
+        
+        // 查找当前页面的 ViewHolder
+        val viewHolder = viewPagerRecyclerView.findViewHolderForAdapterPosition(currentItem)
+        if (viewHolder is CategoryPagerAdapter.CategoryViewHolder) {
+            return viewHolder.recyclerView
+        }
+        
+        // 如果找不到 ViewHolder，尝试通过其他方式获取
+        // ViewPager2 的每个页面都是一个 RecyclerView
+        val pageView = viewPagerRecyclerView.findViewHolderForAdapterPosition(currentItem)?.itemView
+        if (pageView is RecyclerView) {
+            return pageView
+        }
+        
+        return null
     }
 
     private fun millisecondsUntilNextHour(): Long {
@@ -301,11 +470,35 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        val inflater: MenuInflater = menuInflater
-        inflater.inflate(R.menu.main, menu)
-        // 添加测试菜单项
-        menu.add(Menu.NONE, 999, Menu.NONE, "测试日期变化")
-        return true
+        // 不再使用 OptionsMenu，改用自定义按钮
+        return false
+    }
+    
+    private fun setupMenuButton() {
+        binding.menuButton.setOnClickListener {
+            // 创建弹出菜单
+            val popupMenu = android.widget.PopupMenu(this, binding.menuButton)
+            popupMenu.menuInflater.inflate(R.menu.main, popupMenu.menu)
+            // 添加测试菜单项
+            popupMenu.menu.add(Menu.NONE, 999, Menu.NONE, "测试日期变化")
+            
+            popupMenu.setOnMenuItemClickListener { item ->
+                onOptionsItemSelected(item)
+            }
+            popupMenu.show()
+        }
+    }
+    
+    private fun showAddCounterDialog() {
+        CounterSettingsDialogBuilder(this@MainActivity, viewModel)
+            .forNewCounter()
+            .setOnSaveListener { counterMetadata ->
+                viewModel.addCounter(counterMetadata)
+                // 更新分类列表
+                categoryPagerAdapter.updateCategories()
+            }
+            .setOnDismissListener { }
+            .show()
     }
 
     fun showChangeGraphIntervalTutorial(onDismissListener: SimpleTooltip.OnDismissListener? = null) {
@@ -317,6 +510,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
+            R.id.add_counter -> {
+                showAddCounterDialog()
+                return true
+            }
             R.id.export_csv -> {
                 // 检查并请求权限，然后导出
                 checkPermissionAndExport()
@@ -330,17 +527,18 @@ class MainActivity : AppCompatActivity() {
                     .setMessage(R.string.clear_all_data_confirm_message)
                     .setPositiveButton(R.string.clear) { _, _ ->
                         viewModel.clearAllData()
-                        Snackbar.make(binding.recycler, R.string.all_data_cleared, Snackbar.LENGTH_SHORT).show()
+                        Snackbar.make(binding.viewPager, R.string.all_data_cleared, Snackbar.LENGTH_SHORT).show()
                     }
                     .setNegativeButton(R.string.cancel, null)
                     .show()
             }
             R.id.show_tutorial -> {
                 if (viewModel.getCounterList().isEmpty()) {
-                    Snackbar.make(binding.recycler, getString(R.string.no_counters), Snackbar.LENGTH_LONG).show()
+                    Snackbar.make(binding.viewPager, getString(R.string.no_counters), Snackbar.LENGTH_LONG).show()
                 } else {
-                    binding.recycler.scrollToPosition(0)
-                    val holder = binding.recycler.findViewHolderForAdapterPosition(0) as EntryViewHolder
+                    getCurrentRecyclerView()?.scrollToPosition(0)
+                    val holder = getCurrentRecyclerView()?.findViewHolderForAdapterPosition(0) as? EntryViewHolder
+                    if (holder == null) return@onOptionsItemSelected true
                     entryViewAdapter.showDragTutorial(holder) {
                         entryViewAdapter.showPickDateTutorial(holder) {
                             viewModel.resetTutorialShown(Tutorial.CHANGE_GRAPH_INTERVAL)
@@ -355,7 +553,7 @@ class MainActivity : AppCompatActivity() {
                     Log.d(TAG, "手动触发日期变化测试")
                     viewModel.refreshAllObservers()
                     withContext(Dispatchers.Main) {
-                        Snackbar.make(binding.recycler, "已触发计数器刷新", Snackbar.LENGTH_SHORT).show()
+                        Snackbar.make(binding.viewPager, "已触发计数器刷新", Snackbar.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -407,64 +605,43 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setFabToCreate() {
-        binding.fab.setImageResource(R.drawable.ic_add)
-        binding.fab.setOnClickListener {
-            binding.fab.visibility = View.GONE
-            CounterSettingsDialogBuilder(this@MainActivity, viewModel)
-                .forNewCounter()
-                .setOnSaveListener { counterMetadata ->
-                    viewModel.addCounter(counterMetadata)
+    private fun showEditCounterDialog(counter: CounterSummary) {
+        CounterSettingsDialogBuilder(this@MainActivity, viewModel)
+            .forExistingCounter(counter)
+            .setOnSaveListener { newCounterMetadata ->
+                if (counter.name != newCounterMetadata.name) {
+                    viewModel.editCounter(counter.name, newCounterMetadata)
+                } else {
+                    viewModel.editCounterSameName(newCounterMetadata)
                 }
-                .setOnDismissListener { binding.fab.visibility = View.VISIBLE }
-                .show()
-        }
-    }
-
-    private fun setFabToEdit(counter: CounterSummary) {
-        binding.fab.setImageResource(R.drawable.ic_edit)
-        binding.fab.setOnClickListener {
-            binding.fab.visibility = View.GONE
-
-            CounterSettingsDialogBuilder(this@MainActivity, viewModel)
-                .forExistingCounter(counter)
-                .setOnSaveListener { newCounterMetadata ->
-                    if (counter.name != newCounterMetadata.name) {
-                        viewModel.editCounter(counter.name, newCounterMetadata)
-                    } else {
-                        viewModel.editCounterSameName(newCounterMetadata)
+                // We are not subscribed to the summary livedata, so we won't get notified of the change we just made.
+                // Update our local copy so it has the right data if we open the dialog again.
+                counter.name = newCounterMetadata.name
+                counter.interval = newCounterMetadata.interval
+                counter.color = newCounterMetadata.color
+            }
+            .setOnDismissListener { }
+            .setOnDeleteListener { _, _ ->
+                MaterialAlertDialogBuilder(this)
+                    .setTitle(counter.name)
+                    .setMessage(R.string.delete_confirmation)
+                    .setNeutralButton(R.string.reset) { _, _ ->
+                        viewModel.resetCounter(counter.name)
+                        sheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+                        onBackPressedCloseSheetCallback.isEnabled = false
+                        sheetIsExpanding = false
                     }
-                    // We are not subscribed to the summary livedata, so we won't get notified of the change we just made.
-                    // Update our local copy so it has the right data if we open the dialog again.
-                    counter.name = newCounterMetadata.name
-                    counter.interval = newCounterMetadata.interval
-                    counter.color = newCounterMetadata.color
-                }
-                .setOnDismissListener {
-                    binding.fab.visibility = View.VISIBLE
-                }
-                .setOnDeleteListener { _, _ ->
-                    MaterialAlertDialogBuilder(this)
-                        .setTitle(counter.name)
-                        .setMessage(R.string.delete_confirmation)
-                        .setNeutralButton(R.string.reset) { _, _ ->
-                            viewModel.resetCounter(counter.name)
-                            sheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
-                            onBackPressedCloseSheetCallback.isEnabled = false
-                            sheetIsExpanding = false
-                        }
-                        .setPositiveButton(R.string.delete) { _, _ ->
-                            viewModel.deleteCounter(counter.name)
-                            sheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
-                            onBackPressedCloseSheetCallback.isEnabled = false
-                            sheetIsExpanding = false
-                            removeWidgets(this, counter.name)
-                        }
-                        .setNegativeButton(R.string.cancel, null)
-                        .show()
-                }
-                .show()
-        }
+                    .setPositiveButton(R.string.delete) { _, _ ->
+                        viewModel.deleteCounter(counter.name)
+                        sheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+                        onBackPressedCloseSheetCallback.isEnabled = false
+                        sheetIsExpanding = false
+                        removeWidgets(this, counter.name)
+                    }
+                    .setNegativeButton(R.string.cancel, null)
+                    .show()
+            }
+            .show()
     }
 
     // 添加权限请求相关方法
@@ -490,7 +667,7 @@ class MainActivity : AppCompatActivity() {
                     if (android.os.Build.VERSION.SDK_INT <= android.os.Build.VERSION_CODES.Q) {
                         requestLegacyStoragePermission()
                     } else {
-                        Snackbar.make(binding.recycler, "无法请求权限，请在系统设置中手动授予", Snackbar.LENGTH_LONG).show()
+                        Snackbar.make(binding.viewPager, "无法请求权限，请在系统设置中手动授予", Snackbar.LENGTH_LONG).show()
                     }
                 }
             }
@@ -522,7 +699,7 @@ class MainActivity : AppCompatActivity() {
                 // 权限已授予，执行导出
                 exportToDownloads()
             } else {
-                Snackbar.make(binding.recycler, "需要存储权限才能导出文件", Snackbar.LENGTH_LONG).show()
+                    Snackbar.make(binding.viewPager, "需要存储权限才能导出文件", Snackbar.LENGTH_LONG).show()
             }
         }
     }
@@ -538,7 +715,7 @@ class MainActivity : AppCompatActivity() {
                     // 有权限，执行导出
                     exportToDownloads()
                 } else {
-                    Snackbar.make(binding.recycler, "需要存储权限才能导出文件", Snackbar.LENGTH_LONG).show()
+                    Snackbar.make(binding.viewPager, "需要存储权限才能导出文件", Snackbar.LENGTH_LONG).show()
                 }
             }
         } else if (requestCode == 1001 && resultCode == Activity.RESULT_OK) {
@@ -559,7 +736,7 @@ class MainActivity : AppCompatActivity() {
                 // 首先检查是否有数据可以导出
                 if (!viewModel.hasDataToExport()) {
                     withContext(Dispatchers.Main) {
-                        Snackbar.make(binding.recycler, "没有计数器可导出", Snackbar.LENGTH_LONG).show()
+                        Snackbar.make(binding.viewPager, "没有计数器可导出", Snackbar.LENGTH_LONG).show()
                     }
                     return@launch
                 }
@@ -591,9 +768,9 @@ class MainActivity : AppCompatActivity() {
                             mediaScanIntent.data = Uri.fromFile(file)
                             sendBroadcast(mediaScanIntent)
                             
-                            Snackbar.make(binding.recycler, "已导出到下载目录: $fileName", Snackbar.LENGTH_LONG).show()
+                            Snackbar.make(binding.viewPager, "已导出到下载目录: $fileName", Snackbar.LENGTH_LONG).show()
                         } else {
-                            Snackbar.make(binding.recycler, "导出失败: 文件为空", Snackbar.LENGTH_LONG).show()
+                            Snackbar.make(binding.viewPager, "导出失败: 文件为空", Snackbar.LENGTH_LONG).show()
                         }
                     }
                     true
@@ -616,7 +793,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 
                 withContext(Dispatchers.Main) {
-                    Snackbar.make(binding.recycler, "导出失败: ${e.message}", Snackbar.LENGTH_LONG).show()
+                    Snackbar.make(binding.viewPager, "导出失败: ${e.message}", Snackbar.LENGTH_LONG).show()
                 }
             }
         }
