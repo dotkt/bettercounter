@@ -26,63 +26,88 @@
             android:padding="8dp"
             android:background="@color/colorLightBackground">
 
-            <!-- 搜索框 -->
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/searchLayout"
+            <!-- 搜索框：默认只显示文字按钮，点击后展开 -->
+            <LinearLayout
+                android:id="@+id/searchContainer"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="40dp"
                 android:layout_weight="1"
                 android:layout_marginEnd="8dp"
-                android:background="@color/colorLightBackground"
-                app:boxCornerRadiusTopStart="8dp"
-                app:boxCornerRadiusTopEnd="8dp"
-                app:boxCornerRadiusBottomStart="8dp"
-                app:boxCornerRadiusBottomEnd="8dp"
-                app:startIconDrawable="@drawable/ic_search"
-                app:endIconMode="clear_text"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+                
+                <!-- 搜索文字按钮 -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/searchIconButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:text="搜索"
+                    android:textSize="14sp"
+                    android:minWidth="0dp"
+                    android:paddingLeft="12dp"
+                    android:paddingRight="12dp"
+                    android:contentDescription="搜索"
+                    app:cornerRadius="8dp"
+                    style="@style/Widget.MaterialComponents.Button" />
+                
+                <!-- 搜索输入框（默认隐藏） -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/searchLayout"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:visibility="gone"
+                    android:background="@color/colorLightBackground"
+                    app:boxCornerRadiusTopStart="8dp"
+                    app:boxCornerRadiusTopEnd="8dp"
+                    app:boxCornerRadiusBottomStart="8dp"
+                    app:boxCornerRadiusBottomEnd="8dp"
+                    app:endIconMode="clear_text"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/searchEditText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/search_counters"
-                    android:inputType="text"
-                    android:maxLines="1"
-                    android:textColor="@color/colorDarkBackground"
-                    android:textColorHint="@android:color/darker_gray" />
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/searchEditText"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:hint=""
+                        android:inputType="text"
+                        android:maxLines="1"
+                        android:textColor="@android:color/white"
+                        android:textColorHint="@android:color/darker_gray"
+                        android:minHeight="0dp"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="8dp" />
 
-            </com.google.android.material.textfield.TextInputLayout>
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
 
             <!-- 导出按钮 -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/exportButton"
                 android:layout_width="wrap_content"
-                android:layout_height="48dp"
+                android:layout_height="40dp"
                 android:layout_marginEnd="8dp"
-                android:text="@string/export_csv"
-                android:textSize="12sp"
+                android:text="导出"
+                android:textSize="14sp"
                 android:minWidth="0dp"
-                android:insetLeft="8dp"
-                android:insetRight="8dp"
-                android:insetTop="4dp"
-                android:insetBottom="4dp"
+                android:paddingLeft="12dp"
+                android:paddingRight="12dp"
+                android:contentDescription="导出"
                 app:cornerRadius="8dp"
-                app:icon="@drawable/ic_time"
-                app:iconGravity="textStart"
-                app:iconSize="16dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                style="@style/Widget.MaterialComponents.Button" />
 
-            <!-- 三竖点菜单按钮 -->
+            <!-- 菜单按钮 -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/menuButton"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="菜单"
+                android:textSize="14sp"
+                android:minWidth="0dp"
+                android:paddingLeft="12dp"
+                android:paddingRight="12dp"
                 android:contentDescription="菜单"
-                app:icon="@drawable/ic_menu"
-                app:iconSize="24dp"
-                app:iconPadding="0dp"
-                app:cornerRadius="24dp"
+                app:cornerRadius="8dp"
                 style="@style/Widget.MaterialComponents.Button" />
 
         </LinearLayout>

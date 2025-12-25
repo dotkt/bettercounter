@@ -341,10 +341,32 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
+        // 搜索图标按钮点击事件：展开搜索框
+        binding.searchIconButton.setOnClickListener {
+            binding.searchIconButton.visibility = View.GONE
+            binding.searchLayout.visibility = View.VISIBLE
+            binding.searchEditText.requestFocus()
+            // 显示软键盘
+            val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            imm.showSoftInput(binding.searchEditText, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+        }
+        
         // 清除搜索按钮点击事件
         binding.searchLayout.setEndIconOnClickListener {
             binding.searchEditText.text?.clear()
             showCategoryList()
+            // 收起搜索框，显示图标
+            binding.searchLayout.visibility = View.GONE
+            binding.searchIconButton.visibility = View.VISIBLE
+            hideKeyboard()
+        }
+        
+        // 搜索框失去焦点时，如果为空则收起
+        binding.searchEditText.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus && binding.searchEditText.text?.toString()?.trim().isNullOrEmpty()) {
+                binding.searchLayout.visibility = View.GONE
+                binding.searchIconButton.visibility = View.VISIBLE
+            }
         }
 
         // 导出按钮点击事件
