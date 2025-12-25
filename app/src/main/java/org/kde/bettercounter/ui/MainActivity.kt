@@ -999,7 +999,7 @@ class MainActivity : AppCompatActivity() {
         
         // 创建带输入框的对话框布局
         val inputLayout = com.google.android.material.textfield.TextInputLayout(this).apply {
-            hint = "分类名称"
+            hint = "选择现有分类或输入新分类"
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -1011,6 +1011,8 @@ class MainActivity : AppCompatActivity() {
         val autoCompleteTextView = android.widget.AutoCompleteTextView(this).apply {
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
             threshold = 0 // 点击即显示所有选项
+            // 设置提示文本
+            hint = "点击下拉箭头选择或直接输入"
         }
         
         // 设置自动完成适配器
@@ -1021,7 +1023,29 @@ class MainActivity : AppCompatActivity() {
         )
         autoCompleteTextView.setAdapter(categoryAdapter)
         
+        // 点击输入框时自动显示下拉列表
+        autoCompleteTextView.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                autoCompleteTextView.showDropDown()
+            }
+        }
+        
+        // 点击输入框时也显示下拉列表
+        autoCompleteTextView.setOnClickListener {
+            autoCompleteTextView.showDropDown()
+        }
+        
         inputLayout.addView(autoCompleteTextView)
+        
+        // 添加下拉箭头图标，提示用户可以点击查看选项（需要在 addView 之后设置）
+        inputLayout.endIconMode = com.google.android.material.textfield.TextInputLayout.END_ICON_CUSTOM
+        inputLayout.endIconDrawable = androidx.appcompat.content.res.AppCompatResources.getDrawable(
+            this,
+            com.google.android.material.R.drawable.mtrl_dropdown_arrow
+        )
+        inputLayout.setEndIconOnClickListener {
+            autoCompleteTextView.showDropDown()
+        }
         
         // 创建对话框
         val dialog = MaterialAlertDialogBuilder(this)
