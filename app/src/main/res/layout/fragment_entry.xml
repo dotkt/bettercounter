@@ -82,14 +82,6 @@
             android:text="五"
             android:textColor="@android:color/black"
             android:textSize="11sp"
-            android:paddingLeft="4dp"
-            android:paddingRight="4dp"
-            android:paddingTop="0dp"
-            android:paddingBottom="0dp"
-            android:insetLeft="0dp"
-            android:insetRight="0dp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
             app:backgroundTint="@android:color/holo_green_light"
             app:cornerRadius="20dp" />
 
@@ -104,14 +96,6 @@
             android:text="十"
             android:textColor="@android:color/black"
             android:textSize="11sp"
-            android:paddingLeft="4dp"
-            android:paddingRight="4dp"
-            android:paddingTop="0dp"
-            android:paddingBottom="0dp"
-            android:insetLeft="0dp"
-            android:insetRight="0dp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
             app:backgroundTint="@android:color/holo_green_light"
             app:cornerRadius="20dp" />
 
@@ -126,14 +110,6 @@
             android:text="设"
             android:textColor="@android:color/black"
             android:textSize="11sp"
-            android:paddingLeft="4dp"
-            android:paddingRight="4dp"
-            android:paddingTop="0dp"
-            android:paddingBottom="0dp"
-            android:insetLeft="0dp"
-            android:insetRight="0dp"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
             app:backgroundTint="@android:color/darker_gray"
             app:cornerRadius="20dp" />
 
