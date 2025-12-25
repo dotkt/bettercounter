@@ -30,34 +30,45 @@
             android:focusable="false"
             android:clickable="false" />
 
-        <!-- 计数器名称和相对时间 -->
+        <!-- 计数器名称（移到最左边） -->
+        <TextView
+            android:id="@+id/nameText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:textColor="@android:color/white"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:maxLines="1"
+            android:ellipsize="end"
+            tools:text="计数器名称" />
+
+        <!-- 相对时间和计数器数字/进度 -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-            
-            <TextView
-                android:id="@+id/nameText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@android:color/white"
-                android:textStyle="bold"
-                android:textSize="16sp"
-                android:maxLines="1"
-                android:ellipsize="end"
-                tools:text="计数器名称" />
+            android:orientation="vertical"
+            android:gravity="start|center_vertical">
             
             <TextView
                 android:id="@+id/relativeTimeText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
                 android:textColor="@android:color/white"
                 android:textSize="11sp"
                 android:alpha="0.7"
                 tools:text="3小时前" />
+            
+            <TextView
+                android:id="@+id/counterValueText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                tools:text="3/10" />
         </LinearLayout>
 
         <!-- 绿色加号按钮：1 -->

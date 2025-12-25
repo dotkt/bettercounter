@@ -50,6 +50,7 @@ class EntryViewHolder(
             binding.btnCustom.visibility = android.view.View.GONE
             binding.btnStats.visibility = android.view.View.GONE
             binding.relativeTimeText.visibility = android.view.View.GONE
+            binding.counterValueText.visibility = android.view.View.GONE
         } else {
             binding.selectionCheckBox.visibility = android.view.View.GONE
             binding.selectionCheckBox.isChecked = false
@@ -159,6 +160,16 @@ class EntryViewHolder(
         } else {
             binding.relativeTimeText.visibility = android.view.View.GONE
         }
+        
+        // 显示计数器数字或进度
+        if (counter.goal > 0) {
+            // 有目标，显示进度 "3/10"
+            binding.counterValueText.text = "${counter.lastIntervalCount}/${counter.goal}"
+        } else {
+            // 无目标，只显示数字
+            binding.counterValueText.text = counter.lastIntervalCount.toString()
+        }
+        binding.counterValueText.visibility = android.view.View.VISIBLE
     }
 
     private fun updateGoal(counter: CounterSummary, newGoal: Int) {
