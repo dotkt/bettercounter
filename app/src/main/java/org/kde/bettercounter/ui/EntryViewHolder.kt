@@ -102,12 +102,13 @@ class EntryViewHolder(
         
         binding.nameText.text = counter.name
 
+        // 显示相对时间
         val mostRecentDate = counter.mostRecent
         if (mostRecentDate != null) {
-            val sdf = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-            binding.timestampText.text = "上次时间: ${sdf.format(mostRecentDate)}"
+            binding.relativeTimeText.text = formatRelativeTime(mostRecentDate)
+            binding.relativeTimeText.visibility = android.view.View.VISIBLE
         } else {
-            binding.timestampText.text = "上次时间: -"
+            binding.relativeTimeText.visibility = android.view.View.GONE
         }
     }
 
@@ -118,6 +119,49 @@ class EntryViewHolder(
             counter.name, counter.interval, newGoal, counter.color, category
         )
         viewModel.editCounterSameName(meta)
+    }
+    
+    /**
+     * 格式化相对时间显示
+     * 1天以内：显示几小时前
+     * 超过1天但不超过30天：显示几天前
+     * 超过30天但不超过12个月：显示几月前
+     * 超过12个月：显示几年前
+     */
+    private fun formatRelativeTime(date: Date): String {
+        val now = Calendar.getInstance()
+        val targetDate = Calendar.getInstance().apply { time = date }
+        
+        val diffInMillis = now.timeInMillis - targetDate.timeInMillis
+        val diffInHours = diffInMillis / (60 * 60 * 1000)
+        val diffInDays = diffInMillis / (24 * 60 * 60 * 1000)
+        
+        return when {
+            diffInHours < 24 -> {
+                // 1天以内：显示几小时前
+                "${diffInHours}小时前"
+            }
+            diffInDays < 30 -> {
+                // 超过1天但不超过30天：显示几天前
+                "${diffInDays}天前"
+            }
+            else -> {
+                // 计算月数和年数
+                val years = now.get(Calendar.YEAR) - targetDate.get(Calendar.YEAR)
+                val months = years * 12 + (now.get(Calendar.MONTH) - targetDate.get(Calendar.MONTH))
+                
+                when {
+                    months >= 12 -> {
+                        // 超过12个月：显示几年前
+                        "${years}年前"
+                    }
+                    else -> {
+                        // 超过30天但不超过12个月：显示几月前
+                        "${months}月前"
+                    }
+                }
+            }
+        }
     }
 
     fun showPickDateTutorial(onDismissListener: OnDismissListener? = null) {

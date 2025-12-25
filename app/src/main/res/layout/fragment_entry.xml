@@ -27,18 +27,35 @@
             android:focusable="false"
             android:clickable="false" />
 
-        <!-- 计数器名称 -->
-        <TextView
-            android:id="@+id/nameText"
+        <!-- 计数器名称和相对时间 -->
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:textColor="@android:color/white"
-            android:textStyle="bold"
-            android:textSize="16sp"
-            android:maxLines="1"
-            android:ellipsize="end"
-            tools:text="计数器名称" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            
+            <TextView
+                android:id="@+id/nameText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@android:color/white"
+                android:textStyle="bold"
+                android:textSize="16sp"
+                android:maxLines="1"
+                android:ellipsize="end"
+                tools:text="计数器名称" />
+            
+            <TextView
+                android:id="@+id/relativeTimeText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:textColor="@android:color/white"
+                android:textSize="11sp"
+                android:alpha="0.7"
+                tools:text="3小时前" />
+        </LinearLayout>
 
         <!-- 绿色加号按钮：1 -->
         <com.google.android.material.button.MaterialButton
@@ -64,7 +81,7 @@
             android:layout_marginEnd="4dp"
             android:text="五"
             android:textColor="@android:color/black"
-            android:textSize="16sp"
+            android:textSize="12sp"
             app:backgroundTint="@android:color/holo_green_light"
             app:cornerRadius="20dp" />
 
@@ -78,7 +95,7 @@
             android:layout_marginEnd="4dp"
             android:text="十"
             android:textColor="@android:color/black"
-            android:textSize="16sp"
+            android:textSize="12sp"
             app:backgroundTint="@android:color/holo_green_light"
             app:cornerRadius="20dp" />
 
@@ -92,7 +109,7 @@
             android:layout_marginEnd="4dp"
             android:text="设"
             android:textColor="@android:color/black"
-            android:textSize="16sp"
+            android:textSize="12sp"
             app:backgroundTint="@android:color/darker_gray"
             app:cornerRadius="20dp" />
 
@@ -112,21 +129,5 @@
             app:backgroundTint="@android:color/holo_blue_dark"
             app:cornerRadius="6dp" />
     </LinearLayout>
-
-    <!-- 第二行：上次时间 -->
-    <TextView
-        android:id="@+id/timestampText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textColor="@android:color/white"
-        android:textSize="12sp"
-        android:textAlignment="center"
-        android:drawableStart="@drawable/ic_time"
-        android:drawablePadding="4.5dip"
-        android:paddingStart="16dp"
-        android:paddingEnd="16dp"
-        android:paddingTop="4dp"
-        android:paddingBottom="8dp"
-        tools:text="上次时间: 2025-05-10 19:30:22" />
 
 </LinearLayout>
