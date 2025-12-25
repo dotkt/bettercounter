@@ -195,10 +195,15 @@ class MainActivity : AppCompatActivity() {
         // 设置 ViewPager2 和搜索结果 RecyclerView 的 paddingTop，为顶部区域留出空间
         binding.root.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
-                val topBarHeight = binding.topBar.height
-                binding.viewPager.setPadding(0, topBarHeight, 0, 0)
-                binding.searchResultsRecyclerView.setPadding(0, topBarHeight, 0, 0)
+                updateViewPagerPadding()
                 binding.root.viewTreeObserver.removeOnGlobalLayoutListener(this)
+            }
+        })
+        
+        // 持续监听布局变化，以便在多选工具栏显示/隐藏时更新padding
+        binding.topBar.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+            override fun onGlobalLayout() {
+                updateViewPagerPadding()
             }
         })
         
@@ -802,6 +807,15 @@ class MainActivity : AppCompatActivity() {
     }
     
     /**
+     * 更新ViewPager的padding，确保内容不被顶部工具栏遮挡
+     */
+    private fun updateViewPagerPadding() {
+        val topBarHeight = binding.topBar.height
+        binding.viewPager.setPadding(0, topBarHeight, 0, 0)
+        binding.searchResultsRecyclerView.setPadding(0, topBarHeight, 0, 0)
+    }
+    
+    /**
      * 进入多选模式
      */
     private fun enterMultiSelectMode() {
@@ -811,6 +825,10 @@ class MainActivity : AppCompatActivity() {
         binding.multiSelectToolbar.visibility = android.view.View.VISIBLE
         // 更新选中数量
         updateSelectedCount()
+        // 延迟更新padding，等待工具栏布局完成
+        binding.multiSelectToolbar.post {
+            updateViewPagerPadding()
+        }
     }
     
     /**
@@ -821,6 +839,10 @@ class MainActivity : AppCompatActivity() {
         categoryPagerAdapter.setMultiSelectModeForAll(false)
         // 隐藏多选工具栏
         binding.multiSelectToolbar.visibility = android.view.View.GONE
+        // 更新padding
+        binding.topBar.post {
+            updateViewPagerPadding()
+        }
     }
     
     /**
