@@ -14,9 +14,11 @@ class CategoryPagerAdapter(
 
     private val categories: MutableList<String> = mutableListOf()
     private val adapters: MutableMap<String, EntryListViewAdapter> = mutableMapOf()
+    private var isInitialized = false
 
     init {
-        updateCategories()
+        // 初始化时不调用 updateCategories，避免循环依赖
+        // 由 MainActivity 在创建后手动调用
     }
 
     fun updateCategories() {
@@ -29,6 +31,19 @@ class CategoryPagerAdapter(
             }
         }
         notifyDataSetChanged()
+        // 通知MainActivity更新分类导航栏（仅在已初始化后）
+        if (isInitialized) {
+            (activity as? MainActivity)?.onCategoriesUpdated()
+        }
+    }
+    
+    /**
+     * 标记为已初始化，之后可以安全地调用 MainActivity 的方法
+     */
+    fun markInitialized() {
+        isInitialized = true
+        // 初始化完成后，更新分类并通知 MainActivity
+        updateCategories()
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CategoryViewHolder {

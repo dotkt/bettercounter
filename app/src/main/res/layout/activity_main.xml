@@ -138,17 +138,24 @@
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
         </LinearLayout>
 
-        <!-- 分类标题 -->
-        <TextView
-            android:id="@+id/categoryTitle"
+        <!-- 分类导航栏 -->
+        <HorizontalScrollView
+            android:id="@+id/categoryScrollView"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="12dp"
-            android:textSize="18sp"
-            android:textStyle="bold"
-            android:textColor="@color/colorAccent"
             android:background="@color/colorLightBackground"
-            tools:text="默认" />
+            android:scrollbars="none"
+            android:fadeScrollbars="false">
+            
+            <LinearLayout
+                android:id="@+id/categoryContainer"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingVertical="8dp"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp" />
+        </HorizontalScrollView>
 
     </LinearLayout>
 

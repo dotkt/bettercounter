@@ -192,6 +192,9 @@ class MainActivity : AppCompatActivity() {
         
         binding.viewPager.adapter = categoryPagerAdapter
         
+        // 标记适配器已初始化，并更新分类列表
+        categoryPagerAdapter.markInitialized()
+        
         // 设置 ViewPager2 和搜索结果 RecyclerView 的 paddingTop，为顶部区域留出空间
         binding.root.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
             override fun onGlobalLayout() {
@@ -212,8 +215,8 @@ class MainActivity : AppCompatActivity() {
             val firstCategory = categoryPagerAdapter.getCategoryAt(0)
             categoryPagerAdapter.ensureAdapterForCategory(firstCategory)
             entryViewAdapter = categoryPagerAdapter.getAdapterForCategory(firstCategory)!!
-            // 更新 toolbar 标题为第一个分类
-            updateToolbarTitle(firstCategory)
+            // 更新分类导航栏
+            updateCategoryNavigation(firstCategory)
         } else {
             // 如果没有分类，创建一个默认的适配器（显示所有计数器）
             entryViewAdapter = EntryListViewAdapter(this, viewModel, object : EntryListViewAdapter.EntryListObserver {
@@ -259,7 +262,8 @@ class MainActivity : AppCompatActivity() {
                     onSelectedItemUpdated(position, counter)
                 }
             })
-            updateToolbarTitle(getString(R.string.app_name))
+            // 没有分类时不显示导航栏
+            binding.categoryContainer.removeAllViews()
         }
         
         // 添加页面切换监听器，更新 toolbar 标题并输出日志
@@ -285,8 +289,8 @@ class MainActivity : AppCompatActivity() {
                     Log.d(TAG, "ViewModel中的分类: ${viewModel.getAllCategories()}")
                     Log.d(TAG, "============================")
                     
-                    // 更新 toolbar 标题为当前分类名称
-                    updateToolbarTitle(newCategory)
+                    // 更新分类导航栏
+                    updateCategoryNavigation(newCategory)
                     previousPosition = position
                 }
             }
@@ -389,8 +393,8 @@ class MainActivity : AppCompatActivity() {
                         binding.viewPager.setCurrentItem(categoryPosition, false)
                         Log.d(TAG, "已切换到分类页面: $categoryPosition")
                         
-                        // 更新 toolbar 标题
-                        updateToolbarTitle(category)
+                        // 更新分类导航栏
+                        updateCategoryNavigation(category)
                         
                         // 等待页面切换完成后再滚动
                         binding.viewPager.post {
@@ -451,12 +455,12 @@ class MainActivity : AppCompatActivity() {
     private fun showCategoryList() {
         binding.viewPager.visibility = View.VISIBLE
         binding.searchResultsRecyclerView.visibility = View.GONE
-        // 更新分类标题为当前分类
+        // 更新分类导航栏
         if (categoryPagerAdapter.itemCount > 0) {
             val currentPosition = binding.viewPager.currentItem
             if (currentPosition < categoryPagerAdapter.itemCount) {
                 val category = categoryPagerAdapter.getCategoryAt(currentPosition)
-                updateToolbarTitle(category)
+                updateCategoryNavigation(category)
             }
         }
     }
@@ -530,7 +534,92 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun updateToolbarTitle(categoryName: String) {
-        binding.categoryTitle.text = categoryName
+        updateCategoryNavigation(categoryName)
+    }
+    
+    /**
+     * 当分类列表更新时调用
+     */
+    fun onCategoriesUpdated() {
+        if (categoryPagerAdapter.itemCount > 0) {
+            val currentPosition = binding.viewPager.currentItem
+            if (currentPosition < categoryPagerAdapter.itemCount) {
+                val category = categoryPagerAdapter.getCategoryAt(currentPosition)
+                updateCategoryNavigation(category)
+            }
+        }
+    }
+    
+    /**
+     * 更新分类导航栏
+     */
+    private fun updateCategoryNavigation(currentCategory: String) {
+        // 清除现有视图
+        binding.categoryContainer.removeAllViews()
+        
+        // 获取所有分类
+        val allCategories = categoryPagerAdapter.getAllCategoriesForLog()
+        
+        // 为每个分类创建按钮
+        allCategories.forEach { category ->
+            val button = if (category == currentCategory) {
+                // 当前分类：使用填充按钮样式，高亮显示
+                com.google.android.material.button.MaterialButton(this, null, com.google.android.material.R.attr.materialButtonStyle)
+            } else {
+                // 其他分类：使用轮廓按钮样式
+                com.google.android.material.button.MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle)
+            }.apply {
+                text = category
+                textSize = 14f
+                minWidth = 0
+                minHeight = 0
+                setPadding(16, 8, 16, 8)
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    marginEnd = 8
+                }
+                
+                // 根据是否为当前分类设置样式
+                if (category == currentCategory) {
+                    // 当前分类：高亮显示
+                    setBackgroundColor(getColor(R.color.colorAccent))
+                    setTextColor(getColor(android.R.color.white))
+                    elevation = 4f
+                } else {
+                    // 其他分类：轮廓样式
+                    setTextColor(getColor(R.color.colorAccent))
+                    elevation = 0f
+                }
+                
+                // 点击跳转到对应分类
+                setOnClickListener {
+                    val position = categoryPagerAdapter.findPositionForCategory(category)
+                    if (position != -1) {
+                        binding.viewPager.setCurrentItem(position, true)
+                    }
+                }
+            }
+            
+            binding.categoryContainer.addView(button)
+        }
+        
+        // 滚动到当前分类按钮
+        binding.categoryScrollView.post {
+            // 找到当前分类按钮并滚动到它
+            for (i in 0 until binding.categoryContainer.childCount) {
+                val view = binding.categoryContainer.getChildAt(i)
+                if (view is com.google.android.material.button.MaterialButton && view.text == currentCategory) {
+                    val scrollX = view.left - (binding.categoryScrollView.width - view.width) / 2
+                    binding.categoryScrollView.smoothScrollTo(
+                        scrollX.coerceAtLeast(0),
+                        0
+                    )
+                    break
+                }
+            }
+        }
     }
     
     /**
