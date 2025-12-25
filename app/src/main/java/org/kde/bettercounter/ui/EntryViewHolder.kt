@@ -43,9 +43,22 @@ class EntryViewHolder(
                 onSelectionToggle?.invoke(counter.name)
             }
             binding.nameText.setOnLongClickListener(null)
+            // 隐藏所有按钮和相对时间
+            binding.btnPlus1.visibility = android.view.View.GONE
+            binding.btnPlus5.visibility = android.view.View.GONE
+            binding.btnPlus10.visibility = android.view.View.GONE
+            binding.btnCustom.visibility = android.view.View.GONE
+            binding.btnStats.visibility = android.view.View.GONE
+            binding.relativeTimeText.visibility = android.view.View.GONE
         } else {
             binding.selectionCheckBox.visibility = android.view.View.GONE
             binding.selectionCheckBox.isChecked = false
+            // 显示所有按钮
+            binding.btnPlus1.visibility = android.view.View.VISIBLE
+            binding.btnPlus5.visibility = android.view.View.VISIBLE
+            binding.btnPlus10.visibility = android.view.View.VISIBLE
+            binding.btnCustom.visibility = android.view.View.VISIBLE
+            binding.btnStats.visibility = android.view.View.VISIBLE
         }
         
         // 绿色加号按钮绑定
