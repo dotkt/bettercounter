@@ -92,6 +92,9 @@ class MainActivity : AppCompatActivity() {
         // 不再使用 toolbar，改用自定义按钮
 
         viewModel = (application as BetterApplication).viewModel
+        
+        // 设置点击空白区域隐藏软键盘
+        setupHideKeyboardOnClick()
 
         // Bottom sheet with graph
         // -----------------------
@@ -520,6 +523,67 @@ class MainActivity : AppCompatActivity() {
     
     private fun updateToolbarTitle(categoryName: String) {
         binding.categoryTitle.text = categoryName
+    }
+    
+    /**
+     * 设置点击空白区域隐藏软键盘
+     */
+    private fun setupHideKeyboardOnClick() {
+        // 在根布局上设置触摸监听器
+        binding.root.setOnTouchListener { view, event ->
+            if (event.action == android.view.MotionEvent.ACTION_DOWN) {
+                // 检查当前是否有EditText获得焦点
+                val currentFocus = currentFocus
+                if (currentFocus is android.widget.EditText) {
+                    // 延迟检查，让点击事件先处理
+                    view.post {
+                        // 再次检查焦点，如果焦点还在EditText上，说明点击的不是EditText
+                        // 此时隐藏键盘
+                        val newFocus = currentFocus
+                        if (newFocus is android.widget.EditText && newFocus == currentFocus) {
+                            // 检查点击位置是否在EditText内
+                            val location = IntArray(2)
+                            currentFocus.getLocationOnScreen(location)
+                            val x = event.rawX.toInt()
+                            val y = event.rawY.toInt()
+                            val left = location[0]
+                            val top = location[1]
+                            val right = left + currentFocus.width
+                            val bottom = top + currentFocus.height
+                            
+                            // 如果点击位置不在EditText内，隐藏键盘
+                            if (x < left || x > right || y < top || y > bottom) {
+                                hideKeyboard()
+                            }
+                        }
+                    }
+                } else {
+                    // 没有EditText获得焦点，直接隐藏键盘（处理残留状态）
+                    hideKeyboard()
+                }
+            }
+            false // 返回false，让事件继续传播
+        }
+    }
+    
+    /**
+     * 隐藏软键盘并清除输入框焦点
+     */
+    private fun hideKeyboard() {
+        // 获取当前获得焦点的View
+        val currentFocus = currentFocus
+        if (currentFocus is android.widget.EditText) {
+            // 清除焦点
+            currentFocus.clearFocus()
+            // 隐藏软键盘
+            val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            imm.hideSoftInputFromWindow(currentFocus.windowToken, 0)
+        } else {
+            // 即使没有焦点在EditText上，也尝试隐藏键盘（处理残留状态）
+            val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            val view = window.currentFocus ?: binding.root
+            imm.hideSoftInputFromWindow(view.windowToken, 0)
+        }
     }
 
     private fun getCurrentRecyclerView(): RecyclerView? {
