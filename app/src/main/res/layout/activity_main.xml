@@ -86,6 +86,57 @@
                 style="@style/Widget.MaterialComponents.Button" />
 
         </LinearLayout>
+        
+        <!-- 多选模式工具栏 -->
+        <LinearLayout
+            android:id="@+id/multiSelectToolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="8dp"
+            android:background="@color/colorLightBackground"
+            android:visibility="gone">
+            
+            <TextView
+                android:id="@+id/selectedCountText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="已选择 0 项"
+                android:textSize="14sp"
+                android:textColor="@color/colorDarkBackground"
+                android:paddingStart="8dp" />
+            
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/batchChangeCategoryButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginEnd="8dp"
+                android:text="修改分类"
+                android:textSize="12sp"
+                android:minWidth="0dp"
+                android:insetLeft="8dp"
+                android:insetRight="8dp"
+                android:insetTop="4dp"
+                android:insetBottom="4dp"
+                app:cornerRadius="8dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+            
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/cancelMultiSelectButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:text="取消"
+                android:textSize="12sp"
+                android:minWidth="0dp"
+                android:insetLeft="8dp"
+                android:insetRight="8dp"
+                android:insetTop="4dp"
+                android:insetBottom="4dp"
+                app:cornerRadius="8dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+        </LinearLayout>
 
         <!-- 分类标题 -->
         <TextView

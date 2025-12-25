@@ -41,6 +41,44 @@ class EntryListViewAdapter(
     private var originalCounters: MutableList<String> = mutableListOf() // 备份原始数据
     private var currentFilter: String =""
     private var currentCategory: String? = null // 当前分类
+    
+    // 多选模式
+    private var isMultiSelectMode = false
+    private val selectedCounters = mutableSetOf<String>()
+    
+    fun setMultiSelectMode(enabled: Boolean) {
+        isMultiSelectMode = enabled
+        if (!enabled) {
+            selectedCounters.clear()
+        }
+        notifyDataSetChanged()
+    }
+    
+    fun isMultiSelectMode(): Boolean = isMultiSelectMode
+    
+    fun getSelectedCounters(): Set<String> = selectedCounters.toSet()
+    
+    fun toggleSelection(counterName: String) {
+        if (selectedCounters.contains(counterName)) {
+            selectedCounters.remove(counterName)
+        } else {
+            selectedCounters.add(counterName)
+        }
+        // 找到该计数器在列表中的位置并更新
+        val position = counters.indexOf(counterName)
+        if (position != -1) {
+            notifyItemChanged(position)
+        }
+        // 通知外部更新选中数量
+        if (activity is org.kde.bettercounter.ui.MainActivity) {
+            (activity as org.kde.bettercounter.ui.MainActivity).updateSelectedCount()
+        }
+    }
+    
+    fun clearSelection() {
+        selectedCounters.clear()
+        notifyDataSetChanged()
+    }
 
     override fun getItemCount(): Int = counters.size
 
@@ -208,7 +246,9 @@ class EntryListViewAdapter(
     override fun onBindViewHolder(holder: EntryViewHolder, position: Int) {
         val counter = viewModel.getCounterSummary(counters[position]).value
         if (counter != null) {
-            holder.onBind(counter)
+            holder.onBind(counter, isMultiSelectMode, selectedCounters.contains(counter.name)) { counterName ->
+                toggleSelection(counterName)
+            }
         } else {
             Log.d(TAG, "Counter not found or still loading at pos $position")
         }

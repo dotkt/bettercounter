@@ -79,6 +79,35 @@ class CategoryPagerAdapter(
     fun getAllCategoriesForLog(): List<String> {
         return categories.toList()
     }
+    
+    /**
+     * 为所有适配器设置多选模式
+     */
+    fun setMultiSelectModeForAll(enabled: Boolean) {
+        adapters.values.forEach { adapter ->
+            adapter.setMultiSelectMode(enabled)
+        }
+    }
+    
+    /**
+     * 获取所有适配器中选中的计数器总数
+     */
+    fun getTotalSelectedCount(): Int {
+        return adapters.values.sumOf { adapter ->
+            adapter.getSelectedCounters().size
+        }
+    }
+    
+    /**
+     * 获取所有适配器中选中的计数器
+     */
+    fun getAllSelectedCounters(): Set<String> {
+        val allSelected = mutableSetOf<String>()
+        adapters.values.forEach { adapter ->
+            allSelected.addAll(adapter.getSelectedCounters())
+        }
+        return allSelected
+    }
 
     inner class CategoryViewHolder(val recyclerView: RecyclerView) :
         androidx.recyclerview.widget.RecyclerView.ViewHolder(recyclerView) {

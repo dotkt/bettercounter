@@ -28,8 +28,36 @@ class EntryViewHolder(
     private val onClickListener: (counter: CounterSummary) -> Unit?,
 ) : RecyclerView.ViewHolder(binding.root) {
 
-    fun onBind(counter: CounterSummary) {
+    fun onBind(counter: CounterSummary, isMultiSelectMode: Boolean = false, isSelected: Boolean = false, onSelectionToggle: ((String) -> Unit)? = null) {
         binding.root.setBackgroundColor(counter.color.colorInt)
+        
+        // 多选模式处理
+        if (isMultiSelectMode) {
+            binding.selectionCheckBox.visibility = android.view.View.VISIBLE
+            binding.selectionCheckBox.isChecked = isSelected
+            binding.selectionCheckBox.setOnClickListener {
+                onSelectionToggle?.invoke(counter.name)
+            }
+            // 在多选模式下，点击整个区域也切换选择状态
+            binding.infoArea.setOnClickListener {
+                onSelectionToggle?.invoke(counter.name)
+            }
+            binding.infoArea.setOnLongClickListener(null)
+        } else {
+            binding.selectionCheckBox.visibility = android.view.View.GONE
+            binding.selectionCheckBox.isChecked = false
+            // 恢复正常的点击和长按行为
+            binding.infoArea.setOnClickListener { onClickListener(counter) }
+            binding.infoArea.setOnLongClickListener {
+                touchHelper.startDrag(this@EntryViewHolder)
+                @Suppress("DEPRECATION")
+                binding.infoArea.performHapticFeedback(
+                    HapticFeedbackConstants.LONG_PRESS,
+                    HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
+                )
+                true
+            }
+        }
         
         // 新加减按钮绑定
         binding.btnMinus10.setOnClickListener { viewModel.decrementCounterByValue(counter.name, 10) }

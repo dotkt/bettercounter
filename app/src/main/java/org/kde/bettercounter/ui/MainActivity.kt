@@ -333,6 +333,9 @@ class MainActivity : AppCompatActivity() {
         // 设置菜单按钮
         setupMenuButton()
         
+        // 设置多选功能
+        setupMultiSelect()
+        
         startRefreshEveryMinuteBoundary()
         
         // Handle intent after all UI components are initialized
@@ -767,12 +770,136 @@ class MainActivity : AppCompatActivity() {
             popupMenu.menuInflater.inflate(R.menu.main, popupMenu.menu)
             // 添加测试菜单项
             popupMenu.menu.add(Menu.NONE, 999, Menu.NONE, "测试日期变化")
+            // 添加多选菜单项
+            popupMenu.menu.add(Menu.NONE, 1000, Menu.NONE, "多选模式")
             
             popupMenu.setOnMenuItemClickListener { item ->
-                onOptionsItemSelected(item)
+                when (item.itemId) {
+                    1000 -> {
+                        enterMultiSelectMode()
+                        true
+                    }
+                    else -> onOptionsItemSelected(item)
+                }
             }
             popupMenu.show()
         }
+    }
+    
+    /**
+     * 设置多选功能
+     */
+    private fun setupMultiSelect() {
+        // 取消多选按钮
+        binding.cancelMultiSelectButton.setOnClickListener {
+            exitMultiSelectMode()
+        }
+        
+        // 批量修改分类按钮
+        binding.batchChangeCategoryButton.setOnClickListener {
+            showBatchChangeCategoryDialog()
+        }
+    }
+    
+    /**
+     * 进入多选模式
+     */
+    private fun enterMultiSelectMode() {
+        // 更新所有分类页面的适配器
+        categoryPagerAdapter.setMultiSelectModeForAll(true)
+        // 显示多选工具栏
+        binding.multiSelectToolbar.visibility = android.view.View.VISIBLE
+        // 更新选中数量
+        updateSelectedCount()
+    }
+    
+    /**
+     * 退出多选模式
+     */
+    private fun exitMultiSelectMode() {
+        // 更新所有分类页面的适配器
+        categoryPagerAdapter.setMultiSelectModeForAll(false)
+        // 隐藏多选工具栏
+        binding.multiSelectToolbar.visibility = android.view.View.GONE
+    }
+    
+    /**
+     * 更新选中数量显示
+     */
+    fun updateSelectedCount() {
+        val selectedCount = categoryPagerAdapter.getTotalSelectedCount()
+        binding.selectedCountText.text = "已选择 $selectedCount 项"
+        binding.batchChangeCategoryButton.isEnabled = selectedCount > 0
+    }
+    
+    /**
+     * 显示批量修改分类对话框
+     */
+    private fun showBatchChangeCategoryDialog() {
+        val selectedCounters = categoryPagerAdapter.getAllSelectedCounters()
+        if (selectedCounters.isEmpty()) {
+            Snackbar.make(binding.root, "请先选择要修改的计数器", Snackbar.LENGTH_SHORT).show()
+            return
+        }
+        
+        // 获取所有分类
+        val allCategories = viewModel.getAllCategories().sorted().toMutableList()
+        if (!allCategories.contains("默认")) {
+            allCategories.add(0, "默认")
+        }
+        
+        // 创建分类选择对话框
+        MaterialAlertDialogBuilder(this)
+            .setTitle("选择新分类")
+            .setItems(allCategories.toTypedArray()) { _, which ->
+                val newCategory = allCategories[which]
+                batchChangeCategory(selectedCounters, newCategory)
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+    
+    /**
+     * 批量修改分类
+     */
+    private fun batchChangeCategory(counterNames: Set<String>, newCategory: String) {
+        var successCount = 0
+        var failCount = 0
+        
+        counterNames.forEach { counterName ->
+            try {
+                val counter = viewModel.getCounterSummary(counterName).value
+                if (counter != null) {
+                    val meta = org.kde.bettercounter.persistence.CounterMetadata(
+                        counter.name, counter.interval, counter.goal, counter.color, newCategory
+                    )
+                    if (counter.name != meta.name) {
+                        viewModel.editCounter(counter.name, meta)
+                    } else {
+                        viewModel.editCounterSameName(meta)
+                    }
+                    successCount++
+                } else {
+                    failCount++
+                }
+            } catch (e: Exception) {
+                failCount++
+            }
+        }
+        
+        // 退出多选模式
+        exitMultiSelectMode()
+        
+        // 更新分类列表
+        categoryPagerAdapter.updateCategories()
+        
+        // 显示结果
+        val message = if (failCount > 0) {
+            "成功修改 $successCount 个，失败 $failCount 个"
+        } else {
+            "成功修改 $successCount 个计数器的分类"
+        }
+        Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT).show()
     }
     
     private fun showAddCounterDialog() {
