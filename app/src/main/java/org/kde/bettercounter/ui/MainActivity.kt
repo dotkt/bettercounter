@@ -575,18 +575,12 @@ class MainActivity : AppCompatActivity() {
         
         // 为每个分类创建按钮
         allCategories.forEach { category ->
-            val button = if (category == currentCategory) {
-                // 当前分类：使用填充按钮样式，高亮显示
-                com.google.android.material.button.MaterialButton(this, null, com.google.android.material.R.attr.materialButtonStyle)
-            } else {
-                // 其他分类：使用轮廓按钮样式
-                com.google.android.material.button.MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle)
-            }.apply {
+            // 使用TextView代替MaterialButton，以获得更紧凑的显示，没有默认的inset
+            val button = android.widget.TextView(this).apply {
                 text = category
                 textSize = 14f
-                minWidth = 0
-                minHeight = 0
-                setPadding(16, 8, 16, 8)
+                setPadding(8, 6, 8, 6)
+                gravity = android.view.Gravity.CENTER
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
@@ -597,13 +591,21 @@ class MainActivity : AppCompatActivity() {
                 // 根据是否为当前分类设置样式
                 if (category == currentCategory) {
                     // 当前分类：高亮显示
-                    setBackgroundColor(getColor(R.color.colorAccent))
                     setTextColor(getColor(android.R.color.white))
-                    elevation = 4f
+                    // 添加圆角背景
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        setColor(getColor(R.color.colorAccent))
+                        cornerRadius = 16f
+                    }
                 } else {
                     // 其他分类：轮廓样式
                     setTextColor(getColor(R.color.colorAccent))
-                    elevation = 0f
+                    // 添加圆角边框
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        setColor(android.graphics.Color.TRANSPARENT)
+                        setStroke(2, getColor(R.color.colorAccent))
+                        cornerRadius = 16f
+                    }
                 }
                 
                 // 点击跳转到对应分类
