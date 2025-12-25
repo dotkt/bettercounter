@@ -17,6 +17,7 @@ import android.view.ViewTreeObserver
 import android.widget.LinearLayout
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.ActivityResultLauncher
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -996,15 +997,54 @@ class MainActivity : AppCompatActivity() {
             allCategories.add(0, "默认")
         }
         
-        // 创建分类选择对话框
-        MaterialAlertDialogBuilder(this)
-            .setTitle("选择新分类")
-            .setItems(allCategories.toTypedArray()) { _, which ->
-                val newCategory = allCategories[which]
-                batchChangeCategory(selectedCounters, newCategory)
+        // 创建带输入框的对话框布局
+        val inputLayout = com.google.android.material.textfield.TextInputLayout(this).apply {
+            hint = "分类名称"
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                setMargins(32, 16, 32, 16)
             }
+        }
+        
+        val autoCompleteTextView = android.widget.AutoCompleteTextView(this).apply {
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+            threshold = 0 // 点击即显示所有选项
+        }
+        
+        // 设置自动完成适配器
+        val categoryAdapter = android.widget.ArrayAdapter(
+            this,
+            android.R.layout.simple_dropdown_item_1line,
+            allCategories
+        )
+        autoCompleteTextView.setAdapter(categoryAdapter)
+        
+        inputLayout.addView(autoCompleteTextView)
+        
+        // 创建对话框
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle("选择或输入新分类")
+            .setView(inputLayout)
+            .setPositiveButton("确定", null)
             .setNegativeButton("取消", null)
-            .show()
+            .create()
+        
+        dialog.setOnShowListener {
+            val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            positiveButton.setOnClickListener {
+                val newCategory = autoCompleteTextView.text.toString().trim().takeIf { it.isNotBlank() } ?: "默认"
+                batchChangeCategory(selectedCounters, newCategory)
+                dialog.dismiss()
+            }
+            
+            // 自动聚焦并显示键盘
+            autoCompleteTextView.requestFocus()
+            dialog.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
+        }
+        
+        dialog.show()
     }
     
     /**
