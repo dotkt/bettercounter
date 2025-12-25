@@ -529,41 +529,93 @@ class MainActivity : AppCompatActivity() {
      * 设置点击空白区域隐藏软键盘
      */
     private fun setupHideKeyboardOnClick() {
-        // 在根布局上设置触摸监听器
-        binding.root.setOnTouchListener { view, event ->
-            if (event.action == android.view.MotionEvent.ACTION_DOWN) {
+        // 这个方法现在不需要做任何事情，因为我们在dispatchTouchEvent中处理
+    }
+    
+    override fun dispatchTouchEvent(ev: android.view.MotionEvent): Boolean {
+        if (ev.action == android.view.MotionEvent.ACTION_DOWN) {
+            // 使用HitTest来查找点击位置的View
+            val x = ev.x.toInt()
+            val y = ev.y.toInt()
+            val view = findViewAtScreenCoordinates(ev.rawX.toInt(), ev.rawY.toInt())
+            
+            // 检查点击的View是否是按钮
+            if (view != null && isButton(view)) {
+                // 点击的是按钮，隐藏键盘
+                hideKeyboard()
+            } else {
                 // 检查当前是否有EditText获得焦点
                 val currentFocus = currentFocus
                 if (currentFocus is android.widget.EditText) {
-                    // 延迟检查，让点击事件先处理
-                    view.post {
-                        // 再次检查焦点，如果焦点还在EditText上，说明点击的不是EditText
-                        // 此时隐藏键盘
-                        val newFocus = currentFocus
-                        if (newFocus is android.widget.EditText && newFocus == currentFocus) {
-                            // 检查点击位置是否在EditText内
-                            val location = IntArray(2)
-                            currentFocus.getLocationOnScreen(location)
-                            val x = event.rawX.toInt()
-                            val y = event.rawY.toInt()
-                            val left = location[0]
-                            val top = location[1]
-                            val right = left + currentFocus.width
-                            val bottom = top + currentFocus.height
-                            
-                            // 如果点击位置不在EditText内，隐藏键盘
-                            if (x < left || x > right || y < top || y > bottom) {
-                                hideKeyboard()
-                            }
-                        }
+                    // 检查点击位置是否在EditText内
+                    val location = IntArray(2)
+                    currentFocus.getLocationOnScreen(location)
+                    val rawX = ev.rawX.toInt()
+                    val rawY = ev.rawY.toInt()
+                    val left = location[0]
+                    val top = location[1]
+                    val right = left + currentFocus.width
+                    val bottom = top + currentFocus.height
+                    
+                    // 如果点击位置不在EditText内，隐藏键盘
+                    if (rawX < left || rawX > right || rawY < top || rawY > bottom) {
+                        hideKeyboard()
                     }
                 } else {
-                    // 没有EditText获得焦点，直接隐藏键盘（处理残留状态）
+                    // 没有EditText获得焦点，也尝试隐藏键盘（处理残留状态）
                     hideKeyboard()
                 }
             }
-            false // 返回false，让事件继续传播
         }
+        return super.dispatchTouchEvent(ev)
+    }
+    
+    /**
+     * 在屏幕坐标查找View
+     */
+    private fun findViewAtScreenCoordinates(screenX: Int, screenY: Int): android.view.View? {
+        val location = IntArray(2)
+        binding.root.getLocationOnScreen(location)
+        val x = screenX - location[0]
+        val y = screenY - location[1]
+        return findViewAt(binding.root, x, y)
+    }
+    
+    /**
+     * 在指定坐标查找View
+     */
+    private fun findViewAt(parent: android.view.View, x: Int, y: Int): android.view.View? {
+        if (x < 0 || y < 0 || x >= parent.width || y >= parent.height) {
+            return null
+        }
+        
+        if (parent is android.view.ViewGroup) {
+            for (i in parent.childCount - 1 downTo 0) {
+                val child = parent.getChildAt(i)
+                if (child.visibility == android.view.View.VISIBLE) {
+                    val childX = x - child.left
+                    val childY = y - child.top
+                    if (childX >= 0 && childY >= 0 && childX < child.width && childY < child.height) {
+                        val found = findViewAt(child, childX, childY)
+                        if (found != null) {
+                            return found
+                        }
+                    }
+                }
+            }
+        }
+        
+        return parent
+    }
+    
+    /**
+     * 检查View是否是按钮
+     */
+    private fun isButton(view: android.view.View): Boolean {
+        return view is android.widget.Button ||
+               view is com.google.android.material.button.MaterialButton ||
+               view is androidx.appcompat.widget.AppCompatButton ||
+               view.javaClass.simpleName.contains("Button", ignoreCase = true)
     }
     
     /**
