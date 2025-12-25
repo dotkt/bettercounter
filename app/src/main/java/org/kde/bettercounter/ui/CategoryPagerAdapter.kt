@@ -39,11 +39,11 @@ class CategoryPagerAdapter(
     
     /**
      * 标记为已初始化，之后可以安全地调用 MainActivity 的方法
+     * 注意：不立即更新分类，需要等待数据加载完成后再调用 updateCategories()
      */
     fun markInitialized() {
         isInitialized = true
-        // 初始化完成后，更新分类并通知 MainActivity
-        updateCategories()
+        // 不在这里调用 updateCategories()，等待数据加载完成后再调用
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): CategoryViewHolder {

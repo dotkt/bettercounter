@@ -192,8 +192,21 @@ class MainActivity : AppCompatActivity() {
         
         binding.viewPager.adapter = categoryPagerAdapter
         
-        // 标记适配器已初始化，并更新分类列表
+        // 标记适配器已初始化（但不立即更新分类，等待数据加载完成）
         categoryPagerAdapter.markInitialized()
+        
+        // 等待数据加载完成后再更新分类
+        viewModel.observeCounterChange(object : ViewModel.CounterObserver {
+            override fun onInitialCountersLoaded() {
+                // 数据加载完成后，更新分类列表
+                categoryPagerAdapter.updateCategories()
+                viewModel.removeCounterChangeObserver(this)
+            }
+            override fun onCounterAdded(counterName: String) {}
+            override fun onCounterRemoved(counterName: String) {}
+            override fun onCounterRenamed(oldName: String, newName: String) {}
+            override fun onCounterDecremented(counterName: String, oldEntryDate: Date) {}
+        })
         
         // 设置 ViewPager2 和搜索结果 RecyclerView 的 paddingTop，为顶部区域留出空间
         binding.root.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
