@@ -80,19 +80,34 @@ class EntryViewHolder(
         // 自定义按钮弹窗
         binding.btnCustom.setOnClickListener {
             val editText = android.widget.EditText(activity)
-            editText.inputType = android.text.InputType.TYPE_CLASS_TEXT
+            editText.inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
             editText.hint = "输入正负分数"
             androidx.appcompat.app.AlertDialog.Builder(activity)
                 .setTitle("自定义加减分数")
                 .setView(editText)
                 .setPositiveButton("确定") { _, _ ->
-                    val inputText = editText.text.toString().trim()
-                    // 将中文减号替换为英文减号
-                    val normalizedText = inputText.replace('－', '-')
-                    val value = normalizedText.toIntOrNull()
-                    if (value != null && value != 0) {
-                        if (value > 0) viewModel.incrementCounterByValue(counter.name, value)
-                        else viewModel.decrementCounterByValue(counter.name, -value)
+                    try {
+                        val inputText = editText.text.toString().trim()
+                        // 将中文减号替换为英文减号
+                        val normalizedText = inputText.replace('－', '-')
+                        val value = normalizedText.toIntOrNull()
+                        if (value != null && value != 0) {
+                            if (value > 0) {
+                                viewModel.incrementCounterByValue(counter.name, value)
+                            } else {
+                                // 对于负数，取绝对值
+                                val absValue = -value
+                                viewModel.decrementCounterByValue(counter.name, absValue)
+                            }
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("EntryViewHolder", "处理自定义分数时出错: ${e.message}", e)
+                        // 显示错误提示
+                        androidx.appcompat.app.AlertDialog.Builder(activity)
+                            .setTitle("错误")
+                            .setMessage("操作失败: ${e.message}")
+                            .setPositiveButton("确定", null)
+                            .show()
                     }
                 }
                 .setNegativeButton("取消", null)

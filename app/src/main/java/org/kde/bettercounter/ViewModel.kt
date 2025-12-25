@@ -140,21 +140,48 @@ class ViewModel(application: Application) {
     }
 
     fun decrementCounterByValue(name: String, value: Int) {
+        if (value <= 0) {
+            Log.w(TAG, "decrementCounterByValue: value must be positive, got $value")
+            return
+        }
         CoroutineScope(Dispatchers.IO).launch {
-            repeat(value) {
-                val oldEntryDate = repo.removeEntry(name)
-                if (oldEntryDate != null) {
+            try {
+                var removedCount = 0
+                var lastRemovedDate: Date? = null
+                for (i in 0 until value) {
+                    val oldEntryDate = repo.removeEntry(name)
+                    if (oldEntryDate != null) {
+                        removedCount++
+                        lastRemovedDate = oldEntryDate
+                    } else {
+                        // 没有更多条目可以删除，停止循环
+                        break
+                    }
+                }
+                // 只在最后触发一次回调，避免批量操作时多次显示Snackbar
+                if (removedCount > 0 && lastRemovedDate != null) {
                     synchronized(this) {
                         val observersCopy = counterObservers.toList()
                         for (observer in observersCopy) {
-                            observer.onCounterDecremented(name, oldEntryDate)
+                            observer.onCounterDecremented(name, lastRemovedDate!!)
                         }
                     }
                 }
-            }
-            val counterSummary = repo.getCounterSummary(name)
-            synchronized(this) {
-                summaryMap[name]?.postValue(counterSummary)
+                val counterSummary = repo.getCounterSummary(name)
+                synchronized(this) {
+                    summaryMap[name]?.postValue(counterSummary)
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "decrementCounterByValue failed: ${e.message}", e)
+                // 即使出错，也尝试更新摘要
+                try {
+                    val counterSummary = repo.getCounterSummary(name)
+                    synchronized(this) {
+                        summaryMap[name]?.postValue(counterSummary)
+                    }
+                } catch (e2: Exception) {
+                    Log.e(TAG, "Failed to update summary after error: ${e2.message}", e2)
+                }
             }
         }
     }
