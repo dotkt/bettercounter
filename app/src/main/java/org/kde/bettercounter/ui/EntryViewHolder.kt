@@ -123,6 +123,8 @@ class EntryViewHolder(
     
     /**
      * 格式化相对时间显示
+     * 小于60秒：显示"刚刚"
+     * 大于等于60秒但小于1小时：显示几分钟前
      * 1天以内：显示几小时前
      * 超过1天但不超过30天：显示几天前
      * 超过30天但不超过12个月：显示几月前
@@ -133,10 +135,20 @@ class EntryViewHolder(
         val targetDate = Calendar.getInstance().apply { time = date }
         
         val diffInMillis = now.timeInMillis - targetDate.timeInMillis
+        val diffInSeconds = diffInMillis / 1000
+        val diffInMinutes = diffInMillis / (60 * 1000)
         val diffInHours = diffInMillis / (60 * 60 * 1000)
         val diffInDays = diffInMillis / (24 * 60 * 60 * 1000)
         
         return when {
+            diffInSeconds < 60 -> {
+                // 小于60秒：显示"刚刚"
+                "刚刚"
+            }
+            diffInHours < 1 -> {
+                // 大于等于60秒但小于1小时：显示几分钟前
+                "${diffInMinutes}分钟前"
+            }
             diffInHours < 24 -> {
                 // 1天以内：显示几小时前
                 "${diffInHours}小时前"
