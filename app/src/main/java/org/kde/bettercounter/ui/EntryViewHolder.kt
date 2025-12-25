@@ -118,8 +118,29 @@ class EntryViewHolder(
         // 显示相对时间
         val mostRecentDate = counter.mostRecent
         if (mostRecentDate != null) {
-            binding.relativeTimeText.text = formatRelativeTime(mostRecentDate)
+            val relativeTime = formatRelativeTime(mostRecentDate)
+            binding.relativeTimeText.text = relativeTime
             binding.relativeTimeText.visibility = android.view.View.VISIBLE
+            // 如果是"刚刚"，使用鲜艳的红色字体
+            if (relativeTime == "刚刚") {
+                // 检查背景色是否是红色系
+                val backgroundColor = counter.color.colorInt
+                val red = (backgroundColor shr 16) and 0xFF
+                val green = (backgroundColor shr 8) and 0xFF
+                val blue = backgroundColor and 0xFF
+                // 如果红色分量明显大于绿色和蓝色，认为是红色背景
+                val isRedBackground = red > green + 50 && red > blue + 50 && red > 150
+                
+                if (isRedBackground) {
+                    // 红色背景，显示白色
+                    binding.relativeTimeText.setTextColor(android.graphics.Color.WHITE)
+                } else {
+                    // 非红色背景，显示鲜艳的红色
+                    binding.relativeTimeText.setTextColor(android.graphics.Color.parseColor("#FF0000"))
+                }
+            } else {
+                binding.relativeTimeText.setTextColor(activity.getColor(android.R.color.white))
+            }
         } else {
             binding.relativeTimeText.visibility = android.view.View.GONE
         }
