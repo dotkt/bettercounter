@@ -352,7 +352,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleIntent(intent: Intent?) {
-        Log.d(TAG, "handleIntent called with intent: $intent")
+        Log.d(TAG, "========== handleIntent 开始 ==========")
+        Log.d(TAG, "Intent: $intent")
         intent?.extras?.let { bundle ->
             for (key in bundle.keySet()) {
                 Log.d(TAG, "Extra: $key = ${bundle.get(key)}")
@@ -360,41 +361,64 @@ class MainActivity : AppCompatActivity() {
         }
         
         intent?.getStringExtra(EXTRA_COUNTER_NAME)?.let { counterName ->
-            Log.d(TAG, "Got counter name: $counterName")
+            Log.d(TAG, "========== Widget点击: 计数器名称 = $counterName ==========")
             // 等待数据加载完成后再滚动
             viewModel.observeCounterChange(object : ViewModel.CounterObserver {
                 override fun onInitialCountersLoaded() {
+                    Log.d(TAG, "数据加载完成，开始定位计数器: $counterName")
                     // 找到计数器所属的分类
                     val category = viewModel.getCounterCategory(counterName)
+                    Log.d(TAG, "计数器分类: $category")
+                    
                     if (categoryPagerAdapter.itemCount > 0) {
                         val categoryPosition = categoryPagerAdapter.findPositionForCategory(category)
+                        Log.d(TAG, "分类位置: $categoryPosition, 总分类数: ${categoryPagerAdapter.itemCount}")
                         
                         // 切换到对应的分类页面
                         binding.viewPager.setCurrentItem(categoryPosition, false)
+                        Log.d(TAG, "已切换到分类页面: $categoryPosition")
                         
                         // 更新 toolbar 标题
                         updateToolbarTitle(category)
                         
                         // 等待页面切换完成后再滚动
                         binding.viewPager.post {
-                            val adapter = categoryPagerAdapter.getAdapterForCategory(category)
-                            val position = adapter?.let { adapter ->
-                                val counters = viewModel.getCounterList()
-                                counters.indexOf(counterName)
-                            } ?: -1
-                            
-                            if (position != -1) {
-                                getCurrentRecyclerView()?.post {
-                                    getCurrentRecyclerView()?.scrollToPosition(position)
+                            // 等待ViewPager页面切换动画完成
+                            binding.viewPager.postDelayed({
+                                val adapter = categoryPagerAdapter.getAdapterForCategory(category)
+                                Log.d(TAG, "获取适配器: ${if (adapter != null) "成功" else "失败"}")
+                                
+                                val position = adapter?.let { adapter ->
+                                    val positionInAdapter = adapter.getItemPosition(counterName)
+                                    Log.d(TAG, "在适配器中的位置: $positionInAdapter")
+                                    positionInAdapter
+                                } ?: -1
+                                
+                                Log.d(TAG, "最终位置: $position")
+                                
+                                if (position != -1) {
+                                    getCurrentRecyclerView()?.let { rv ->
+                                        Log.d(TAG, "找到RecyclerView，准备滚动")
+                                        Log.d(TAG, "RecyclerView状态 - isLaidOut: ${rv.isLaidOut}, childCount: ${rv.childCount}, adapter: ${rv.adapter != null}")
+                                        rv.post {
+                                            scrollToPositionTopAfterLayout(rv, position, counterName)
+                                        }
+                                    } ?: Log.e(TAG, "错误: 无法获取RecyclerView")
+                                } else {
+                                    Log.e(TAG, "错误: 找不到计数器位置，position = -1")
                                 }
-                            }
+                            }, 100) // 延迟100ms等待ViewPager切换完成
                         }
                     } else {
+                        Log.d(TAG, "没有分类页面，直接滚动")
                         // 如果没有分类页面，直接滚动
-                        getCurrentRecyclerView()?.post {
+                        getCurrentRecyclerView()?.let { rv ->
                             val position = viewModel.getCounterList().indexOf(counterName)
+                            Log.d(TAG, "直接滚动位置: $position")
                             if (position != -1) {
-                                getCurrentRecyclerView()?.scrollToPosition(position)
+                                rv.post {
+                                    scrollToPositionTopAfterLayout(rv, position, counterName)
+                                }
                             }
                         }
                     }
@@ -467,10 +491,10 @@ class MainActivity : AppCompatActivity() {
                 adapter?.let {
                     // 找到计数器在适配器中的位置
                     val position = it.getItemPosition(counterName)
+                    Log.d(TAG, "搜索结果点击 - 计数器: $counterName, 位置: $position")
                     if (position != -1) {
                         getCurrentRecyclerView()?.post {
-                            // 只滚动到位置，不选中（不打开配置项）
-                            getCurrentRecyclerView()?.scrollToPosition(position)
+                            scrollToPositionTopAfterLayout(getCurrentRecyclerView(), position, counterName)
                         }
                     }
                 }
@@ -520,6 +544,79 @@ class MainActivity : AppCompatActivity() {
         }
         
         return null
+    }
+    
+    /**
+     * 将 RecyclerView 中的指定位置滚动到顶部
+     * 使用 scrollToPositionWithOffset 确保项目精确地处于置顶位置
+     */
+    private fun scrollToPositionTop(recyclerView: RecyclerView?, position: Int, counterName: String = "") {
+        recyclerView?.let { rv ->
+            val layoutManager = rv.layoutManager
+            Log.d(TAG, "========== scrollToPositionTop 开始 ==========")
+            Log.d(TAG, "计数器: $counterName, 位置: $position")
+            Log.d(TAG, "LayoutManager类型: ${layoutManager?.javaClass?.simpleName}")
+            Log.d(TAG, "RecyclerView状态 - isLaidOut: ${rv.isLaidOut}, width: ${rv.width}, height: ${rv.height}")
+            Log.d(TAG, "RecyclerView子视图数量: ${rv.childCount}")
+            
+            if (layoutManager is androidx.recyclerview.widget.LinearLayoutManager) {
+                val firstVisible = layoutManager.findFirstVisibleItemPosition()
+                val lastVisible = layoutManager.findLastVisibleItemPosition()
+                Log.d(TAG, "当前可见范围: $firstVisible 到 $lastVisible")
+                
+                // 使用 scrollToPositionWithOffset 精确地将项目滚动到顶部
+                // 第二个参数 0 表示偏移量为0，即项目顶部对齐 RecyclerView 顶部
+                layoutManager.scrollToPositionWithOffset(position, 0)
+                Log.d(TAG, "已调用 scrollToPositionWithOffset($position, 0)")
+                
+                // 延迟检查滚动结果
+                rv.postDelayed({
+                    val newFirstVisible = layoutManager.findFirstVisibleItemPosition()
+                    val newLastVisible = layoutManager.findLastVisibleItemPosition()
+                    Log.d(TAG, "滚动后可见范围: $newFirstVisible 到 $newLastVisible")
+                    Log.d(TAG, "目标位置 $position 是否在可见范围: ${position in newFirstVisible..newLastVisible}")
+                    if (newFirstVisible == position) {
+                        Log.d(TAG, "✓ 成功: 位置 $position 已置顶")
+                    } else {
+                        Log.w(TAG, "✗ 警告: 位置 $position 未置顶，当前第一个可见项: $newFirstVisible")
+                    }
+                    Log.d(TAG, "========== scrollToPositionTop 结束 ==========")
+                }, 100)
+            } else {
+                Log.w(TAG, "LayoutManager不是LinearLayoutManager，使用默认方法")
+                // 如果不是 LinearLayoutManager，使用默认方法
+                rv.scrollToPosition(position)
+            }
+        } ?: Log.e(TAG, "错误: RecyclerView为null")
+    }
+    
+    /**
+     * 等待 RecyclerView 布局完成后，将指定位置滚动到顶部
+     */
+    private fun scrollToPositionTopAfterLayout(recyclerView: RecyclerView?, position: Int, counterName: String = "") {
+        recyclerView?.let { rv ->
+            Log.d(TAG, "========== scrollToPositionTopAfterLayout 开始 ==========")
+            Log.d(TAG, "计数器: $counterName, 位置: $position")
+            Log.d(TAG, "RecyclerView isLaidOut: ${rv.isLaidOut}")
+            
+            // 检查布局是否已经完成
+            if (rv.isLaidOut) {
+                Log.d(TAG, "布局已完成，直接滚动")
+                // 布局已完成，直接滚动
+                scrollToPositionTop(rv, position, counterName)
+            } else {
+                Log.d(TAG, "布局未完成，等待布局完成")
+                // 布局未完成，等待布局完成后再滚动
+                rv.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+                    override fun onGlobalLayout() {
+                        rv.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                        Log.d(TAG, "布局完成，开始滚动")
+                        scrollToPositionTop(rv, position, counterName)
+                    }
+                })
+            }
+            Log.d(TAG, "========== scrollToPositionTopAfterLayout 结束 ==========")
+        } ?: Log.e(TAG, "错误: RecyclerView为null")
     }
 
     private fun millisecondsUntilNextHour(): Long {
