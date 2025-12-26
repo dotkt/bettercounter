@@ -174,10 +174,24 @@ open class BetterRelativeTimeTextView : androidx.appcompat.widget.AppCompatTextV
 
         override fun run() {
             val view = viewWeakRef.get() ?: return
-            val difference = abs(System.currentTimeMillis() - mRefTime)
-            val differenceRoundedToMinute = (difference / DateUtils.MINUTE_IN_MILLIS) * DateUtils.MINUTE_IN_MILLIS
+            val now = System.currentTimeMillis()
+            val difference = abs(now - mRefTime)
+            val diffInSeconds = difference / 1000
+            val diffInHours = difference / (60 * 60 * 1000)
+            val diffInDays = difference / (24 * 60 * 60 * 1000)
+            
             view.updateTextDisplay()
-            view.mHandler.postDelayed(this, difference - differenceRoundedToMinute)
+            
+            // 根据时间差智能调整更新频率，与widget逻辑保持一致
+            val updateIntervalMillis = when {
+                diffInSeconds < 60 -> 30 * 1000L  // 30秒更新一次（"刚刚"状态）
+                diffInHours < 1 -> 60 * 1000L  // 1分钟更新一次（"X分钟前"状态）
+                diffInHours < 24 -> 5 * 60 * 1000L  // 5分钟更新一次（"X小时前"状态）
+                diffInDays < 30 -> 30 * 60 * 1000L  // 30分钟更新一次（"X天前"状态）
+                else -> 60 * 60 * 1000L  // 1小时更新一次（其他状态）
+            }
+            
+            view.mHandler.postDelayed(this, updateIntervalMillis)
         }
     }
 }

@@ -45,7 +45,7 @@
             tools:text="计数器名称" />
 
         <!-- 最后完成时间 -->
-        <TextView
+        <org.kde.bettercounter.ui.BetterRelativeTimeTextView
             android:id="@+id/relativeTimeText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

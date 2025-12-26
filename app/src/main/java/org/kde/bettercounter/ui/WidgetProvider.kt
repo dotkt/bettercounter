@@ -354,8 +354,13 @@ private fun updateAppWidgetTimeOnly(
  */
 private fun scheduleSmartTimeUpdate(context: Context, appWidgetId: Int, date: Date?) {
     if (date == null) {
+        // 如果没有日期，取消之前的定时器
+        cancelTimeUpdateAlarm(context, appWidgetId)
         return
     }
+    
+    // 先取消之前的定时器，避免多个定时器同时运行
+    cancelTimeUpdateAlarm(context, appWidgetId)
     
     val now = Calendar.getInstance()
     val targetDate = Calendar.getInstance().apply { time = date }

@@ -173,32 +173,15 @@ class EntryViewHolder(
         
         binding.nameText.text = counter.name
 
-        // 显示相对时间
+        // 显示相对时间（使用BetterRelativeTimeTextView自动更新）
         val mostRecentDate = counter.mostRecent
         if (mostRecentDate != null) {
-            val relativeTime = formatRelativeTime(mostRecentDate)
-            binding.relativeTimeText.text = relativeTime
+            binding.relativeTimeText.referenceTime = mostRecentDate.time
             binding.relativeTimeText.visibility = android.view.View.VISIBLE
-            // 如果是"刚刚"，使用鲜艳的红色字体
-            if (relativeTime == "刚刚") {
-                // 检查背景色是否是红色系
-                val backgroundColor = counter.color.colorInt
-                val red = (backgroundColor shr 16) and 0xFF
-                val green = (backgroundColor shr 8) and 0xFF
-                val blue = backgroundColor and 0xFF
-                // 如果红色分量明显大于绿色和蓝色，认为是红色背景
-                val isRedBackground = red > green + 50 && red > blue + 50 && red > 150
-                
-                if (isRedBackground) {
-                    // 红色背景，显示白色
-                    binding.relativeTimeText.setTextColor(android.graphics.Color.WHITE)
-                } else {
-                    // 非红色背景，显示鲜艳的红色
-                    binding.relativeTimeText.setTextColor(android.graphics.Color.parseColor("#FF0000"))
-                }
-            } else {
-                binding.relativeTimeText.setTextColor(activity.getColor(android.R.color.white))
-            }
+            
+            // 设置颜色：如果是"刚刚"状态，使用特殊颜色
+            // 由于BetterRelativeTimeTextView会自动更新，我们需要定期检查并更新颜色
+            updateRelativeTimeColor(counter, mostRecentDate)
         } else {
             binding.relativeTimeText.visibility = android.view.View.GONE
         }
@@ -221,6 +204,40 @@ class EntryViewHolder(
             counter.name, counter.interval, newGoal, counter.color, category
         )
         viewModel.editCounterSameName(meta)
+    }
+    
+    /**
+     * 更新相对时间的颜色，如果是"刚刚"状态则使用特殊颜色
+     */
+    private fun updateRelativeTimeColor(counter: CounterSummary, mostRecentDate: Date) {
+        val diffInSeconds = (System.currentTimeMillis() - mostRecentDate.time) / 1000
+        // 如果是"刚刚"（<60秒），使用鲜艳的红色字体
+        if (diffInSeconds < 60) {
+            // 检查背景色是否是红色系
+            val backgroundColor = counter.color.colorInt
+            val red = (backgroundColor shr 16) and 0xFF
+            val green = (backgroundColor shr 8) and 0xFF
+            val blue = backgroundColor and 0xFF
+            // 如果红色分量明显大于绿色和蓝色，认为是红色背景
+            val isRedBackground = red > green + 50 && red > blue + 50 && red > 150
+            
+            if (isRedBackground) {
+                // 红色背景，显示白色
+                binding.relativeTimeText.setTextColor(android.graphics.Color.WHITE)
+            } else {
+                // 非红色背景，显示鲜艳的红色
+                binding.relativeTimeText.setTextColor(android.graphics.Color.parseColor("#FF0000"))
+            }
+            
+            // 如果是"刚刚"状态，30秒后再次检查颜色
+            binding.root.postDelayed({
+                if (binding.relativeTimeText.visibility == android.view.View.VISIBLE) {
+                    updateRelativeTimeColor(counter, mostRecentDate)
+                }
+            }, 30 * 1000L)
+        } else {
+            binding.relativeTimeText.setTextColor(activity.getColor(android.R.color.white))
+        }
     }
     
     /**
