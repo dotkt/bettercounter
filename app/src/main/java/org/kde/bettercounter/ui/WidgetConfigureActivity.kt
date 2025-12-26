@@ -96,10 +96,8 @@ class WidgetConfigureActivity : AppCompatActivity() {
     private fun setupCategoryNavigation() {
         val allCategories = viewModel.getAllCategories().sorted()
         
-        // 添加"全部"选项
-        val categories = mutableListOf<String>()
-        categories.add("全部")
-        categories.addAll(allCategories)
+        // 只使用现有的分类，不添加"全部"选项
+        val categories = allCategories.toMutableList()
 
         binding.categoryContainer.removeAllViews()
 
@@ -111,7 +109,7 @@ class WidgetConfigureActivity : AppCompatActivity() {
 
                 val drawable = GradientDrawable().apply {
                     cornerRadius = 8f
-                    if (category == currentCategory || (category == "全部" && currentCategory == null)) {
+                    if (category == currentCategory) {
                         setColor(getColor(R.color.colorAccent))
                         setStroke(0, android.graphics.Color.TRANSPARENT)
                         setTextColor(getColor(android.R.color.white))
@@ -131,7 +129,7 @@ class WidgetConfigureActivity : AppCompatActivity() {
                 }
 
                 setOnClickListener {
-                    currentCategory = if (category == "全部") null else category
+                    currentCategory = category
                     setupCategoryNavigation() // 重新设置以更新高亮
                     applyFilters()
                 }
