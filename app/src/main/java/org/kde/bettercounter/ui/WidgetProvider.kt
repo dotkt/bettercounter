@@ -1,5 +1,6 @@
 package org.kde.bettercounter.ui
 
+import android.app.AlarmManager
 import android.app.PendingIntent
 import android.appwidget.AppWidgetHost
 import android.appwidget.AppWidgetManager
@@ -7,6 +8,7 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
 import android.widget.RemoteViews
 import androidx.lifecycle.Observer
@@ -16,12 +18,11 @@ import org.kde.bettercounter.R
 import org.kde.bettercounter.ViewModel
 import org.kde.bettercounter.persistence.CounterSummary
 import org.kde.bettercounter.persistence.Interval
-import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Calendar
-import java.util.Locale
 
 private const val ACTION_COUNT = "org.kde.bettercounter.WidgetProvider.COUNT"
+private const val ACTION_UPDATE_TIME = "org.kde.bettercounter.WidgetProvider.UPDATE_TIME"
 private const val EXTRA_WIDGET_ID = "EXTRA_WIDGET_ID"
 
 private const val TAG = "WidgetProvider"
@@ -62,6 +63,21 @@ class WidgetProvider : AppWidgetProvider() {
                     Log.d(TAG, "CounterSummary has no observers")
                     updateAppWidget(context, viewModel, AppWidgetManager.getInstance(context), appWidgetId)
                 }
+            }
+        } else if (intent.action == ACTION_UPDATE_TIME) {
+            // 处理时间更新请求
+            val appWidgetId = intent.getIntExtra(EXTRA_WIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
+            if (appWidgetId != AppWidgetManager.INVALID_APPWIDGET_ID && existsWidgetCounterNamePref(context, appWidgetId)) {
+                val viewModel = (context.applicationContext as BetterApplication).viewModel
+                updateAppWidgetTimeOnly(context, viewModel, AppWidgetManager.getInstance(context), appWidgetId)
+            }
+        } else if (intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE) {
+            // 系统触发的更新，更新所有widget
+            val viewModel = (context.applicationContext as BetterApplication).viewModel
+            val appWidgetManager = AppWidgetManager.getInstance(context)
+            val appWidgetIds = getAllWidgetIds(context)
+            for (appWidgetId in appWidgetIds) {
+                updateAppWidget(context, viewModel, appWidgetManager, appWidgetId)
             }
         }
     }
@@ -157,6 +173,7 @@ internal fun updateAppWidget(
             if (!existsWidgetCounterNamePref(context, appWidgetId)) {
                 // Prevent leaking the observer once the widget has been deleted by deleting it here
                 viewModel.getCounterSummary(value.name).removeObserver(this)
+                cancelTimeUpdateAlarm(context, appWidgetId)
                 return
             }
             if (prevCounterName != value.name) {
@@ -191,44 +208,65 @@ internal fun updateAppWidget(
                 views.setViewVisibility(R.id.widgetCheckmark, android.view.View.GONE)
             }
             appWidgetManager.updateAppWidget(appWidgetId, views)
+            
+            // 启动智能定期更新
+            scheduleSmartTimeUpdate(context, appWidgetId, date)
         }
     })
 }
 
 /**
  * 格式化最近完成时间的显示格式
- * 如果是1分钟内完成的，就显示刚刚
- * 如果是10分钟内完成的，就显示几分钟以前
- * 如果是今天内完成的，就显示 今H:M:S
- * 如果是昨天完成的，就显示 昨H:M
- * 如果是一个月内完成的 就显示 多少天之前
- * 如果超过一个月才完成，就显示Y:M:D 其中年份比如225示25即可。
+ * 与主界面的 formatRelativeTime 逻辑保持一致
+ * 小于60秒：显示"刚刚"
+ * 大于等于60秒但小于1小时：显示几分钟前
+ * 1天以内：显示几小时前
+ * 超过1天但不超过30天：显示几天前
+ * 超过30天但不超过12个月：显示几月前
+ * 超过12个月：显示几年前
  */
 private fun formatRecentTime(date: Date, context: Context): String {
     val now = Calendar.getInstance()
     val targetDate = Calendar.getInstance().apply { time = date }
     
     val diffInMillis = now.timeInMillis - targetDate.timeInMillis
+    val diffInSeconds = diffInMillis / 1000
     val diffInMinutes = diffInMillis / (60 * 1000)
     val diffInHours = diffInMillis / (60 * 60 * 1000)
     val diffInDays = diffInMillis / (24 * 60 * 60 * 1000)
+    
     return when {
-        diffInMinutes < 1 -> "刚刚"
-        diffInMinutes < 10 -> "${diffInMinutes}分钟前"
-        isSameDay(now, targetDate) -> {
-            val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-            "今 ${timeFormat.format(date)}"
+        diffInSeconds < 60 -> {
+            // 小于60秒：显示"刚刚"
+            "刚刚"
         }
-        isYesterday(now, targetDate) -> {
-            val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-            "昨 ${timeFormat.format(date)}"
+        diffInHours < 1 -> {
+            // 大于等于60秒但小于1小时：显示几分钟前
+            "${diffInMinutes}分钟前"
         }
-        diffInDays < 30 -> "${diffInDays}天前"
+        diffInHours < 24 -> {
+            // 1天以内：显示几小时前
+            "${diffInHours}小时前"
+        }
+        diffInDays < 30 -> {
+            // 超过1天但不超过30天：显示几天前
+            "${diffInDays}天前"
+        }
         else -> {
-            val yearFormat = SimpleDateFormat("yy", Locale.getDefault())
-            val monthFormat = SimpleDateFormat("M", Locale.getDefault())
-            val dayFormat = SimpleDateFormat("d", Locale.getDefault())
-            "${yearFormat.format(date)}/${monthFormat.format(date)}/${dayFormat.format(date)}"
+            // 计算月数和年数
+            val years = now.get(Calendar.YEAR) - targetDate.get(Calendar.YEAR)
+            val months = years * 12 + (now.get(Calendar.MONTH) - targetDate.get(Calendar.MONTH))
+            
+            when {
+                months >= 12 -> {
+                    // 超过12个月：显示几年前
+                    "${years}年前"
+                }
+                else -> {
+                    // 超过30天但不超过12个月：显示几月前
+                    "${months}月前"
+                }
+            }
         }
     }
 }
@@ -250,4 +288,137 @@ private fun isYesterday(now: Calendar, targetDate: Calendar): Boolean {
         add(Calendar.DAY_OF_YEAR, -1)
     }
     return isSameDay(yesterday, targetDate)
+}
+
+/**
+ * 只更新widget的时间显示（不更新其他内容）
+ */
+private fun updateAppWidgetTimeOnly(
+    context: Context,
+    viewModel: ViewModel,
+    appWidgetManager: AppWidgetManager,
+    appWidgetId: Int
+) {
+    if (!existsWidgetCounterNamePref(context, appWidgetId)) {
+        return
+    }
+    
+    val counterName = loadWidgetCounterNamePref(context, appWidgetId)
+    if (!viewModel.counterExists(counterName)) {
+        return
+    }
+    
+    val counterSummary = viewModel.getCounterSummary(counterName).value
+    if (counterSummary == null) {
+        return
+    }
+    
+    val views = RemoteViews(BuildConfig.APPLICATION_ID, R.layout.widget)
+    val date = counterSummary.mostRecent
+    
+    if (date != null) {
+        val formattedDate = formatRecentTime(date, context)
+        views.setTextViewText(R.id.widgetTime, formattedDate)
+        
+        // 只对LIFETIME类型的计数器，判断今天是否有记录，如果有则显示👍
+        if (counterSummary.interval == Interval.LIFETIME) {
+            val now = Calendar.getInstance()
+            val mostRecentDate = Calendar.getInstance().apply { time = date }
+            val hasTodayEntry = isSameDay(now, mostRecentDate)
+            if (hasTodayEntry) {
+                views.setViewVisibility(R.id.widgetCheckmark, android.view.View.VISIBLE)
+            } else {
+                views.setViewVisibility(R.id.widgetCheckmark, android.view.View.GONE)
+            }
+        } else {
+            views.setViewVisibility(R.id.widgetCheckmark, android.view.View.GONE)
+        }
+    } else {
+        views.setTextViewText(R.id.widgetTime, context.getString(R.string.never))
+        views.setViewVisibility(R.id.widgetCheckmark, android.view.View.GONE)
+    }
+    
+    appWidgetManager.updateAppWidget(appWidgetId, views)
+    
+    // 继续调度下一次更新
+    scheduleSmartTimeUpdate(context, appWidgetId, date)
+}
+
+/**
+ * 根据时间状态智能调度下一次更新
+ * - "刚刚"状态（<60秒）：每30秒更新一次
+ * - "X分钟前"状态（<1小时）：每1分钟更新一次
+ * - "X小时前"状态（<24小时）：每5分钟更新一次
+ * - "X天前"状态（<30天）：每30分钟更新一次
+ * - 其他：每小时更新一次
+ */
+private fun scheduleSmartTimeUpdate(context: Context, appWidgetId: Int, date: Date?) {
+    if (date == null) {
+        return
+    }
+    
+    val now = Calendar.getInstance()
+    val targetDate = Calendar.getInstance().apply { time = date }
+    val diffInMillis = now.timeInMillis - targetDate.timeInMillis
+    val diffInSeconds = diffInMillis / 1000
+    val diffInHours = diffInMillis / (60 * 60 * 1000)
+    val diffInDays = diffInMillis / (24 * 60 * 60 * 1000)
+    
+    val updateIntervalMillis = when {
+        diffInSeconds < 60 -> 30 * 1000L  // 30秒
+        diffInHours < 1 -> 60 * 1000L  // 1分钟
+        diffInHours < 24 -> 5 * 60 * 1000L  // 5分钟
+        diffInDays < 30 -> 30 * 60 * 1000L  // 30分钟
+        else -> 60 * 60 * 1000L  // 1小时
+    }
+    
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    val updateIntent = Intent(context, WidgetProvider::class.java).apply {
+        action = ACTION_UPDATE_TIME
+        putExtra(EXTRA_WIDGET_ID, appWidgetId)
+    }
+    val updatePendingIntent = PendingIntent.getBroadcast(
+        context,
+        appWidgetId,
+        updateIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+    
+    val triggerTime = System.currentTimeMillis() + updateIntervalMillis
+    
+    try {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.RTC_WAKEUP,
+                triggerTime,
+                updatePendingIntent
+            )
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerTime, updatePendingIntent)
+        } else {
+            alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTime, updatePendingIntent)
+        }
+        Log.d(TAG, "Scheduled time update for widget $appWidgetId in ${updateIntervalMillis / 1000} seconds")
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed to schedule time update: ${e.message}", e)
+    }
+}
+
+/**
+ * 取消widget的时间更新定时器
+ */
+private fun cancelTimeUpdateAlarm(context: Context, appWidgetId: Int) {
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    val updateIntent = Intent(context, WidgetProvider::class.java).apply {
+        action = ACTION_UPDATE_TIME
+        putExtra(EXTRA_WIDGET_ID, appWidgetId)
+    }
+    val updatePendingIntent = PendingIntent.getBroadcast(
+        context,
+        appWidgetId,
+        updateIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+    alarmManager.cancel(updatePendingIntent)
+    Log.d(TAG, "Cancelled time update for widget $appWidgetId")
 }

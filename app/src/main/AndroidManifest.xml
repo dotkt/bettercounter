@@ -27,6 +27,7 @@
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="org.kde.bettercounter.WidgetProvider.COUNT" />
+                <action android:name="org.kde.bettercounter.WidgetProvider.UPDATE_TIME" />
             </intent-filter>
 
             <meta-data
