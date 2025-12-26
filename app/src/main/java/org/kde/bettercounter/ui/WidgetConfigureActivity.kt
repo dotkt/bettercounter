@@ -4,20 +4,34 @@ import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
-import android.widget.ArrayAdapter
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.textfield.TextInputEditText
 import org.kde.bettercounter.BetterApplication
 import org.kde.bettercounter.R
 import org.kde.bettercounter.ViewModel
 import org.kde.bettercounter.databinding.WidgetConfigureBinding
+import android.graphics.drawable.GradientDrawable
 
 class WidgetConfigureActivity : AppCompatActivity() {
 
     private lateinit var viewModel: ViewModel
     private lateinit var binding: WidgetConfigureBinding
+    private lateinit var adapter: CounterListAdapter
 
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
+    private var currentCategory: String? = null
+    private var allCounters: List<String> = emptyList()
+    private var filteredCounters: MutableList<String> = mutableListOf()
 
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,25 +53,147 @@ class WidgetConfigureActivity : AppCompatActivity() {
         }
 
         viewModel = (application as BetterApplication).viewModel
-        val counterNames = viewModel.getCounterList()
-        if (counterNames.isEmpty()) {
+        allCounters = viewModel.getCounterList()
+        if (allCounters.isEmpty()) {
             Toast.makeText(this, R.string.no_counters, Toast.LENGTH_SHORT).show()
             finish()
+            return
         }
 
-        binding.counterNamesList.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, counterNames)
-        binding.counterNamesList.setOnItemClickListener { _, _, position, _ ->
-
-            val counterName = counterNames[position]
+        // 设置 RecyclerView
+        binding.counterNamesList.layoutManager = LinearLayoutManager(this)
+        adapter = CounterListAdapter(allCounters) { counterName ->
             saveWidgetCounterNamePref(this, appWidgetId, counterName)
-
             val appWidgetManager = AppWidgetManager.getInstance(this)
             updateAppWidget(this, viewModel, appWidgetManager, appWidgetId)
-
             val resultValue = Intent()
             resultValue.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
             setResult(RESULT_OK, resultValue)
             finish()
+        }
+        binding.counterNamesList.adapter = adapter
+
+        // 设置搜索功能
+        setupSearch()
+
+        // 设置分类导航
+        setupCategoryNavigation()
+
+        // 初始显示所有计数器
+        applyFilters()
+    }
+
+    private fun setupSearch() {
+        binding.searchEditText.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                applyFilters()
+            }
+        })
+    }
+
+    private fun setupCategoryNavigation() {
+        val allCategories = viewModel.getAllCategories().sorted()
+        
+        // 添加"全部"选项
+        val categories = mutableListOf<String>()
+        categories.add("全部")
+        categories.addAll(allCategories)
+
+        binding.categoryContainer.removeAllViews()
+
+        categories.forEach { category ->
+            val textView = TextView(this).apply {
+                text = category
+                textSize = 14f
+                setPadding(8, 6, 8, 6)
+
+                val drawable = GradientDrawable().apply {
+                    cornerRadius = 8f
+                    if (category == currentCategory || (category == "全部" && currentCategory == null)) {
+                        setColor(getColor(R.color.colorAccent))
+                        setStroke(0, android.graphics.Color.TRANSPARENT)
+                        setTextColor(getColor(android.R.color.white))
+                    } else {
+                        setColor(android.graphics.Color.TRANSPARENT)
+                        setStroke(2, getColor(R.color.colorAccent))
+                        setTextColor(getColor(R.color.colorAccent))
+                    }
+                }
+                background = drawable
+
+                layoutParams = LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    marginEnd = 8
+                }
+
+                setOnClickListener {
+                    currentCategory = if (category == "全部") null else category
+                    setupCategoryNavigation() // 重新设置以更新高亮
+                    applyFilters()
+                }
+            }
+
+            binding.categoryContainer.addView(textView)
+        }
+    }
+
+    private fun applyFilters() {
+        filteredCounters.clear()
+        filteredCounters.addAll(allCounters)
+
+        // 按分类过滤
+        if (currentCategory != null) {
+            filteredCounters = filteredCounters.filter { counterName ->
+                viewModel.getCounterCategory(counterName) == currentCategory
+            }.toMutableList()
+        }
+
+        // 按搜索文本过滤
+        val searchText = binding.searchEditText.text?.toString()?.trim() ?: ""
+        if (searchText.isNotEmpty()) {
+            filteredCounters = filteredCounters.filter { counterName ->
+                counterName.contains(searchText, ignoreCase = true)
+            }.toMutableList()
+        }
+
+        adapter.updateCounters(filteredCounters)
+    }
+
+    private class CounterListAdapter(
+        private var counters: List<String>,
+        private val onItemClick: (String) -> Unit
+    ) : RecyclerView.Adapter<CounterListAdapter.ViewHolder>() {
+
+        fun updateCounters(newCounters: List<String>) {
+            counters = newCounters
+            notifyDataSetChanged()
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+            val view = LayoutInflater.from(parent.context)
+                .inflate(android.R.layout.simple_list_item_1, parent, false)
+            val textView = view.findViewById<TextView>(android.R.id.text1)
+            textView.setTextColor(parent.context.getColor(android.R.color.white))
+            textView.setPadding(16, 16, 16, 16)
+            return ViewHolder(view)
+        }
+
+        override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+            val counterName = counters[position]
+            holder.textView.text = counterName
+            holder.itemView.setOnClickListener {
+                onItemClick(counterName)
+            }
+        }
+
+        override fun getItemCount(): Int = counters.size
+
+        class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+            val textView: TextView = itemView.findViewById(android.R.id.text1)
         }
     }
 }
