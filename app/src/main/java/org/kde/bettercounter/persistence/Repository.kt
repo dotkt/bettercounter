@@ -43,9 +43,21 @@ class Repository(
     }
 
     fun setCounterList(list: List<String>) {
-        val jsonStr = Converters.stringListToString(list)
-        sharedPref.edit().putString(COUNTERS_PREFS_KEY, jsonStr).apply()
-        counters = list
+        // 验证：检查是否有重复的计数器名称
+        val duplicates = list.groupingBy { it }.eachCount().filter { it.value > 1 }
+        if (duplicates.isNotEmpty()) {
+            android.util.Log.e("Repository", "setCounterList: 发现重复的计数器名称: ${duplicates.keys.joinToString()}")
+            // 去重，保留第一次出现的
+            val uniqueList = list.distinct()
+            android.util.Log.w("Repository", "setCounterList: 去重后列表大小: ${uniqueList.size} (原: ${list.size})")
+            val jsonStr = Converters.stringListToString(uniqueList)
+            sharedPref.edit().putString(COUNTERS_PREFS_KEY, jsonStr).apply()
+            counters = uniqueList
+        } else {
+            val jsonStr = Converters.stringListToString(list)
+            sharedPref.edit().putString(COUNTERS_PREFS_KEY, jsonStr).apply()
+            counters = list
+        }
     }
 
     fun setTutorialShown(id: Tutorial) {

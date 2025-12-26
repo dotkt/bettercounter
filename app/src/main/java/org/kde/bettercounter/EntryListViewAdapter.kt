@@ -282,7 +282,72 @@ class EntryListViewAdapter(
     }
 
     override fun onDragEnd(viewHolder: RecyclerView.ViewHolder?) {
-        viewModel.saveCounterOrder(counters)
+        // 获取所有计数器的列表
+        val allCounters = viewModel.getCounterList().toMutableList()
+        
+        // 如果当前有分类过滤，只更新当前分类中计数器的顺序
+        if (currentCategory != null) {
+            // 找到当前分类的计数器在全局列表中的位置
+            val categoryCounterIndices = mutableListOf<Int>()
+            val categoryCounters = mutableListOf<String>()
+            
+            allCounters.forEachIndexed { index, counterName ->
+                if (viewModel.getCounterCategory(counterName) == currentCategory) {
+                    categoryCounterIndices.add(index)
+                    categoryCounters.add(counterName)
+                }
+            }
+            
+            // 更新当前分类中计数器的顺序（基于拖动后的顺序）
+            // counters 是拖动后当前分类的计数器列表（已按新顺序排列）
+            if (counters.size == categoryCounters.size) {
+                // 验证：确保拖动后的计数器都在分类计数器中
+                val countersSet = counters.toSet()
+                val categoryCountersSet = categoryCounters.toSet()
+                if (countersSet != categoryCountersSet) {
+                    Log.e(TAG, "onDragEnd: 拖动后的计数器列表与分类计数器列表不匹配！" +
+                            "拖动后: ${counters.joinToString()}, " +
+                            "分类中: ${categoryCounters.joinToString()}")
+                    // 不保存，避免数据丢失
+                    return
+                }
+                
+                // 移除旧位置上的分类计数器
+                categoryCounterIndices.reversed().forEach { index ->
+                    allCounters.removeAt(index)
+                }
+                
+                // 在第一个分类计数器的原位置插入新顺序的计数器
+                val insertPosition = if (categoryCounterIndices.isNotEmpty()) {
+                    categoryCounterIndices.minOrNull() ?: 0
+                } else {
+                    0
+                }
+                
+                allCounters.addAll(insertPosition, counters)
+            } else {
+                Log.w(TAG, "onDragEnd: 计数器数量不匹配！拖动后: ${counters.size}, 分类中: ${categoryCounters.size}，不保存顺序")
+                // 不保存，避免数据丢失
+                return
+            }
+        } else {
+            // 如果没有分类过滤，直接使用拖动后的顺序
+            // 验证：确保拖动后的计数器都在全局列表中
+            val allCountersSet = allCounters.toSet()
+            val countersSet = counters.toSet()
+            if (!countersSet.all { it in allCountersSet }) {
+                Log.e(TAG, "onDragEnd: 拖动后的计数器列表包含不在全局列表中的计数器！" +
+                        "拖动后: ${counters.joinToString()}, " +
+                        "全局: ${allCounters.joinToString()}")
+                // 不保存，避免数据丢失
+                return
+            }
+            allCounters.clear()
+            allCounters.addAll(counters)
+        }
+        
+        // 保存更新后的全局列表
+        viewModel.saveCounterOrder(allCounters)
     }
 
     /**

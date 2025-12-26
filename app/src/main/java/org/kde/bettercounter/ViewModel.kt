@@ -266,8 +266,19 @@ class ViewModel(application: Application) {
         repo.deleteCounterMetadata(oldName)
         repo.setCounterMetadata(counterMetadata)
         val list = repo.getCounterList().toMutableList()
-        list[list.indexOf(oldName)] = newName
-        repo.setCounterList(list)
+        val index = list.indexOf(oldName)
+        if (index != -1) {
+            list[index] = newName
+            repo.setCounterList(list)
+        } else {
+            Log.e(TAG, "editCounter: oldName '$oldName' not found in counter list, cannot rename")
+            // 如果旧名称不在列表中，但新名称也不在，则添加新名称（可能是数据不一致的情况）
+            if (!list.contains(newName)) {
+                list.add(newName)
+                repo.setCounterList(list)
+                Log.w(TAG, "editCounter: Added newName '$newName' to counter list to recover from inconsistency")
+            }
+        }
 
         CoroutineScope(Dispatchers.IO).launch {
             repo.renameCounter(oldName, newName)
