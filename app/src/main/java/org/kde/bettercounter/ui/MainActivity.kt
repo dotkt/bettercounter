@@ -1085,11 +1085,8 @@ class MainActivity : AppCompatActivity() {
                     val meta = org.kde.bettercounter.persistence.CounterMetadata(
                         counter.name, counter.interval, counter.goal, counter.color, newCategory
                     )
-                    if (counter.name != meta.name) {
-                        viewModel.editCounter(counter.name, meta)
-                    } else {
-                        viewModel.editCounterSameName(meta)
-                    }
+                    // 只修改分类，不修改名称，所以总是使用 editCounterSameName
+                    viewModel.editCounterSameName(meta)
                     successCount++
                 } else {
                     failCount++

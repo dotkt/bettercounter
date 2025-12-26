@@ -100,15 +100,32 @@ class EntryListViewAdapter(
             fun observeNewCounter(counterName: String) {
                 viewModel.getCounterSummary(counterName).observe(activity) {
                     // 检查计数器是否在当前过滤后的列表中
-                    val position = counters.indexOf(it.name)
-                    if (position != -1) {
+                    val oldPosition = counters.indexOf(it.name)
+                    val oldCategory = if (oldPosition != -1) {
+                        // 如果计数器在列表中，获取其旧分类
+                        viewModel.getCounterCategory(it.name)
+                    } else null
+                    
+                    // 获取新分类
+                    val newCategory = viewModel.getCounterCategory(it.name)
+                    
+                    // 如果分类改变了，需要重新应用过滤器
+                    if (oldCategory != null && oldCategory != newCategory) {
+                        activity.runOnUiThread {
+                            applyFilters()
+                        }
+                    } else if (oldPosition != -1) {
                         // 只在计数器可见时更新UI
-                        notifyItemChanged(position, Unit)
+                        notifyItemChanged(oldPosition, Unit)
                         if (currentSelectedCounterName == it.name) {
-                            listObserver.onSelectedItemUpdated(position, it)
+                            listObserver.onSelectedItemUpdated(oldPosition, it)
+                        }
+                    } else {
+                        // 计数器不在当前列表中，检查是否应该显示（可能分类改变后应该显示）
+                        activity.runOnUiThread {
+                            applyFilters()
                         }
                     }
-                    // 如果计数器不在过滤列表中（被搜索过滤掉了），不需要更新UI
                 }
             }
 
@@ -298,7 +315,12 @@ class EntryListViewAdapter(
      * 应用所有过滤器（搜索文本和分类）
      */
     private fun applyFilters() {
-        var filteredCounters = originalCounters
+        // 重新从 ViewModel 获取最新的计数器列表，确保数据是最新的
+        val allCounters = viewModel.getCounterList().toMutableList()
+        originalCounters.clear()
+        originalCounters.addAll(allCounters)
+        
+        var filteredCounters = originalCounters.toMutableList()
         
         // 先按分类过滤
         if (currentCategory != null) {
