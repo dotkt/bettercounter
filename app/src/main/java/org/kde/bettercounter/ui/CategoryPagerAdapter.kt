@@ -123,6 +123,13 @@ class CategoryPagerAdapter(
         }
         return allSelected
     }
+    
+    /**
+     * 获取当前分类的适配器
+     */
+    fun getCurrentAdapter(): EntryListViewAdapter? {
+        return activity.getCurrentCategoryAdapter()
+    }
 
     inner class CategoryViewHolder(val recyclerView: RecyclerView) :
         androidx.recyclerview.widget.RecyclerView.ViewHolder(recyclerView) {

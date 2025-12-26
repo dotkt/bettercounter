@@ -134,11 +134,56 @@
                 android:paddingStart="8dp" />
             
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/selectAllButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginEnd="4dp"
+                android:text="全选"
+                android:textSize="12sp"
+                android:minWidth="0dp"
+                android:insetLeft="8dp"
+                android:insetRight="8dp"
+                android:insetTop="4dp"
+                android:insetBottom="4dp"
+                app:cornerRadius="8dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+            
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/invertSelectionButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginEnd="4dp"
+                android:text="反选"
+                android:textSize="12sp"
+                android:minWidth="0dp"
+                android:insetLeft="8dp"
+                android:insetRight="8dp"
+                android:insetTop="4dp"
+                android:insetBottom="4dp"
+                app:cornerRadius="8dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+            
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/batchChangeCategoryButton"
                 android:layout_width="wrap_content"
                 android:layout_height="48dp"
-                android:layout_marginEnd="8dp"
+                android:layout_marginEnd="4dp"
                 android:text="修改分类"
+                android:textSize="12sp"
+                android:minWidth="0dp"
+                android:insetLeft="8dp"
+                android:insetRight="8dp"
+                android:insetTop="4dp"
+                android:insetBottom="4dp"
+                app:cornerRadius="8dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+            
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/batchChangeColorButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginEnd="4dp"
+                android:text="修改颜色"
                 android:textSize="12sp"
                 android:minWidth="0dp"
                 android:insetLeft="8dp"

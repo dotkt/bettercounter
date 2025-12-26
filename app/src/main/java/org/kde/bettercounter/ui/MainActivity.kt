@@ -45,9 +45,11 @@ import org.kde.bettercounter.boilerplate.OpenFileParams
 import org.kde.bettercounter.boilerplate.OpenFileResultContract
 import org.kde.bettercounter.databinding.ActivityMainBinding
 import org.kde.bettercounter.databinding.ProgressDialogBinding
+import org.kde.bettercounter.persistence.CounterColor
 import org.kde.bettercounter.persistence.CounterSummary
 import org.kde.bettercounter.persistence.Interval
 import org.kde.bettercounter.persistence.Tutorial
+import android.view.ViewGroup
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import java.util.Date
@@ -569,6 +571,21 @@ class MainActivity : AppCompatActivity() {
         return null
     }
     
+    /**
+     * 获取当前分类的适配器（供CategoryPagerAdapter调用）
+     */
+    fun getCurrentCategoryAdapter(): EntryListViewAdapter? {
+        if (categoryPagerAdapter.itemCount == 0) {
+            return entryViewAdapter
+        }
+        val currentPosition = binding.viewPager.currentItem
+        if (currentPosition < categoryPagerAdapter.itemCount) {
+            val category = categoryPagerAdapter.getCategoryAt(currentPosition)
+            return categoryPagerAdapter.getAdapterForCategory(category)
+        }
+        return null
+    }
+    
     private fun updateToolbarTitle(categoryName: String) {
         updateCategoryNavigation(categoryName)
     }
@@ -927,9 +944,24 @@ class MainActivity : AppCompatActivity() {
             exitMultiSelectMode()
         }
         
+        // 全选按钮
+        binding.selectAllButton.setOnClickListener {
+            categoryPagerAdapter.getCurrentAdapter()?.selectAll()
+        }
+        
+        // 反选按钮
+        binding.invertSelectionButton.setOnClickListener {
+            categoryPagerAdapter.getCurrentAdapter()?.invertSelection()
+        }
+        
         // 批量修改分类按钮
         binding.batchChangeCategoryButton.setOnClickListener {
             showBatchChangeCategoryDialog()
+        }
+        
+        // 批量修改颜色按钮
+        binding.batchChangeColorButton.setOnClickListener {
+            showBatchChangeColorDialog()
         }
     }
     
@@ -979,6 +1011,7 @@ class MainActivity : AppCompatActivity() {
         val selectedCount = categoryPagerAdapter.getTotalSelectedCount()
         binding.selectedCountText.text = "已选择 $selectedCount 项"
         binding.batchChangeCategoryButton.isEnabled = selectedCount > 0
+        binding.batchChangeColorButton.isEnabled = selectedCount > 0
     }
     
     /**
@@ -1107,6 +1140,86 @@ class MainActivity : AppCompatActivity() {
             "成功修改 $successCount 个，失败 $failCount 个"
         } else {
             "成功修改 $successCount 个计数器的分类"
+        }
+        Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT).show()
+    }
+    
+    /**
+     * 显示批量修改颜色对话框
+     */
+    private fun showBatchChangeColorDialog() {
+        val selectedCounters = categoryPagerAdapter.getAllSelectedCounters()
+        if (selectedCounters.isEmpty()) {
+            Snackbar.make(binding.root, "请先选择要修改的计数器", Snackbar.LENGTH_SHORT).show()
+            return
+        }
+        
+        // 创建颜色选择器布局
+        val recyclerView = androidx.recyclerview.widget.RecyclerView(this).apply {
+            layoutManager = androidx.recyclerview.widget.GridLayoutManager(this@MainActivity, 3)
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        
+        val colorAdapter = org.kde.bettercounter.ColorAdapter(this)
+        recyclerView.adapter = colorAdapter
+        
+        // 创建对话框
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle("选择颜色")
+            .setView(recyclerView)
+            .setPositiveButton("确定", null)
+            .setNegativeButton("取消", null)
+            .create()
+        
+        dialog.setOnShowListener {
+            val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            positiveButton.setOnClickListener {
+                val selectedColor = CounterColor(colorAdapter.selectedColor)
+                batchChangeColor(selectedCounters, selectedColor)
+                dialog.dismiss()
+            }
+        }
+        
+        dialog.show()
+    }
+    
+    /**
+     * 批量修改颜色
+     */
+    private fun batchChangeColor(counterNames: Set<String>, newColor: CounterColor) {
+        var successCount = 0
+        var failCount = 0
+        
+        counterNames.forEach { counterName ->
+            try {
+                val counter = viewModel.getCounterSummary(counterName).value
+                if (counter != null) {
+                    val category = viewModel.getCounterCategory(counterName)
+                    val meta = org.kde.bettercounter.persistence.CounterMetadata(
+                        counter.name, counter.interval, counter.goal, newColor, category
+                    )
+                    // 只修改颜色，不修改名称，所以总是使用 editCounterSameName
+                    viewModel.editCounterSameName(meta)
+                    successCount++
+                } else {
+                    failCount++
+                }
+            } catch (e: Exception) {
+                failCount++
+            }
+        }
+        
+        // 退出多选模式
+        exitMultiSelectMode()
+        
+        // 显示结果
+        val message = if (failCount > 0) {
+            "成功修改 $successCount 个，失败 $failCount 个"
+        } else {
+            "成功修改 $successCount 个计数器的颜色"
         }
         Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT).show()
     }

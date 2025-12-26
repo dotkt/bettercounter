@@ -79,6 +79,37 @@ class EntryListViewAdapter(
         selectedCounters.clear()
         notifyDataSetChanged()
     }
+    
+    /**
+     * 全选当前分类的所有计数器
+     */
+    fun selectAll() {
+        selectedCounters.clear()
+        selectedCounters.addAll(counters)
+        notifyDataSetChanged()
+        // 通知外部更新选中数量
+        if (activity is org.kde.bettercounter.ui.MainActivity) {
+            (activity as org.kde.bettercounter.ui.MainActivity).updateSelectedCount()
+        }
+    }
+    
+    /**
+     * 反选当前分类的计数器
+     */
+    fun invertSelection() {
+        counters.forEach { counterName ->
+            if (selectedCounters.contains(counterName)) {
+                selectedCounters.remove(counterName)
+            } else {
+                selectedCounters.add(counterName)
+            }
+        }
+        notifyDataSetChanged()
+        // 通知外部更新选中数量
+        if (activity is org.kde.bettercounter.ui.MainActivity) {
+            (activity as org.kde.bettercounter.ui.MainActivity).updateSelectedCount()
+        }
+    }
 
     override fun getItemCount(): Int = counters.size
 
