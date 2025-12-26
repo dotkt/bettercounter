@@ -59,6 +59,23 @@ class EntryViewHolder(
         // 使用一个变量来跟踪按钮点击时间，防止触发标题点击
         var lastButtonClickTime = 0L
         
+        // 为TextView按钮设置圆角背景
+        fun setButtonBackground(textView: android.widget.TextView, color: Int) {
+            val drawable = android.graphics.drawable.GradientDrawable().apply {
+                setColor(color)
+                cornerRadius = 8f
+            }
+            textView.background = drawable
+        }
+        
+        setButtonBackground(binding.btnMinus10, android.graphics.Color.parseColor("#FF6B6B"))
+        setButtonBackground(binding.btnMinus5, android.graphics.Color.parseColor("#FF6B6B"))
+        setButtonBackground(binding.btnMinus1, android.graphics.Color.parseColor("#FF6B6B"))
+        setButtonBackground(binding.btnPlus1, android.graphics.Color.parseColor("#90EE90"))
+        setButtonBackground(binding.btnPlus5, android.graphics.Color.parseColor("#90EE90"))
+        setButtonBackground(binding.btnPlus10, android.graphics.Color.parseColor("#90EE90"))
+        setButtonBackground(binding.btnCustom, android.graphics.Color.parseColor("#A9A9A9"))
+        
         // 红色减号按钮绑定
         binding.btnMinus10.setOnClickListener {
             lastButtonClickTime = System.currentTimeMillis()
