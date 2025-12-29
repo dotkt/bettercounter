@@ -190,8 +190,8 @@ internal fun updateAppWidget(
                 val formattedDate = formatRecentTime(date, context)
                 views.setTextViewText(R.id.widgetTime, formattedDate)
                 
-                // 只对LIFETIME类型的计数器，判断今天是否有记录，如果有则显示👍
-                if (value.interval == Interval.LIFETIME) {
+                // 对所有非DAILY类型的计数器，判断今天是否有记录，如果有则显示👍
+                if (value.interval != Interval.DAY) {
                     val now = Calendar.getInstance()
                     val mostRecentDate = Calendar.getInstance().apply { time = date }
                     val hasTodayEntry = isSameDay(now, mostRecentDate)
@@ -320,8 +320,8 @@ private fun updateAppWidgetTimeOnly(
         val formattedDate = formatRecentTime(date, context)
         views.setTextViewText(R.id.widgetTime, formattedDate)
         
-        // 只对LIFETIME类型的计数器，判断今天是否有记录，如果有则显示👍
-        if (counterSummary.interval == Interval.LIFETIME) {
+        // 对所有非DAILY类型的计数器，判断今天是否有记录，如果有则显示👍
+        if (counterSummary.interval != Interval.DAY) {
             val now = Calendar.getInstance()
             val mostRecentDate = Calendar.getInstance().apply { time = date }
             val hasTodayEntry = isSameDay(now, mostRecentDate)
