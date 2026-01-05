@@ -35,10 +35,12 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.kde.bettercounter.BetterApplication
+import org.kde.bettercounter.BuildConfig
 import org.kde.bettercounter.ChartsAdapter
 import org.kde.bettercounter.EntryListViewAdapter
 import org.kde.bettercounter.R
 import org.kde.bettercounter.ViewModel
+import org.kde.bettercounter.ui.EntryViewHolder
 import org.kde.bettercounter.boilerplate.CreateFileParams
 import org.kde.bettercounter.boilerplate.CreateFileResultContract
 import org.kde.bettercounter.boilerplate.OpenFileParams
@@ -837,7 +839,7 @@ class MainActivity : AppCompatActivity() {
                 layoutManager.scrollToPositionWithOffset(position, 0)
                 Log.d(TAG, "已调用 scrollToPositionWithOffset($position, 0)")
                 
-                // 延迟检查滚动结果
+                // 延迟检查滚动结果并添加闪烁效果
                 rv.postDelayed({
                     val newFirstVisible = layoutManager.findFirstVisibleItemPosition()
                     val newLastVisible = layoutManager.findLastVisibleItemPosition()
@@ -848,6 +850,23 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         Log.w(TAG, "✗ 警告: 位置 $position 未置顶，当前第一个可见项: $newFirstVisible")
                     }
+                    
+                    // 添加闪烁效果
+                    if (counterName.isNotEmpty()) {
+                        val holder = rv.findViewHolderForAdapterPosition(position)
+                        if (holder != null && holder is EntryViewHolder) {
+                            flashCounter(holder.binding.root)
+                        } else {
+                            // 如果ViewHolder还没准备好，再延迟一点
+                            rv.postDelayed({
+                                val retryHolder = rv.findViewHolderForAdapterPosition(position)
+                                if (retryHolder != null && retryHolder is EntryViewHolder) {
+                                    flashCounter(retryHolder.binding.root)
+                                }
+                            }, 200)
+                        }
+                    }
+                    
                     Log.d(TAG, "========== scrollToPositionTop 结束 ==========")
                 }, 100)
             } else {
@@ -885,6 +904,47 @@ class MainActivity : AppCompatActivity() {
             }
             Log.d(TAG, "========== scrollToPositionTopAfterLayout 结束 ==========")
         } ?: Log.e(TAG, "错误: RecyclerView为null")
+    }
+
+    /**
+     * 让计数器闪烁两下，用于高亮显示
+     */
+    private fun flashCounter(view: View) {
+        val originalAlpha = view.alpha
+        val flashDuration = 200L // 每次闪烁持续时间（毫秒）
+        val flashCount = 2 // 闪烁次数
+        
+        // 创建闪烁动画
+        var currentFlash = 0
+        val flashRunnable = object : Runnable {
+            override fun run() {
+                if (currentFlash < flashCount * 2) {
+                    if (currentFlash % 2 == 0) {
+                        // 变亮（降低alpha）
+                        view.animate()
+                            .alpha(0.3f)
+                            .setDuration(flashDuration)
+                            .withEndAction {
+                                currentFlash++
+                                view.post(this)
+                            }
+                    } else {
+                        // 恢复（提高alpha）
+                        view.animate()
+                            .alpha(originalAlpha)
+                            .setDuration(flashDuration)
+                            .withEndAction {
+                                currentFlash++
+                                if (currentFlash < flashCount * 2) {
+                                    view.post(this)
+                                }
+                            }
+                    }
+                }
+            }
+        }
+        
+        view.post(flashRunnable)
     }
 
     private fun millisecondsUntilNextHour(): Long {
@@ -1281,6 +1341,32 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                 }
+            }
+            R.id.about -> {
+                try {
+                    val packageInfo = packageManager.getPackageInfo(packageName, 0)
+                    val versionName = packageInfo.versionName
+                    val gitCommit = BuildConfig.GIT_COMMIT_HASH
+                    
+                    Log.d(TAG, "关于菜单被点击 - 版本: $versionName, Git Commit: $gitCommit")
+                    
+                    val message = getString(R.string.version_info, versionName, gitCommit)
+                    Log.d(TAG, "版本信息消息: $message")
+                    
+                    MaterialAlertDialogBuilder(this)
+                        .setTitle(R.string.about)
+                        .setMessage(message)
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                } catch (e: Exception) {
+                    Log.e(TAG, "显示关于对话框时出错", e)
+                    MaterialAlertDialogBuilder(this)
+                        .setTitle("关于")
+                        .setMessage("版本信息获取失败: ${e.message}")
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                }
+                return true
             }
             999 -> {
                 // 测试日期变化

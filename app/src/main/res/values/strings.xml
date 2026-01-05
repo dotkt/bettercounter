@@ -64,4 +64,6 @@
     <string name="goal">Goal</string>
     <string name="search_counters">搜索计数器...</string>
     <string name="no_search_results">没有找到匹配的计数器</string>
+    <string name="about">关于</string>
+    <string name="version_info">版本信息\n版本: %1$s\nGit Commit: %2$s</string>
 </resources>

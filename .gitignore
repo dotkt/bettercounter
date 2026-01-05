@@ -9,3 +9,4 @@
 .cxx
 .kotlin/errors/*.log
 .kotlin/sessions/*.salive
+.git_hash
