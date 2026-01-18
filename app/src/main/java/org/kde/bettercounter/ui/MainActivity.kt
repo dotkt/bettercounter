@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "MainActivity"
     }
 
+    private var pendingCounterToNavigate: String? = null
     private lateinit var viewModel: ViewModel
     private lateinit var entryViewAdapter: EntryListViewAdapter
     private lateinit var categoryPagerAdapter: CategoryPagerAdapter
@@ -205,6 +206,8 @@ class MainActivity : AppCompatActivity() {
             override fun onInitialCountersLoaded() {
                 // 数据加载完成后，更新分类列表
                 categoryPagerAdapter.updateCategories()
+                // Now that categories are loaded, try to navigate if there's a pending request
+                tryNavigateToPendingCounter()
                 viewModel.removeCounterChangeObserver(this)
             }
             override fun onCounterAdded(counterName: String) {}
@@ -403,7 +406,8 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent?) {
         super.onNewIntent(intent)
         Log.d(TAG, "onNewIntent called")
-        handleIntent(intent)
+        setIntent(intent) // Update the activity's intent
+        handleIntent(getIntent())
     }
 
     private fun handleIntent(intent: Intent?) {
@@ -414,80 +418,94 @@ class MainActivity : AppCompatActivity() {
                 Log.d(TAG, "Extra: $key = ${bundle.get(key)}")
             }
         }
-        
+
         intent?.getStringExtra(EXTRA_COUNTER_NAME)?.let { counterName ->
-            Log.d(TAG, "========== Widget点击: 计数器名称 = $counterName ==========")
-            // 等待数据加载完成后再滚动
-            viewModel.observeCounterChange(object : ViewModel.CounterObserver {
-                override fun onInitialCountersLoaded() {
-                    Log.d(TAG, "数据加载完成，开始定位计数器: $counterName")
-                    // 找到计数器所属的分类
-                    val category = viewModel.getCounterCategory(counterName)
-                    Log.d(TAG, "计数器分类: $category")
-                    
-                    if (categoryPagerAdapter.itemCount > 0) {
-                        val categoryPosition = categoryPagerAdapter.findPositionForCategory(category)
-                        Log.d(TAG, "分类位置: $categoryPosition, 总分类数: ${categoryPagerAdapter.itemCount}")
-                        
-                        // 切换到对应的分类页面
-                        binding.viewPager.setCurrentItem(categoryPosition, false)
-                        Log.d(TAG, "已切换到分类页面: $categoryPosition")
-                        
-                        // 更新分类导航栏
-                        updateCategoryNavigation(category)
-                        
-                        // 等待页面切换完成后再滚动
-                        binding.viewPager.post {
-                            // 等待ViewPager页面切换动画完成
-                            binding.viewPager.postDelayed({
-                                val adapter = categoryPagerAdapter.getAdapterForCategory(category)
-                                Log.d(TAG, "获取适配器: ${if (adapter != null) "成功" else "失败"}")
-                                
-                                val position = adapter?.let { adapter ->
-                                    val positionInAdapter = adapter.getItemPosition(counterName)
-                                    Log.d(TAG, "在适配器中的位置: $positionInAdapter")
-                                    positionInAdapter
-                                } ?: -1
-                                
-                                Log.d(TAG, "最终位置: $position")
-                                
-                                if (position != -1) {
-                                    getCurrentRecyclerView()?.let { rv ->
-                                        Log.d(TAG, "找到RecyclerView，准备滚动")
-                                        Log.d(TAG, "RecyclerView状态 - isLaidOut: ${rv.isLaidOut}, childCount: ${rv.childCount}, adapter: ${rv.adapter != null}")
-                                        rv.post {
-                                            scrollToPositionTopAfterLayout(rv, position, counterName)
-                                        }
-                                    } ?: Log.e(TAG, "错误: 无法获取RecyclerView")
-                                } else {
-                                    Log.e(TAG, "错误: 找不到计数器位置，position = -1")
-                                }
-                            }, 100) // 延迟100ms等待ViewPager切换完成
-                        }
-                    } else {
-                        Log.d(TAG, "没有分类页面，直接滚动")
-                        // 如果没有分类页面，直接滚动
-                        getCurrentRecyclerView()?.let { rv ->
-                            val position = viewModel.getCounterList().indexOf(counterName)
-                            Log.d(TAG, "直接滚动位置: $position")
-                            if (position != -1) {
-                                rv.post {
-                                    scrollToPositionTopAfterLayout(rv, position, counterName)
-                                }
-                            }
-                        }
-                    }
-                    viewModel.removeCounterChangeObserver(this)
-                }
-                
-                // 实现其他必需的接口方法
-                override fun onCounterAdded(counterName: String) {}
-                override fun onCounterRemoved(counterName: String) {}
-                override fun onCounterRenamed(oldName: String, newName: String) {}
-                override fun onCounterDecremented(counterName: String, oldEntryDate: Date) {}
-            })
+            Log.d(TAG, "========== Widget点击: 计划导航到计数器 = $counterName ==========")
+            pendingCounterToNavigate = counterName
+            // 尝试立即导航，以防应用已在运行且数据已加载
+            tryNavigateToPendingCounter()
         }
     }
+
+    private fun tryNavigateToPendingCounter() {
+        pendingCounterToNavigate?.let { counterName ->
+            // 只有当分类加载完毕后（即adapter有项目了），或者确认了根本没有分类时，才执行导航
+            val categories = viewModel.getAllCategories()
+            if (categoryPagerAdapter.itemCount > 0 || categories.isEmpty()) {
+                Log.d(TAG, "分类已就绪或无分类，开始导航到: $counterName")
+                navigateToCounterFromIntent(counterName)
+                pendingCounterToNavigate = null // 清除待处理请求
+            } else {
+                Log.d(TAG, "分类尚未就绪，推迟导航。 Adapter count: ${categoryPagerAdapter.itemCount}, ViewModel categories: ${categories.size}")
+            }
+        }
+    }
+
+    private fun navigateToCounterFromIntent(counterName: String) {
+        // 找到计数器所属的分类
+        val category = viewModel.getCounterCategory(counterName)
+        Log.d(TAG, "计数器 '$counterName' 属于分类: '$category'")
+
+        if (categoryPagerAdapter.itemCount > 0) {
+            val categoryPosition = categoryPagerAdapter.findPositionForCategory(category)
+            Log.d(TAG, "分类 '$category' 的位置是: $categoryPosition (总共有 ${categoryPagerAdapter.itemCount} 个分类)")
+
+            if (categoryPosition == -1) {
+                Log.e(TAG, "错误: 在 PagerAdapter 中找不到分类 '$category'")
+                // 可能是分类列表还没完全刷新，再试一次
+                categoryPagerAdapter.updateCategories()
+                val newCategoryPosition = categoryPagerAdapter.findPositionForCategory(category)
+                if (newCategoryPosition == -1) {
+                    Log.e(TAG, "错误: 重试后仍然找不到分类 '$category'")
+                    return
+                }
+                binding.viewPager.setCurrentItem(newCategoryPosition, false)
+            } else {
+                 binding.viewPager.setCurrentItem(categoryPosition, false)
+            }
+
+
+            // 等待页面切换和布局完成后再滚动
+            binding.viewPager.post {
+                Log.d(TAG, "ViewPager 页面已切换, 准备滚动到 item")
+                val adapter = categoryPagerAdapter.getAdapterForCategory(category)
+                if (adapter == null) {
+                    Log.e(TAG, "错误: 无法获取分类 '$category' 的适配器")
+                    return@post
+                }
+
+                val position = adapter.getItemPosition(counterName)
+                Log.d(TAG, "计数器 '$counterName' 在适配器中的位置是: $position")
+
+                if (position != -1) {
+                    val rv = getCurrentRecyclerView()
+                    if (rv != null) {
+                        Log.d(TAG, "找到 RecyclerView，准备滚动")
+                        scrollToPositionTopAfterLayout(rv, position, counterName)
+                    } else {
+                        Log.e(TAG, "错误: 无法获取当前的 RecyclerView")
+                    }
+                } else {
+                    Log.e(TAG, "错误: 在适配器中找不到计数器 '$counterName'")
+                }
+            }
+        } else {
+            Log.d(TAG, "没有分类页面，在主列表直接滚动")
+            // This case might need a specific RecyclerView instance if it's different
+            val rv = getCurrentRecyclerView()
+            if (rv != null) {
+                 val position = (rv.adapter as? EntryListViewAdapter)?.getItemPosition(counterName) ?: -1
+                if (position != -1) {
+                    scrollToPositionTopAfterLayout(rv, position, counterName)
+                } else {
+                    Log.e(TAG, "错误: 在无分类列表中找不到计数器 '$counterName'")
+                }
+            } else {
+                 Log.e(TAG, "错误: 在无分类情况下无法获取 RecyclerView")
+            }
+        }
+    }
+
 
     /**
      * 显示分类列表（正常模式）
