@@ -193,6 +193,7 @@ class ViewModel(application: Application) {
     }
 
     fun incrementCounterWithCallback(name: String, date: Date = Calendar.getInstance().time, callback: () -> Unit) {
+        Log.d("DynamicCounterBug", "incrementCounterWithCallback triggered for '$name'")
         CoroutineScope(Dispatchers.IO).launch {
             repo.addEntry(name, date)
             withContext(Dispatchers.Main) {
@@ -369,11 +370,16 @@ class ViewModel(application: Application) {
     // --- Dynamic Counter Logic ---
 
     internal fun recalculateDynamicCounters() {
+        Log.d("DynamicCounterBug", "recalculateDynamicCounters started.")
         CoroutineScope(Dispatchers.IO).launch {
             val allSummaries = summaryMap.values.mapNotNull { it.value }
             val dynamicCounters = allSummaries.filter { it.type == org.kde.bettercounter.persistence.CounterType.DYNAMIC }
 
-            if (dynamicCounters.isEmpty()) return@launch
+            if (dynamicCounters.isEmpty()) {
+                Log.d("DynamicCounterBug", "No dynamic counters found to recalculate.")
+                return@launch
+            }
+            Log.d("DynamicCounterBug", "Found dynamic counters to process: ${dynamicCounters.joinToString { it.name }}")
 
             val standardCounterValues = allSummaries
                 .filter { it.type == org.kde.bettercounter.persistence.CounterType.STANDARD }
@@ -390,9 +396,12 @@ class ViewModel(application: Application) {
                 if (formula.isNullOrBlank()) continue
 
                 val result = FormulaEvaluator.evaluate(formula, standardCounterValues, categorySums)
+                Log.d("DynamicCounterBug", "Recalculating '${dynamicCounter.name}' (Formula: $formula). Old value: ${dynamicCounter.lastIntervalCount}, New value: $result")
                 if (dynamicCounter.lastIntervalCount != result) {
+                    val oldValue = dynamicCounter.lastIntervalCount
                     dynamicCounter.lastIntervalCount = result
                     summaryMap[dynamicCounter.name]?.postValue(dynamicCounter)
+                    Log.d("DynamicCounterBug", "Value changed for '${dynamicCounter.name}' from $oldValue to $result. Posting update.")
                 }
             }
         }

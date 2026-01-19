@@ -30,6 +30,7 @@ private const val TAG = "WidgetProvider"
 class WidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        Log.d("DynamicCounterBug", "onUpdate called for widget IDs: ${appWidgetIds.joinToString()}")
         val viewModel = (context.applicationContext as BetterApplication).viewModel
         // When widgets are updated, we must ensure dynamic counters are recalculated.
         viewModel.recalculateDynamicCounters()
@@ -46,7 +47,7 @@ class WidgetProvider : AppWidgetProvider() {
 
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-        Log.d(TAG, "onReceive " + intent.action)
+        Log.d("DynamicCounterBug", "onReceive received action: ${intent.action}")
         if (intent.action == ACTION_COUNT) {
             val appWidgetId = intent.getIntExtra(EXTRA_WIDGET_ID, AppWidgetManager.INVALID_APPWIDGET_ID)
             if (appWidgetId == AppWidgetManager.INVALID_APPWIDGET_ID) {
@@ -58,6 +59,7 @@ class WidgetProvider : AppWidgetProvider() {
                 return
             }
             val counterName = loadWidgetCounterNamePref(context, appWidgetId)
+            Log.d("DynamicCounterBug", "ACTION_COUNT for widget ID $appWidgetId, counter '$counterName'")
             val viewModel = (context.applicationContext as BetterApplication).viewModel
             viewModel.incrementCounterWithCallback(counterName) {
                 if (!viewModel.getCounterSummary(counterName).hasObservers()) {
@@ -105,6 +107,7 @@ fun removeWidgets(context: Context, counterName: String) {
 }
 
 fun forceRefreshWidgets(context: Context) {
+    Log.d("DynamicCounterBug", "forceRefreshWidgets called.")
     val widgetIds = getAllWidgetIds(context)
     if (widgetIds.isNotEmpty()) {
         Log.d(TAG, "Refreshing ${widgetIds.size} widgets")
@@ -156,7 +159,9 @@ internal fun updateAppWidget(
     var prevCounterName = counterName
     viewModel.getCounterSummary(counterName).observeForever(object : Observer<CounterSummary> {
         override fun onChanged(value: CounterSummary) {
+            Log.d("DynamicCounterBug", "Observer onChanged for widget ID $appWidgetId, counter '${value.name}' (type: ${value.type}), new count: ${value.lastIntervalCount}")
             if (!existsWidgetCounterNamePref(context, appWidgetId)) {
+                Log.d("DynamicCounterBug", "Widget ID $appWidgetId no longer configured, removing observer.")
                 viewModel.getCounterSummary(value.name).removeObserver(this)
                 cancelTimeUpdateAlarm(context, appWidgetId)
                 return
