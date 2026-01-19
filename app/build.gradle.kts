@@ -134,4 +134,7 @@ dependencies {
     implementation(libs.material)
     coreLibraryDesugaring(libs.android.desugarJdkLibs) // Chrono.UNITS for Android < 26
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.core)
 }

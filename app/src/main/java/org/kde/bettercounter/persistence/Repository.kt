@@ -17,6 +17,8 @@ const val COUNTERS_INTERVAL_PREFS_KEY = "interval.%s"
 const val COUNTERS_COLOR_PREFS_KEY = "color.%s"
 const val COUNTERS_GOAL_PREFS_KEY = "goal.%s"
 const val COUNTERS_CATEGORY_PREFS_KEY = "category.%s"
+const val COUNTERS_TYPE_PREFS_KEY = "type.%s"
+const val COUNTERS_FORMULA_PREFS_KEY = "formula.%s"
 const val TUTORIALS_PREFS_KEY = "tutorials"
 
 class Repository(
@@ -99,16 +101,35 @@ class Repository(
         return sharedPref.getString(key, "默认") ?: "默认"
     }
 
+    private fun getCounterType(name: String): CounterType {
+        val key = COUNTERS_TYPE_PREFS_KEY.format(name)
+        return try {
+            CounterType.valueOf(sharedPref.getString(key, CounterType.STANDARD.name)!!)
+        } catch (e: Exception) {
+            CounterType.STANDARD
+        }
+    }
+
+    private fun getCounterFormula(name: String): String? {
+        val key = COUNTERS_FORMULA_PREFS_KEY.format(name)
+        return sharedPref.getString(key, null)
+    }
+
+
     fun deleteCounterMetadata(name: String) {
         val colorKey = COUNTERS_COLOR_PREFS_KEY.format(name)
         val intervalKey = COUNTERS_INTERVAL_PREFS_KEY.format(name)
         val goalKey = COUNTERS_GOAL_PREFS_KEY.format(name)
         val categoryKey = COUNTERS_CATEGORY_PREFS_KEY.format(name)
+        val typeKey = COUNTERS_TYPE_PREFS_KEY.format(name)
+        val formulaKey = COUNTERS_FORMULA_PREFS_KEY.format(name)
         sharedPref.edit()
             .remove(colorKey)
             .remove(intervalKey)
             .remove(goalKey)
             .remove(categoryKey)
+            .remove(typeKey)
+            .remove(formulaKey)
             .apply()
         counterCache.remove(name)
     }
@@ -118,12 +139,23 @@ class Repository(
         val intervalKey = COUNTERS_INTERVAL_PREFS_KEY.format(counter.name)
         val goalKey = COUNTERS_GOAL_PREFS_KEY.format(counter.name)
         val categoryKey = COUNTERS_CATEGORY_PREFS_KEY.format(counter.name)
-        sharedPref.edit()
+        val typeKey = COUNTERS_TYPE_PREFS_KEY.format(counter.name)
+        val formulaKey = COUNTERS_FORMULA_PREFS_KEY.format(counter.name)
+
+        val editor = sharedPref.edit()
             .putInt(colorKey, counter.color.colorInt)
             .putString(intervalKey, counter.interval.toString())
             .putInt(goalKey, counter.goal)
             .putString(categoryKey, counter.category)
-            .apply()
+            .putString(typeKey, counter.type.name)
+
+        if (counter.formula != null) {
+            editor.putString(formulaKey, counter.formula)
+        } else {
+            editor.remove(formulaKey)
+        }
+
+        editor.apply()
         counterCache.remove(counter.name)
     }
 
@@ -131,23 +163,30 @@ class Repository(
         val interval = getCounterInterval(name)
         val color = getCounterColor(name)
         val goal = getCounterGoal(name)
+        val category = getCounterCategory(name)
+        val type = getCounterType(name)
+        val formula = getCounterFormula(name)
+
         val intervalStartDate = when (interval) {
             Interval.LIFETIME -> Calendar.getInstance().apply { set(Calendar.YEAR, 1990) }
             else -> Calendar.getInstance().apply { truncate(interval) }
         }
         val intervalEndDate = intervalStartDate.copy().apply { addInterval(interval, 1) }
         val firstLastAndCount = entryDao.getFirstLastAndCount(name)
-        
+
         // 每次都重新计算计数器摘要，不使用缓存
         return CounterSummary(
             name = name,
             color = color,
             interval = interval,
             goal = goal,
+            category = category,
             lastIntervalCount = entryDao.getCountInRange(name, intervalStartDate.time, intervalEndDate.time),
             totalCount = firstLastAndCount.count,
             leastRecent = firstLastAndCount.first,
             mostRecent = firstLastAndCount.last,
+            type = type,
+            formula = formula
         )
     }
 

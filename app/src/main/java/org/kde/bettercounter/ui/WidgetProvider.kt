@@ -31,6 +31,8 @@ class WidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
         val viewModel = (context.applicationContext as BetterApplication).viewModel
+        // When widgets are updated, we must ensure dynamic counters are recalculated.
+        viewModel.recalculateDynamicCounters()
         for (appWidgetId in appWidgetIds) {
             updateAppWidget(context, viewModel, appWidgetManager, appWidgetId)
         }
@@ -122,10 +124,6 @@ internal fun updateAppWidget(
     appWidgetId: Int
 ) {
     if (!existsWidgetCounterNamePref(context, appWidgetId)) {
-        // This gets called right after placing the widget even if it hasn't been configured yet.
-        // In that case we can't do anything. This is useful for reconfigurable widgets, which don't
-        // require an initial configuration dialog. Our widget isn't reconfigurable though (because
-        // I didn't find a way to stop observing the previous livedata).
         Log.e(TAG, "Ignoring updateAppWidget for an unconfigured widget")
         return
     }
@@ -149,48 +147,63 @@ internal fun updateAppWidget(
 
     if (!viewModel.counterExists(counterName)) {
         Log.e(TAG, "The counter for this widget doesn't exist")
-        //val host = AppWidgetHost(context, 0)
-        //host.deleteAppWidgetId(appWidgetId)
         views.setTextViewText(R.id.widgetCounter, "error")
         views.setTextViewText(R.id.widgetTime, "not found")
         appWidgetManager.updateAppWidget(appWidgetId, views)
         return
     }
 
-    val countIntent = Intent(context, WidgetProvider::class.java)
-    countIntent.action = ACTION_COUNT
-    countIntent.putExtra(EXTRA_WIDGET_ID, appWidgetId)
-    // We pass appWidgetId as requestCode even if it's not used to force the creation a new PendingIntent
-    // instead of reusing an existing one, which is what happens if only the "extras" field differs.
-    // Docs: https://developer.android.com/reference/android/app/PendingIntent.html
-    val countPendingIntent = PendingIntent.getBroadcast(context, appWidgetId, countIntent, PendingIntent.FLAG_IMMUTABLE)
-    views.setOnClickPendingIntent(R.id.widgetBackground, countPendingIntent)
-
     var prevCounterName = counterName
-    // observeForever means it's not attached to any lifecycle so we need to call removeObserver manually
     viewModel.getCounterSummary(counterName).observeForever(object : Observer<CounterSummary> {
         override fun onChanged(value: CounterSummary) {
             if (!existsWidgetCounterNamePref(context, appWidgetId)) {
-                // Prevent leaking the observer once the widget has been deleted by deleting it here
                 viewModel.getCounterSummary(value.name).removeObserver(this)
                 cancelTimeUpdateAlarm(context, appWidgetId)
                 return
             }
             if (prevCounterName != value.name) {
-                // Counter is being renamed, replace the name stored in the sharedpref
                 saveWidgetCounterNamePref(context, appWidgetId, value.name)
                 prevCounterName = value.name
+            }
+
+            // Set click behavior based on counter type
+            if (value.type == org.kde.bettercounter.persistence.CounterType.STANDARD) {
+                // Standard counter: background click increments the counter.
+                val countIntent = Intent(context, WidgetProvider::class.java).apply {
+                    action = ACTION_COUNT
+                    putExtra(EXTRA_WIDGET_ID, appWidgetId)
+                }
+                val countPendingIntent = PendingIntent.getBroadcast(
+                    context, appWidgetId, countIntent, 
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                views.setOnClickPendingIntent(R.id.widgetBackground, countPendingIntent)
+            } else {
+                // Dynamic counter: background click opens the app (same as title click).
+                val dynamicOpenAppIntent = Intent(context, MainActivity::class.java).apply {
+                    putExtra(MainActivity.EXTRA_COUNTER_NAME, value.name)
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                }
+                val dynamicOpenAppPendingIntent = PendingIntent.getActivity(
+                    context, 
+                    appWidgetId, 
+                    dynamicOpenAppIntent, 
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                views.setOnClickPendingIntent(R.id.widgetBackground, dynamicOpenAppPendingIntent)
             }
 
             views.setInt(R.id.widgetBackground, "setBackgroundColor", value.color.colorInt)
             views.setTextViewText(R.id.widgetName, value.name)
             views.setTextViewText(R.id.widgetCounter, value.getFormattedCount(forWidget = true))
-            val date = value.mostRecent
+            
+            // For dynamic counters, the time of the last "entry" is meaningless.
+            val date = if (value.type == org.kde.bettercounter.persistence.CounterType.STANDARD) value.mostRecent else null
+
             if (date != null) {
                 val formattedDate = formatRecentTime(date, context)
                 views.setTextViewText(R.id.widgetTime, formattedDate)
                 
-                // 对所有非DAILY类型的计数器，判断今天是否有记录，如果有则显示👍
                 if (value.interval != Interval.DAY) {
                     val now = Calendar.getInstance()
                     val mostRecentDate = Calendar.getInstance().apply { time = date }
@@ -204,12 +217,11 @@ internal fun updateAppWidget(
                     views.setViewVisibility(R.id.widgetCheckmark, android.view.View.GONE)
                 }
             } else {
-                views.setTextViewText(R.id.widgetTime, context.getString(R.string.never))
+                views.setTextViewText(R.id.widgetTime, if (value.type == org.kde.bettercounter.persistence.CounterType.DYNAMIC) "" else context.getString(R.string.never))
                 views.setViewVisibility(R.id.widgetCheckmark, android.view.View.GONE)
             }
             appWidgetManager.updateAppWidget(appWidgetId, views)
             
-            // 启动智能定期更新
             scheduleSmartTimeUpdate(context, appWidgetId, date)
         }
     })

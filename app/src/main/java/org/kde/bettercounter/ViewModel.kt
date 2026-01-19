@@ -75,6 +75,8 @@ class ViewModel(application: Application) {
                     }
                     initialized = true
                 }
+                // After initial load, calculate all dynamic counters to ensure they have a value.
+                recalculateDynamicCounters()
             }
         }
     }
@@ -122,9 +124,23 @@ class ViewModel(application: Application) {
 
     fun incrementCounterByValue(name: String, value: Int, date: Date = Calendar.getInstance().time) {
         CoroutineScope(Dispatchers.IO).launch {
-            repeat(value) {
-                repo.addEntry(name, date)
+            // Dynamic counters cannot be incremented directly
+            val summary = summaryMap[name]?.value
+            if (summary?.type == org.kde.bettercounter.persistence.CounterType.DYNAMIC) {
+                Log.w(TAG, "Attempted to increment a dynamic counter '$name'. This is not allowed.")
+                return@launch
             }
+
+            if (value > 0) {
+                repeat(value) {
+                    repo.addEntry(name, date)
+                }
+            } else if (value < 0) {
+                repeat(-value) {
+                    repo.removeEntry(name)
+                }
+            }
+            
             withContext(Dispatchers.Main) {
                 playDingSound()
             }
@@ -132,58 +148,13 @@ class ViewModel(application: Application) {
             synchronized(this) {
                 summaryMap[name]?.postValue(counterSummary)
             }
+            // After incrementing, recalculate any dynamic counters that might depend on this one
+            recalculateDynamicCounters()
         }
     }
 
-    fun decrementCounter(name: String) {
-        decrementCounterByValue(name, 1)
-    }
-
-    fun decrementCounterByValue(name: String, value: Int) {
-        if (value <= 0) {
-            Log.w(TAG, "decrementCounterByValue: value must be positive, got $value")
-            return
-        }
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                var removedCount = 0
-                var lastRemovedDate: Date? = null
-                for (i in 0 until value) {
-                    val oldEntryDate = repo.removeEntry(name)
-                    if (oldEntryDate != null) {
-                        removedCount++
-                        lastRemovedDate = oldEntryDate
-                    } else {
-                        // 没有更多条目可以删除，停止循环
-                        break
-                    }
-                }
-                // 只在最后触发一次回调，避免批量操作时多次显示Snackbar
-                if (removedCount > 0 && lastRemovedDate != null) {
-                    synchronized(this) {
-                        val observersCopy = counterObservers.toList()
-                        for (observer in observersCopy) {
-                            observer.onCounterDecremented(name, lastRemovedDate!!)
-                        }
-                    }
-                }
-                val counterSummary = repo.getCounterSummary(name)
-                synchronized(this) {
-                    summaryMap[name]?.postValue(counterSummary)
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "decrementCounterByValue failed: ${e.message}", e)
-                // 即使出错，也尝试更新摘要
-                try {
-                    val counterSummary = repo.getCounterSummary(name)
-                    synchronized(this) {
-                        summaryMap[name]?.postValue(counterSummary)
-                    }
-                } catch (e2: Exception) {
-                    Log.e(TAG, "Failed to update summary after error: ${e2.message}", e2)
-                }
-            }
-        }
+    fun decrementCounter(name: String, date: Date = Calendar.getInstance().time) {
+        incrementCounterByValue(name, -1, date)
     }
 
     private fun initMediaPlayer() {
@@ -231,6 +202,8 @@ class ViewModel(application: Application) {
             synchronized(this) {
                 summaryMap[name]?.postValue(counterSummary)
             }
+            // After incrementing, recalculate any dynamic counters that might depend on this one
+            recalculateDynamicCounters()
             CoroutineScope(Dispatchers.Main).launch {
                 callback()
             }
@@ -258,6 +231,8 @@ class ViewModel(application: Application) {
             synchronized(this) {
                 summaryMap[name]?.postValue(counterSummary)
             }
+            // After editing, recalculate all dynamic counters as dependencies might have changed
+            recalculateDynamicCounters()
         }
     }
 
@@ -282,11 +257,15 @@ class ViewModel(application: Application) {
 
         CoroutineScope(Dispatchers.IO).launch {
             repo.renameCounter(oldName, newName)
+            // Also need to update formulas that refer to the old name
+            updateFormulasOnRename(oldName, newName)
             val newCounterSummary = repo.getCounterSummary(newName)
             synchronized(this) {
                 val counter: MutableLiveData<CounterSummary>? = summaryMap.remove(oldName)
                 if (counter == null) {
                     Log.e(TAG, "Trying to rename a counter but the old counter doesn't exist")
+                    // Still proceed to recalculate, as formulas might have changed
+                    recalculateDynamicCounters()
                     return@launch
                 }
                 summaryMap[newName] = counter
@@ -300,6 +279,8 @@ class ViewModel(application: Application) {
                     }
                 }
             }
+            // After renaming, recalculate all dynamic counters
+            recalculateDynamicCounters()
         }
     }
 
@@ -321,11 +302,18 @@ class ViewModel(application: Application) {
 
     fun resetCounter(name: String) {
         CoroutineScope(Dispatchers.IO).launch {
+            val summary = summaryMap[name]?.value
+            if (summary?.type == org.kde.bettercounter.persistence.CounterType.DYNAMIC) {
+                Log.w(TAG, "Attempted to reset a dynamic counter '$name'. This is not allowed.")
+                return@launch
+            }
             repo.removeAllEntries(name)
             val counterSummary = repo.getCounterSummary(name)
             synchronized(this) {
                 summaryMap[name]?.postValue(counterSummary)
             }
+            // After resetting, recalculate any dynamic counters that might depend on this one
+            recalculateDynamicCounters()
         }
     }
 
@@ -333,18 +321,36 @@ class ViewModel(application: Application) {
         CoroutineScope(Dispatchers.IO).launch {
             val counters = repo.getCounterList()
             for (counterName in counters) {
-                repo.removeAllEntries(counterName)
-                val counterSummary = repo.getCounterSummary(counterName)
-                synchronized(this) {
-                    summaryMap[counterName]?.postValue(counterSummary)
+                 val summary = summaryMap[counterName]?.value
+                if (summary?.type == org.kde.bettercounter.persistence.CounterType.STANDARD) {
+                    repo.removeAllEntries(counterName)
+                    val counterSummary = repo.getCounterSummary(counterName)
+                    synchronized(this) {
+                        summaryMap[counterName]?.postValue(counterSummary)
+                    }
                 }
             }
+            recalculateDynamicCounters()
         }
     }
 
     fun deleteCounter(name: String) {
         CoroutineScope(Dispatchers.IO).launch {
+            // --- START OF DATA MUTATION ---
+            // 1. Delete all data from the repository first.
             repo.removeAllEntries(name)
+            repo.deleteCounterMetadata(name)
+            val list = repo.getCounterList().toMutableList()
+            list.remove(name)
+            repo.setCounterList(list)
+
+            // 2. Then, update the ViewModel's internal state to match.
+            synchronized(this) {
+                summaryMap.remove(name)
+            }
+            // --- END OF DATA MUTATION ---
+
+            // 3. Now that the data model is fully consistent, notify the UI.
             withContext(Dispatchers.Main) {
                 synchronized(this) {
                     val observersCopy = counterObservers.toList()
@@ -353,15 +359,267 @@ class ViewModel(application: Application) {
                     }
                 }
             }
+
+            // 4. Finally, perform follow-up calculations which affect other counters.
+            updateFormulasOnDelete(name)
+            recalculateDynamicCounters()
         }
-        synchronized(this) {
-            summaryMap.remove(name)
-        }
-        repo.deleteCounterMetadata(name)
-        val list = repo.getCounterList().toMutableList()
-        list.remove(name)
-        repo.setCounterList(list)
     }
+
+    // --- Dynamic Counter Logic ---
+
+    internal fun recalculateDynamicCounters() {
+        CoroutineScope(Dispatchers.IO).launch {
+            val allSummaries = summaryMap.values.mapNotNull { it.value }
+            val dynamicCounters = allSummaries.filter { it.type == org.kde.bettercounter.persistence.CounterType.DYNAMIC }
+
+            if (dynamicCounters.isEmpty()) return@launch
+
+            val standardCounterValues = allSummaries
+                .filter { it.type == org.kde.bettercounter.persistence.CounterType.STANDARD }
+                .associate { it.name to it.lastIntervalCount }
+
+            val categorySums = repo.getAllCategories().associateWith { category ->
+                allSummaries.filter {
+                    it.type == org.kde.bettercounter.persistence.CounterType.STANDARD && repo.getCounterCategory(it.name) == category
+                }.sumOf { it.lastIntervalCount }
+            }
+
+            for (dynamicCounter in dynamicCounters) {
+                val formula = dynamicCounter.formula
+                if (formula.isNullOrBlank()) continue
+
+                val result = FormulaEvaluator.evaluate(formula, standardCounterValues, categorySums)
+                if (dynamicCounter.lastIntervalCount != result) {
+                    dynamicCounter.lastIntervalCount = result
+                    summaryMap[dynamicCounter.name]?.postValue(dynamicCounter)
+                }
+            }
+        }
+    }
+    
+    fun validateFormula(
+        formula: String,
+        counterName: String // The name of the counter this formula belongs to, to check for self-reference
+    ): FormulaValidationResult {
+        // Must be called with up-to-date data
+        val allCounters = repo.getCounterList()
+        val allCategories = repo.getAllCategories()
+        val dynamicCountersMap = summaryMap.values
+            .mapNotNull { it.value }
+            .filter { it.type == org.kde.bettercounter.persistence.CounterType.DYNAMIC }
+            .associateBy({ it.name }, { it.formula ?: "" })
+
+        return FormulaEvaluator.validate(formula, counterName, allCounters, allCategories, dynamicCountersMap)
+    }
+
+    private fun CoroutineScope.updateFormulasOnRename(oldName: String, newName: String) {
+        val allSummaries = summaryMap.values.mapNotNull { it.value }
+        val dynamicCounters = allSummaries.filter { it.type == org.kde.bettercounter.persistence.CounterType.DYNAMIC }
+        
+        for (counter in dynamicCounters) {
+            val oldFormula = counter.formula
+            if (oldFormula.isNullOrBlank()) continue
+
+            val newFormula = FormulaEvaluator.replaceOperandInFormula(oldFormula, oldName, newName)
+            if (oldFormula != newFormula) {
+                val metadata = CounterMetadata(
+                    counter.name, counter.interval, counter.goal, counter.color,
+                    repo.getCounterCategory(counter.name), counter.type, newFormula
+                )
+                repo.setCounterMetadata(metadata)
+            }
+        }
+    }
+
+    private fun CoroutineScope.updateFormulasOnDelete(deletedName: String) {
+        // This logic is tricky. A simple replacement might not be enough.
+        // For now, we'll rely on validation at edit time to force the user to fix broken formulas.
+        // A more advanced implementation could invalidate the formula here.
+        Log.d(TAG, "Counter '$deletedName' was deleted. Any formulas referencing it are now invalid.")
+    }
+
+    // --- Formula Evaluation ---
+
+    sealed class FormulaValidationResult {
+        object Valid : FormulaValidationResult()
+        data class Invalid(val error: String) : FormulaValidationResult()
+    }
+
+    private object FormulaEvaluator {
+        // Regex to tokenize the formula into operands (words, sum(), numbers) and operators
+        private val tokenizerRegex = "sum\\([^)]+\\)|[\\p{L}0-9_]+|[+\\-*]".toRegex()
+
+        fun evaluate(formula: String, counters: Map<String, Int>, categories: Map<String, Int>): Int {
+            if (formula.isBlank()) return 0
+
+            val tokens = tokenizerRegex.findAll(formula).map { it.value }.toMutableList()
+            if (tokens.isEmpty()) return 0
+
+            // 1. Resolve values for all operands
+            val values = tokens.map { token ->
+                when {
+                    token.toIntOrNull() != null -> token.toInt()
+                    token.startsWith("sum(") && token.endsWith(")") -> {
+                        val category = token.substring(4, token.length - 1)
+                        categories[category] ?: 0
+                    }
+                    token in counters -> counters[token] ?: 0
+                    // If it's an operator, keep it as a string for now
+                    token in listOf("+", "-", "*") -> token
+                    // Unknown operands evaluate to 0
+                    else -> 0
+                }
+            }.toMutableList()
+
+            // 2. Perform multiplication pass
+            val mulTokens = mutableListOf<Any>()
+            var i = 0
+            while (i < values.size) {
+                val token = values[i]
+                if (token == "*" && i > 0 && i < values.size - 1) {
+                    val left = mulTokens.removeLast() as Int
+                    val right = values[i + 1] as Int
+                    mulTokens.add(left * right)
+                    i += 2 // Skip operator and right operand
+                } else {
+                    mulTokens.add(token)
+                    i++
+                }
+            }
+
+            // 3. Perform addition/subtraction pass
+            var total = 0
+            var currentOp: (Int, Int) -> Int = Int::plus
+            if (mulTokens.isNotEmpty()) {
+                val firstToken = mulTokens[0]
+                if (firstToken is Int) {
+                    total = firstToken
+                }
+            }
+
+            i = 1
+            while (i < mulTokens.size) {
+                val op = mulTokens[i]
+                val right = mulTokens.getOrNull(i + 1) as? Int ?: 0
+                when (op) {
+                    "+" -> total += right
+                    "-" -> total -= right
+                }
+                i += 2
+            }
+
+            return total
+        }
+
+        fun validate(
+            formula: String,
+            currentCounterName: String,
+            allCounters: List<String>,
+            allCategories: Set<String>,
+            dynamicCounters: Map<String, String>
+        ): FormulaValidationResult {
+            if (formula.isBlank()) return FormulaValidationResult.Invalid("Formula cannot be empty.")
+
+            // Check for invalid characters, now allowing *
+            if (formula.contains(Regex("[^\\p{L}0-9_\\s()+\\-*]"))) {
+                return FormulaValidationResult.Invalid("Invalid characters in formula.")
+            }
+             if (formula.trim().matches(Regex(".*[+\\-*]{2,}.*"))) {
+                return FormulaValidationResult.Invalid("Consecutive operators are not allowed.")
+            }
+            if (formula.trim().endsWith("+") || formula.trim().endsWith("-") || formula.trim().endsWith("*")) {
+                return FormulaValidationResult.Invalid("Formula cannot end with an operator.")
+            }
+
+            val tokens = tokenizerRegex.findAll(formula).map { it.value }.toList()
+            if (tokens.isEmpty()) return FormulaValidationResult.Invalid("Formula is empty or invalid.")
+
+            val dependencies = mutableSetOf<String>()
+
+            for (token in tokens) {
+                when {
+                    // It's a number, it's valid.
+                    token.toIntOrNull() != null -> {}
+                    // It's an operator, it's valid.
+                    token in listOf("+", "-", "*") -> {}
+                    
+                    token.startsWith("sum(") && token.endsWith(")") -> {
+                        val category = token.substring(4, token.length - 1)
+                        if (!allCategories.contains(category)) {
+                            return FormulaValidationResult.Invalid("Category '$category' does not exist.")
+                        }
+                    }
+                    else -> { // It must be a counter name
+                        if (!allCounters.contains(token)) {
+                            return FormulaValidationResult.Invalid("Counter or number '$token' is not valid.")
+                        }
+                        if (token == currentCounterName) {
+                            return FormulaValidationResult.Invalid("A counter cannot reference itself.")
+                        }
+                        dependencies.add(token)
+                    }
+                }
+            }
+
+            // Check for circular dependencies
+            val visited = mutableSetOf<String>()
+            val path = mutableSetOf<String>()
+            for (dep in dependencies) {
+                if (hasCircularDependency(dep, dynamicCounters, visited, path)) {
+                    return FormulaValidationResult.Invalid("Circular dependency detected involving '$dep'.")
+                }
+            }
+
+            return FormulaValidationResult.Valid
+        }
+
+        private fun hasCircularDependency(
+            counterName: String,
+            dynamicCounters: Map<String, String>,
+            visited: MutableSet<String>,
+            path: MutableSet<String>
+        ): Boolean {
+            if (path.contains(counterName)) return true // Cycle detected
+            if (visited.contains(counterName)) return false // Already checked this node
+
+            path.add(counterName)
+            
+            val formula = dynamicCounters[counterName]
+            if (!formula.isNullOrBlank()) {
+                val dependencies = getDependenciesFromFormula(formula)
+                for (dep in dependencies) {
+                    if (hasCircularDependency(dep, dynamicCounters, visited, path)) {
+                        return true
+                    }
+                }
+            }
+
+            path.remove(counterName)
+            visited.add(counterName)
+            return false
+        }
+        
+        fun getDependenciesFromFormula(formula: String): Set<String> {
+            val dependencies = mutableSetOf<String>()
+            val tokens = tokenizerRegex.findAll(formula).map { it.value }.toList()
+            for (token in tokens) {
+                if (token.toIntOrNull() == null && token !in listOf("+", "-", "*") && !token.startsWith("sum(")) {
+                    dependencies.add(token)
+                }
+            }
+            return dependencies
+        }
+        
+        fun replaceOperandInFormula(formula: String, oldOperand: String, newOperand: String): String {
+            // This uses a regex with word boundaries to avoid replacing parts of names
+            // E.g. "Task" -> "New Task" should not change "Super Task"
+            val regex = "\\b${Regex.escape(oldOperand)}\\b".toRegex()
+            return formula.replace(regex, newOperand)
+        }
+    }
+
+    // --- End Dynamic Counter Logic ---
 
     fun exportAll(outputStream: OutputStream, progressHandler: Handler?, closeStreamWhenDone: Boolean = false) {
         fun sendProgress(progress: Int, total: Int, handler: Handler?) {
@@ -370,38 +628,32 @@ class ViewModel(application: Application) {
             message.arg2 = total
             handler?.sendMessage(message)
         }
-
+    
         CoroutineScope(Dispatchers.IO).launch {
             val writer = outputStream.bufferedWriter()
             try {
                 val counters = repo.getCounterList()
                 var exported = 0
-
+    
                 for (counterName in counters) {
                     val summary = repo.getCounterSummary(counterName)
                     val counterEntries = repo.getAllEntriesSortedByDate(counterName)
                     Log.d(TAG, "[导出] 计数器: $counterName, 条目数: ${counterEntries.size}")
-                    if (counterEntries.isEmpty()) continue
-
-                    // 提取颜色整数值
+                    if (counterEntries.isEmpty() && summary.type == org.kde.bettercounter.persistence.CounterType.STANDARD) continue
+    
                     val colorInt = extractColorInt(summary.color)
-                    
-                    // 将颜色转换为RGB格式和颜色名称
                     val colorRGB = intToRGBString(colorInt)
                     val colorName = getClosestColorName(colorInt)
-                    
-                    Log.d(TAG, "导出计数器: $counterName, 颜色RGB: $colorRGB, 颜色名称: $colorName")
-                    
-                    // 获取类别
                     val category = repo.getCounterCategory(counterName)
+    
+                    val type = summary.type.name
+                    val formula = summary.formula?.let { "\"$it\"" } ?: "null"
+    
+                    // Create JSON with all metadata
+                    val configJson = """{"name":"$counterName","color":"$colorRGB","colorName":"$colorName","interval":"${summary.interval}","goal":${summary.goal},"category":"$category","type":"$type","formula":$formula}"""
                     
-                    // 创建JSON，同时包含颜色名称和RGB格式
-                    val configJson = """{"name":"$counterName","color":"$colorRGB","colorName":"$colorName","interval":"${summary.interval}","goal":${summary.goal},"category":"$category"}"""
-                    
-                    // 创建时间戳部分
                     val timestamps = counterEntries.joinToString(",") { it.date.time.toString() }
                     
-                    // 写入并刷新
                     writer.write("$configJson,[$timestamps]")
                     writer.newLine()
                     writer.flush()
@@ -433,18 +685,15 @@ class ViewModel(application: Application) {
             }
         }
     }
-
-    // 将整数颜色值转换为#RRGGBB格式
+    
     private fun intToRGBString(colorInt: Int): String {
         val red = (colorInt shr 16) and 0xFF
         val green = (colorInt shr 8) and 0xFF
         val blue = colorInt and 0xFF
         return "#%02X%02X%02X".format(red, green, blue) 
     }
-
-    // 获取最接近的标准颜色名称
+    
     private fun getClosestColorName(colorInt: Int): String {
-        // 定义标准颜色和名称的映射
         val colorMap = mapOf(
             0xFF000000.toInt() to "BLACK",
             0xFFFFFFFF.toInt() to "WHITE",
@@ -460,13 +709,9 @@ class ViewModel(application: Application) {
             0xFF8B4513.toInt() to "BROWN",
             0xFF2196F3.toInt() to "BLUE_MATERIAL"
         )
-        
-        // 获取红绿蓝分量
         val red = (colorInt shr 16) and 0xFF
         val green = (colorInt shr 8) and 0xFF
         val blue = colorInt and 0xFF
-        
-        // 找到最接近的标准颜色
         var closestColor = "CUSTOM"
         var minDistance = Int.MAX_VALUE
         
@@ -474,8 +719,6 @@ class ViewModel(application: Application) {
             val stdRed = (stdColorInt shr 16) and 0xFF
             val stdGreen = (stdColorInt shr 8) and 0xFF
             val stdBlue = stdColorInt and 0xFF
-            
-            // 计算颜色距离（欧几里得距离）
             val distance = Math.sqrt(
                 Math.pow((red - stdRed).toDouble(), 2.0) +
                 Math.pow((green - stdGreen).toDouble(), 2.0) +
@@ -490,22 +733,18 @@ class ViewModel(application: Application) {
         
         return closestColor
     }
-
-    // 从CounterColor对象中提取颜色整数值
+    
     private fun extractColorInt(color: CounterColor): Int {
-        // 解析颜色字符串，格式如: CounterColor(colorInt=-10341712)
         val colorStr = color.toString()
         return try {
             val startIndex = colorStr.indexOf("colorInt=") + 9
             val endIndex = colorStr.indexOf(")", startIndex)
             if (startIndex > 9 && endIndex > startIndex) {
                 colorStr.substring(startIndex, endIndex).toInt()
-            } else {
-                0 // 默认值
-            }
+            } else { 0 }
         } catch (e: Exception) {
             Log.e(TAG, "无法提取颜色值: $colorStr", e)
-            0 // 默认值
+            0
         }
     }
 
@@ -535,8 +774,6 @@ class ViewModel(application: Application) {
                             }
                         }
                     }
-                    
-                    // 验证文件格式：检查是否有有效数据
                     if (!hasValidLine) {
                         Log.e(TAG, "[导入] 文件为空或只包含空行")
                         sendProgress(0, -1)
@@ -549,122 +786,63 @@ class ViewModel(application: Application) {
                         return@launch
                     }
                     
-                    Log.d(TAG, "[导入] 解析后待导入计数器: ${namesToImport.joinToString()}")
-                    namesToImport.forEach { name ->
-                        val count = entriesToImport.count { it.name == name }
-                        Log.d(TAG, "[导入] 计数器: $name, 待导入条目数: $count")
-                    }
-                    
-                    // 特别追踪"泽熙刷牙"计数器
-                    val trackingCounterName = "泽熙刷牙"
-                    val trackingEntriesBeforeProcessing = entriesToImport.count { it.name == trackingCounterName }
-                    if (trackingEntriesBeforeProcessing > 0) {
-                        Log.d(TAG, "[导入追踪] 泽熙刷牙: 处理计数器前，entriesToImport中有 $trackingEntriesBeforeProcessing 个条目")
-                    }
-                    
-                    // 处理计数器和元数据
+                    // Process counters sequentially to avoid race conditions
                     namesToImport.forEach { name ->
                         val metadata = metadataToUpdate[name]
-                        val isTracking = name == trackingCounterName
-                        
                         if (metadata != null) {
-                            if (!counterExists(name)) {
-                                // 新计数器，添加
-                                if (isTracking) {
-                                    Log.d(TAG, "[导入追踪] 泽熙刷牙: 是新计数器，直接添加")
-                                }
-                                addCounter(metadata)
-                            } else {
-                                // 现有计数器，强制更新所有配置
-                                if (isTracking) {
-                                    val existingCount = repo.getAllEntriesSortedByDate(name).size
-                                    Log.d(TAG, "[导入追踪] 泽熙刷牙: 是现有计数器，现有条目数=$existingCount")
-                                }
-                                Log.d(TAG, "更新现有计数器: $name，应用导入的设置")
-                                // 保存现有计数器的条目
-                                val entries = repo.getAllEntriesSortedByDate(name)
-                                if (isTracking) {
-                                    Log.d(TAG, "[导入追踪] 泽熙刷牙: 保存了 ${entries.size} 个现有条目")
-                                }
-                                // 删除现有计数器
-                                deleteCounter(name)
-                                // 使用新配置创建计数器
-                                addCounter(metadata)
-                                // 恢复原有条目
-                                entries.forEach { entry ->
-                                    entriesToImport.add(entry)
-                                }
-                                if (isTracking) {
-                                    val afterRestore = entriesToImport.count { it.name == trackingCounterName }
-                                    Log.d(TAG, "[导入追踪] 泽熙刷牙: 恢复原有条目后，entriesToImport中有 $afterRestore 个条目")
+                            // Overwrite existing counters
+                            if (counterExists(name)) {
+                                // Perform deletion logic synchronously
+                                repo.removeAllEntries(name)
+                                repo.deleteCounterMetadata(name)
+                                val list = repo.getCounterList().toMutableList()
+                                list.remove(name)
+                                repo.setCounterList(list)
+                                synchronized(this) {
+                                    summaryMap.remove(name)
                                 }
                             }
+                            // Add the counter with new metadata
+                            repo.setCounterList(repo.getCounterList().toMutableList() + name)
+                            repo.setCounterMetadata(metadata)
+
                         } else if (!counterExists(name)) {
-                            // 没有元数据但需要创建计数器
-                            if (isTracking) {
-                                Log.d(TAG, "[导入追踪] 泽熙刷牙: 没有元数据，创建默认计数器")
-                            }
+                            // Handle old format import for new counters
                             val defaultMetadata = CounterMetadata(
                                 name, 
                                 Interval.DEFAULT, 
                                 0, 
                                 CounterColor.getDefault(context),
-                                "默认"
+                                "默认",
+                                org.kde.bettercounter.persistence.CounterType.STANDARD,
+                                null
                             )
-                            addCounter(defaultMetadata)
+                            repo.setCounterList(repo.getCounterList().toMutableList() + name)
+                            repo.setCounterMetadata(defaultMetadata)
                         }
                     }
                     
-                    // 特别追踪"泽熙刷牙"计数器
-                    val trackingEntriesBefore = entriesToImport.count { it.name == trackingCounterName }
-                    if (trackingEntriesBefore > 0) {
-                        Log.d(TAG, "[导入追踪] 泽熙刷牙: 批量插入前，entriesToImport中有 $trackingEntriesBefore 个条目")
-                        entriesToImport.filter { it.name == trackingCounterName }.forEachIndexed { index, entry ->
-                            Log.d(TAG, "[导入追踪] 泽熙刷牙: 第${index+1}个条目，时间戳=${entry.date.time}")
-                        }
-                    }
-                    
-                    // 批量添加条目
+                    // Bulk insert all entries from the file
                     repo.bulkAddEntries(entriesToImport)
                     Log.d(TAG, "[导入] 实际导入条目总数: ${entriesToImport.size}")
                     
-                    // 记录导入的条目数
-                    Log.d(TAG, "成功导入 ${entriesToImport.size} 个条目到 ${namesToImport.size} 个计数器")
-                    
-                    // 检查"泽熙刷牙"导入后的实际数量
-                    if (trackingEntriesBefore > 0) {
-                        val trackingEntriesAfter = repo.getAllEntriesSortedByDate(trackingCounterName).size
-                        Log.d(TAG, "[导入追踪] 泽熙刷牙: 批量插入后，数据库中实际有 $trackingEntriesAfter 个条目（插入前准备 $trackingEntriesBefore 个）")
-                        if (trackingEntriesAfter != trackingEntriesBefore) {
-                            Log.e(TAG, "[导入追踪] 泽熙刷牙: 数据丢失！准备插入 $trackingEntriesBefore 个，但数据库中只有 $trackingEntriesAfter 个")
-                        }
-                    }
-
-                    // 确保每个计数器的摘要都被正确初始化
+                    // Refresh summaries for all imported counters
                     namesToImport.forEach { name ->
-                        if (summaryMap[name] == null) {
-                            summaryMap[name] = MutableLiveData()
-                        }
-                        
                         val summary = repo.getCounterSummary(name)
-                        Log.d(TAG, "刷新计数器: $name")
-                        
-                        // 使用 postValue 因为这是在 IO 线程中
                         synchronized(this) {
+                            if (summaryMap[name] == null) {
+                                summaryMap[name] = MutableLiveData()
+                            }
                             summaryMap[name]?.postValue(summary)
                         }
                     }
                     
-                    // 强制刷新所有观察者
+                    recalculateDynamicCounters()
+                    
                     withContext(Dispatchers.Main) {
                         refreshLiveData()
                     }
                     
-                    // 通知导入完成
-                    namesToImport.forEach { name ->
-                        val count = repo.getAllEntriesSortedByDate(name).size
-                        Log.d(TAG, "[导入] 导入后计数器: $name, 条目数: $count")
-                    }
                     sendProgress(namesToImport.size, 1)
                 } catch (e: Exception) {
                     Log.e(TAG, "[导入] Import failed: ${e.javaClass.simpleName}: ${e.message}")
@@ -673,8 +851,7 @@ class ViewModel(application: Application) {
             }
         }
     }
-
-    // 解析带JSON配置的导入行
+    
     private fun parseImportLineWithJSON(
         line: String,
         namesToImport: MutableList<String>,
@@ -685,37 +862,24 @@ class ViewModel(application: Application) {
         if (line.isEmpty()) return
         
         try {
-            // 检查是否包含JSON
             if (line.startsWith("{")) {
-                // 新格式: {"name":"名称","color":"#RRGGBB","colorName":"RED","interval":"DAILY","goal":5},[时间戳1,时间戳2,...]
-                // 尝试查找分隔符，支持 "},[" 和 "}, [" 两种格式
                 var jsonEnd = line.indexOf("},[")
                 var timestampsPart: String
                 var jsonPart: String
                 
                 if (jsonEnd <= 0) {
-                    // 尝试查找带空格的分隔符
                     jsonEnd = line.indexOf("}, [")
                     if (jsonEnd <= 0) {
                         Log.e(TAG, "[导入] JSON格式错误：找不到时间戳数组分隔符 '},[' 或 '}, ['，行: $line")
                         return
                     }
                     jsonPart = line.substring(0, jsonEnd + 1)
-                    // jsonEnd 是 "}, [" 中 "}" 的位置，需要跳过 "}, [" 这4个字符
                     timestampsPart = line.substring(jsonEnd + 4).trim()
                 } else {
                     jsonPart = line.substring(0, jsonEnd + 1)
-                    // jsonEnd 是 "},[" 中 "}" 的位置，需要跳过 "},[" 这3个字符
                     timestampsPart = line.substring(jsonEnd + 3)
                 }
                 
-                // 特别追踪"泽熙刷牙"计数器
-                val isTrackingCounter = timestampsPart.contains("1746800049417") || line.contains("\"泽熙刷牙\"")
-                if (isTrackingCounter) {
-                    Log.d(TAG, "[导入追踪] 泽熙刷牙: 找到分隔符，jsonEnd=$jsonEnd, timestampsPart前50字符=${timestampsPart.take(50)}")
-                }
-                
-                // 解析JSON部分
                 val configMap = parseJsonObject(jsonPart)
                 val name = configMap["name"] as? String
                 if (name.isNullOrEmpty()) {
@@ -723,15 +887,11 @@ class ViewModel(application: Application) {
                     return
                 }
                 
-                // 处理颜色
                 val colorValue = configMap["color"] ?: configMap["colorName"]
                 val colorInt = getColorIntFromValue(colorValue)
-                
-                // 使用颜色整数值创建CounterColor对象
                 val safeContext = context ?: return
                 val color = createCounterColorFromInt(colorInt, safeContext)
                 
-                // 修复区间格式问题 - 支持DAY、DAILY等多种格式
                 val intervalStr = (configMap["interval"] as? String)?.uppercase() ?: Interval.DEFAULT.toString()
                 val interval = try {
                     when (intervalStr) {
@@ -747,24 +907,21 @@ class ViewModel(application: Application) {
                 }
                 
                 val goal = (configMap["goal"] as? Number)?.toInt() ?: 0
-                
-                // 获取类别，如果没有则使用默认值
                 val category = (configMap["category"] as? String)?.takeIf { it.isNotBlank() } ?: "默认"
                 
-                // 创建元数据
-                val metadata = CounterMetadata(name, interval, goal, color, category)
+                val typeStr = configMap["type"] as? String
+                val type = if (typeStr == "DYNAMIC") org.kde.bettercounter.persistence.CounterType.DYNAMIC else org.kde.bettercounter.persistence.CounterType.STANDARD
+                val formula = configMap["formula"] as? String
+
+                val metadata = CounterMetadata(name, interval, goal, color, category, type, formula)
                 metadataToUpdate[name] = metadata
                 
-                Log.d(TAG, "导入计数器: $name, 颜色: $colorInt, 区间: $interval, 目标: $goal")
-                
-                // 解析时间戳数组
                 parseTimestamps(timestampsPart, name, entriesToImport)
                 
                 if (!namesToImport.contains(name)) {
                     namesToImport.add(name)
                 }
             } else {
-                // 旧CSV格式: name,timestamp1,timestamp2,...
                 val parts = line.split(",")
                 if (parts.isNotEmpty()) {
                     val name = parts[0]
@@ -850,26 +1007,11 @@ class ViewModel(application: Application) {
     private fun parseTimestamps(timestampsStr: String, counterName: String, entries: MutableList<Entry>) {
         try {
             var cleaned = timestampsStr.trim()
-            
-            // 特别追踪"泽熙刷牙"计数器
-            val isTrackingCounter = counterName == "泽熙刷牙"
-            
-            if (isTrackingCounter) {
-                Log.d(TAG, "[导入追踪] 泽熙刷牙: parseTimestamps 开始，原始字符串前100字符=${timestampsStr.take(100)}")
-            }
-            
-            // 移除开头的 [ 和结尾的 ]
             if (cleaned.startsWith("[")) {
                 cleaned = cleaned.removePrefix("[")
-                if (isTrackingCounter) {
-                    Log.d(TAG, "[导入追踪] 泽熙刷牙: 移除了开头的 [")
-                }
             }
             if (cleaned.endsWith("]")) {
                 cleaned = cleaned.removeSuffix("]")
-                if (isTrackingCounter) {
-                    Log.d(TAG, "[导入追踪] 泽熙刷牙: 移除了结尾的 ]")
-                }
             }
             cleaned = cleaned.trim()
             
@@ -879,42 +1021,18 @@ class ViewModel(application: Application) {
             }
             
             val timestamps = cleaned.split(",")
-            var parsedCount = 0
-            var failedCount = 0
-            
-            if (isTrackingCounter) {
-                Log.d(TAG, "[导入追踪] 泽熙刷牙: 清理后字符串前100字符=${cleaned.take(100)}")
-                Log.d(TAG, "[导入追踪] 泽熙刷牙: 开始解析，时间戳字符串长度=${timestampsStr.length}, 清理后长度=${cleaned.length}, 分割后数量=${timestamps.size}")
-                Log.d(TAG, "[导入追踪] 泽熙刷牙: 第一个分割结果=${timestamps.firstOrNull()}")
-            }
-            
-            for ((index, timestamp) in timestamps.withIndex()) {
+            for (timestamp in timestamps) {
                 try {
-                    val time = timestamp.trim().toLong()
-                    if (isTrackingCounter) {
-                        Log.d(TAG, "[导入追踪] 泽熙刷牙: 第${index+1}/${timestamps.size}个时间戳=$time, 解析成功")
-                    }
-                    entries.add(Entry(name = counterName, date = Date(time)))
-                    parsedCount++
+                    entries.add(Entry(name = counterName, date = Date(timestamp.trim().toLong())))
                 } catch (e: Exception) {
-                    failedCount++
-                    if (isTrackingCounter) {
-                        Log.e(TAG, "[导入追踪] 泽熙刷牙: 第${index+1}/${timestamps.size}个时间戳解析失败: ${timestamp}", e)
-                    } else {
-                        Log.w(TAG, "[导入] 无法解析时间戳: ${timestamp}", e)
-                    }
+                     Log.w(TAG, "[导入] 无法解析时间戳: ${timestamp}", e)
                 }
-            }
-            
-            if (isTrackingCounter) {
-                Log.d(TAG, "[导入追踪] 泽熙刷牙: 解析完成，成功=$parsedCount, 失败=$failedCount, entries列表大小=${entries.size}")
             }
         } catch (e: Exception) {
             Log.e(TAG, "[导入] 解析时间戳数组失败: $timestampsStr", e)
         }
     }
-
-    // 辅助方法
+    
     private fun CounterColor.Companion.getDefaultInt(): Int {
         return 0xFF2196F3.toInt() // 默认蓝色
     }
@@ -923,7 +1041,6 @@ class ViewModel(application: Application) {
         val ret = MutableLiveData<List<Entry>>()
         CoroutineScope(Dispatchers.IO).launch {
             val entries = repo.getEntriesForRangeSortedByDate(name, since, until)
-            //Log.e(TAG, "Queried ${entries.size} entries")
             CoroutineScope(Dispatchers.Main).launch {
                 ret.value = entries
             }
@@ -936,13 +1053,11 @@ class ViewModel(application: Application) {
         synchronized(this) {
             entries = summaryMap.toList() // 创建副本避免并发修改
         }
-        // 在同步块外获取所有计数器摘要
         val summaries = mutableListOf<Pair<String, CounterSummary>>()
         for ((name, _) in entries) {
             val counterSummary = repo.getCounterSummary(name) // IO线程
             summaries.add(Pair(name, counterSummary))
         }
-        // 在主线程中更新LiveData
         withContext(Dispatchers.Main) {
             synchronized(this) {
                 for ((name, counterSummary) in summaries) {
@@ -950,6 +1065,7 @@ class ViewModel(application: Application) {
                 }
             }
         }
+        recalculateDynamicCounters()
     }
 
     companion object {
@@ -958,7 +1074,6 @@ class ViewModel(application: Application) {
             var name = nameAndDates.next()
             var nameEnded = false
             nameAndDates.forEach { timestamp ->
-                // Hack to support counters with commas in their names
                 val timestampLong = if (nameEnded) {
                     timestamp.toLong()
                 } else {
@@ -975,30 +1090,24 @@ class ViewModel(application: Application) {
             namesToImport.add(name)
         }
     }
-
-    // 根据颜色名称获取CounterColor对象
     private fun getColorForName(colorName: String, context: Context): CounterColor {
         val defaultColor = CounterColor.getDefault(context)
-        
-        // 直接匹配颜色名称，不使用反射
         return when (colorName.uppercase()) {
             "BLACK" -> CounterColor.getDefault(context)
-            "RED" -> CounterColor.getDefault(context) // 需要替换为实际的RED颜色
-            "GREEN" -> CounterColor.getDefault(context) // 需要替换为实际的GREEN颜色
-            "BLUE" -> CounterColor.getDefault(context) // 需要替换为实际的BLUE颜色
-            "YELLOW" -> CounterColor.getDefault(context) // 需要替换为实际的YELLOW颜色
-            "PURPLE" -> CounterColor.getDefault(context) // 需要替换为实际的PURPLE颜色
-            "ORANGE" -> CounterColor.getDefault(context) // 需要替换为实际的ORANGE颜色
-            "CYAN" -> CounterColor.getDefault(context) // 需要替换为实际的CYAN颜色
-            "PINK" -> CounterColor.getDefault(context) // 需要替换为实际的PINK颜色
-            "GRAY" -> CounterColor.getDefault(context) // 需要替换为实际的GRAY颜色
+            "RED" -> CounterColor.getDefault(context) 
+            "GREEN" -> CounterColor.getDefault(context) 
+            "BLUE" -> CounterColor.getDefault(context) 
+            "YELLOW" -> CounterColor.getDefault(context) 
+            "PURPLE" -> CounterColor.getDefault(context) 
+            "ORANGE" -> CounterColor.getDefault(context) 
+            "CYAN" -> CounterColor.getDefault(context) 
+            "PINK" -> CounterColor.getDefault(context) 
+            "GRAY" -> CounterColor.getDefault(context) 
             else -> defaultColor
         }
     }
-
-    // 获取颜色的英文名称
+    
     private fun getColorName(color: CounterColor): String {
-        // 尝试获取颜色名称
         return when (color.toString()) {
             "0" -> "BLACK"
             "1" -> "RED"
@@ -1010,13 +1119,11 @@ class ViewModel(application: Application) {
             "7" -> "CYAN"
             "8" -> "PINK"
             "9" -> "GRAY"
-            else -> "DEFAULT" // 如果无法识别，使用默认
+            else -> "DEFAULT"
         }
     }
-
-    // 根据颜色值映射到名称
+    
     private fun mapColorValueToName(colorValue: Int): String {
-        // 通过颜色值的模式识别颜色
         return when (colorValue % 10) {
             0 -> "BLACK"
             1 -> "RED"
@@ -1031,20 +1138,16 @@ class ViewModel(application: Application) {
             else -> "DEFAULT"
         }
     }
-
-    // 创建具有指定colorInt的CounterColor对象
+    
     private fun createCounterColorFromInt(colorInt: Int, context: Context): CounterColor {
-        // 尝试使用反射动态设置颜色值
         val defaultColor = CounterColor.getDefault(context)
         
         return try {
-            // 尝试使用构造函数
             val constructor = CounterColor::class.java.getDeclaredConstructor(Int::class.java)
             constructor.isAccessible = true
             constructor.newInstance(colorInt)
         } catch (e: Exception) {
             try {
-                // 尝试通过Field设置值
                 val field = CounterColor::class.java.getDeclaredField("colorInt")
                 field.isAccessible = true
                 field.set(defaultColor, colorInt)
@@ -1055,32 +1158,29 @@ class ViewModel(application: Application) {
             }
         }
     }
-
-    // 根据名称获取颜色整数值
+    
     private fun getColorIntForName(colorName: String): Int {
         return when (colorName.uppercase()) {
-            "BLACK" -> -16777216 // Color.BLACK
-            "RED" -> -65536 // Color.RED
-            "GREEN" -> -16711936 // Color.GREEN
-            "BLUE" -> -16776961 // Color.BLUE
-            "YELLOW" -> -256 // Color.YELLOW
-            "PURPLE" -> -8388480 // 紫色
-            "ORANGE" -> -23296 // 橙色
-            "CYAN" -> -16711681 // Color.CYAN
-            "PINK" -> -65281 // 粉色
-            "GRAY" -> -7829368 // Color.GRAY
-            else -> 0 // 默认值
+            "BLACK" -> -16777216 
+            "RED" -> -65536 
+            "GREEN" -> -16711936 
+            "BLUE" -> -16776961 
+            "YELLOW" -> -256 
+            "PURPLE" -> -8388480 
+            "ORANGE" -> -23296 
+            "CYAN" -> -16711681 
+            "PINK" -> -65281 
+            "GRAY" -> -7829368 
+            else -> 0
         }
     }
-
-    // 获取颜色整数值，支持多种格式
+    
     private fun getColorIntFromValue(colorValue: Any?): Int {
         return when (colorValue) {
             is Number -> colorValue.toInt()
             is String -> {
                 val colorStr = colorValue.toString()
                 when {
-                    // RGB格式: #RRGGBB
                     colorStr.startsWith("#") && (colorStr.length == 7 || colorStr.length == 9) -> {
                         try {
                             Color.parseColor(colorStr)
@@ -1088,7 +1188,6 @@ class ViewModel(application: Application) {
                             getColorIntForName("DEFAULT")
                         }
                     }
-                    // 数字字符串
                     colorStr.matches(Regex("-?\\d+")) -> {
                         try {
                             colorStr.toInt()
@@ -1096,7 +1195,6 @@ class ViewModel(application: Application) {
                             getColorIntForName("DEFAULT")
                         }
                     }
-                    // 颜色名称
                     else -> {
                         getColorIntForName(colorStr)
                     }
@@ -1105,13 +1203,11 @@ class ViewModel(application: Application) {
             else -> getColorIntForName("DEFAULT")
         }
     }
-
-    // 获取计数器的所有条目
+    
     suspend fun getAllEntriesSortedByDate(name: String): List<Entry> {
         return repo.getAllEntriesSortedByDate(name)
     }
-
-    // 检查是否有任何计数器包含条目
+    
     suspend fun hasDataToExport(): Boolean {
         val counters = repo.getCounterList()
         for (name in counters) {
@@ -1121,31 +1217,29 @@ class ViewModel(application: Application) {
         }
         return false
     }
-
-    // 强制刷新所有LiveData
-    private fun refreshLiveData() {
-        CoroutineScope(Dispatchers.IO).launch {
-            val counters = repo.getCounterList()
-            val summaries = mutableListOf<Pair<String, CounterSummary>>()
-            for (name in counters) {
-                val summary = repo.getCounterSummary(name)
-                summaries.add(Pair(name, summary))
-            }
+    
+        private fun refreshLiveData() {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            val counters = repo.getCounterList()
+                            val summaries = mutableListOf<Pair<String, CounterSummary>>() // Changed to hold CounterSummary directly
+                            for (name in counters) {
+                                val summary = repo.getCounterSummary(name)
+                                summaries.add(Pair(name, summary))
+                            }
             
-            // 在主线程中更新LiveData
-            withContext(Dispatchers.Main) {
-                synchronized(this) {
-                    for ((name, summary) in summaries) {
-                        summaryMap[name]?.value = summary
+                            withContext(Dispatchers.Main) {
+                                synchronized(this) {
+                                    for ((name, summary) in summaries) {
+                                        summaryMap[name]?.value = summary
+                                    }
+                                    val observersCopy = counterObservers.toList()
+                                    for (observer in observersCopy) {
+                                        observer.onInitialCountersLoaded()
+                                    }
+                                }
+                            }
+                            // Explicitly call the extension function on the current CoroutineScope
+                            recalculateDynamicCounters()
+                        }
                     }
-                    // 通知所有观察者数据已更新
-                    val observersCopy = counterObservers.toList()
-                    for (observer in observersCopy) {
-                        observer.onInitialCountersLoaded()
-                    }
-                }
-            }
-        }
-    }
-
 }

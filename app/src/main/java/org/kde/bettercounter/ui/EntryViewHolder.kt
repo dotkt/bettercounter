@@ -31,7 +31,29 @@ class EntryViewHolder(
     fun onBind(counter: CounterSummary, isMultiSelectMode: Boolean = false, isSelected: Boolean = false, onSelectionToggle: ((String) -> Unit)? = null) {
         binding.root.setBackgroundColor(counter.color.colorInt)
         
-        // 多选模式处理
+        // Handle visibility based on counter type FIRST
+        when (counter.type) {
+            org.kde.bettercounter.persistence.CounterType.STANDARD -> {
+                binding.btnMinus1.visibility = android.view.View.VISIBLE
+                binding.btnMinus5.visibility = android.view.View.VISIBLE
+                binding.btnMinus10.visibility = android.view.View.VISIBLE
+                binding.btnPlus1.visibility = android.view.View.VISIBLE
+                binding.btnPlus5.visibility = android.view.View.VISIBLE
+                binding.btnPlus10.visibility = android.view.View.VISIBLE
+                binding.formulaIcon.visibility = android.view.View.GONE
+            }
+            org.kde.bettercounter.persistence.CounterType.DYNAMIC -> {
+                binding.btnMinus1.visibility = android.view.View.GONE
+                binding.btnMinus5.visibility = android.view.View.GONE
+                binding.btnMinus10.visibility = android.view.View.GONE
+                binding.btnPlus1.visibility = android.view.View.GONE
+                binding.btnPlus5.visibility = android.view.View.GONE
+                binding.btnPlus10.visibility = android.view.View.GONE
+                binding.formulaIcon.visibility = android.view.View.VISIBLE
+            }
+        }
+
+        // Multi-select mode overrides other UI states
         if (isMultiSelectMode) {
             binding.selectionCheckBox.visibility = android.view.View.VISIBLE
             binding.selectionCheckBox.isChecked = isSelected
@@ -79,15 +101,15 @@ class EntryViewHolder(
         // 红色减号按钮绑定
         binding.btnMinus10.setOnClickListener {
             lastButtonClickTime = System.currentTimeMillis()
-            viewModel.decrementCounterByValue(counter.name, 10)
+            viewModel.incrementCounterByValue(counter.name, -10)
         }
         binding.btnMinus5.setOnClickListener {
             lastButtonClickTime = System.currentTimeMillis()
-            viewModel.decrementCounterByValue(counter.name, 5)
+            viewModel.incrementCounterByValue(counter.name, -5)
         }
         binding.btnMinus1.setOnClickListener {
             lastButtonClickTime = System.currentTimeMillis()
-            viewModel.decrementCounterByValue(counter.name, 1)
+            viewModel.incrementCounterByValue(counter.name, -1)
         }
         
         // 绿色加号按钮绑定
@@ -126,21 +148,17 @@ class EntryViewHolder(
                 .setPositiveButton("确定") { _, _ ->
                     try {
                         val inputText = editText.text.toString().trim()
-                        // 将中文减号替换为英文减号
                         val normalizedText = inputText.replace('－', '-')
                         val value = normalizedText.toIntOrNull()
                         if (value != null && value != 0) {
                             if (value > 0) {
                                 viewModel.incrementCounterByValue(counter.name, value)
                             } else {
-                                // 对于负数，取绝对值
-                                val absValue = -value
-                                viewModel.decrementCounterByValue(counter.name, absValue)
+                                viewModel.incrementCounterByValue(counter.name, value)
                             }
                         }
                     } catch (e: Exception) {
                         android.util.Log.e("EntryViewHolder", "处理自定义分数时出错: ${e.message}", e)
-                        // 显示错误提示
                         androidx.appcompat.app.AlertDialog.Builder(activity)
                             .setTitle("错误")
                             .setMessage("操作失败: ${e.message}")
@@ -152,10 +170,8 @@ class EntryViewHolder(
                 .show()
         }
 
-        // 设置点击和长按事件（仅非多选模式）
         if (!isMultiSelectMode) {
             binding.nameText.setOnClickListener { 
-                // 如果300ms内点击过按钮，则不触发标题点击
                 if (System.currentTimeMillis() - lastButtonClickTime > 300) {
                     onClickListener(counter)
                 }
@@ -173,25 +189,18 @@ class EntryViewHolder(
         
         binding.nameText.text = counter.name
 
-        // 显示相对时间（使用BetterRelativeTimeTextView自动更新）
         val mostRecentDate = counter.mostRecent
-        if (mostRecentDate != null) {
+        if (mostRecentDate != null && counter.type == org.kde.bettercounter.persistence.CounterType.STANDARD) {
             binding.relativeTimeText.referenceTime = mostRecentDate.time
             binding.relativeTimeText.visibility = android.view.View.VISIBLE
-            
-            // 设置颜色：如果是"刚刚"状态，使用特殊颜色
-            // 由于BetterRelativeTimeTextView会自动更新，我们需要定期检查并更新颜色
             updateRelativeTimeColor(counter, mostRecentDate)
         } else {
             binding.relativeTimeText.visibility = android.view.View.GONE
         }
         
-        // 显示计数器数字或进度
-        if (counter.goal > 0) {
-            // 有目标，显示进度 "3/10"
+        if (counter.goal > 0 && counter.type == org.kde.bettercounter.persistence.CounterType.STANDARD) {
             binding.counterValueText.text = "${counter.lastIntervalCount}/${counter.goal}"
         } else {
-            // 无目标，只显示数字
             binding.counterValueText.text = counter.lastIntervalCount.toString()
         }
         binding.counterValueText.visibility = android.view.View.VISIBLE
@@ -201,7 +210,7 @@ class EntryViewHolder(
         if (newGoal == counter.goal) return
         val category = viewModel.getCounterCategory(counter.name)
         val meta = org.kde.bettercounter.persistence.CounterMetadata(
-            counter.name, counter.interval, newGoal, counter.color, category
+            counter.name, counter.interval, newGoal, counter.color, category, counter.type, counter.formula
         )
         viewModel.editCounterSameName(meta)
     }

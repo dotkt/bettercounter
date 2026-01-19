@@ -20,6 +20,7 @@ import org.kde.bettercounter.databinding.CounterSettingsBinding
 import org.kde.bettercounter.persistence.CounterColor
 import org.kde.bettercounter.persistence.CounterMetadata
 import org.kde.bettercounter.persistence.CounterSummary
+import org.kde.bettercounter.persistence.CounterType
 import org.kde.bettercounter.persistence.Interval
 
 class CounterSettingsDialogBuilder(private val context: Context, private val viewModel: ViewModel) {
@@ -31,21 +32,13 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
     private var onSaveListener: (counterMetadata: CounterMetadata) -> Unit = { _ -> }
     private var previousName: String? = null
     private var goal = 0
+    private var currentType = CounterType.STANDARD
 
     init {
         builder.setView(binding.root)
 
         binding.spinnerInterval.adapter = intervalAdapter
 
-        // The material equivalent to a spinner is an AutoCompleteTextEdit with the ExposedDropdown
-        // style and some settings tweaked to always show all the "autocomplete" options once clicked.
-        // However, despite both the Spinner and the AutoCompleteTextEdit using a ListPopupWindow to
-        // display the dropdown with the list of options, the Spinner sets the layout type to
-        // TYPE_APPLICATION_SUB_PANEL and the AutoCompleteTextEdit doesn't. We want this setting
-        // because it makes the dropdown be displayed above the on-screen keyboard. This prevents the
-        // dialog moving up and down and lets the user enter the name for the counter before or after
-        // the other options. So we are displaying the selected option in a TextView for the material
-        // looks but using a hidden Spinner for the dropdown behavior.
         binding.fakeSpinnerIntervalBox.setOnClickListener {
             binding.spinnerInterval.performClick()
         }
@@ -89,6 +82,21 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
             binding.goalInput.isCursorVisible = hasFocus && (goal != 0)
         }
 
+        binding.counterTypeRadioGroup.setOnCheckedChangeListener { _, checkedId ->
+            when (checkedId) {
+                R.id.radioStandard -> {
+                    currentType = CounterType.STANDARD
+                    binding.standardCounterSettings.visibility = View.VISIBLE
+                    binding.formulaInputBox.visibility = View.GONE
+                }
+                R.id.radioDynamic -> {
+                    currentType = CounterType.DYNAMIC
+                    binding.standardCounterSettings.visibility = View.GONE
+                    binding.formulaInputBox.visibility = View.VISIBLE
+                }
+            }
+        }
+
         builder.setPositiveButton(R.string.save, null)
         builder.setNegativeButton(R.string.cancel, null)
     }
@@ -116,14 +124,29 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
         binding.nameEditBox.isHintAnimationEnabled = false
         binding.nameEdit.setText(counter.name)
         binding.nameEditBox.isHintAnimationEnabled = true
-        binding.fakeSpinnerInterval.setText(counter.interval.toHumanReadableResourceId())
-        binding.spinnerInterval.setSelection(intervalAdapter.positionOf(counter.interval))
+
         colorAdapter.selectedColor = counter.color.colorInt
-        goal = counter.goal
-        // 获取并设置类别
+        
         val category = viewModel.getCounterCategory(counter.name)
         binding.categoryEdit.setText(category)
-        updateGoalText()
+        
+        // Set type and show/hide fields accordingly
+        currentType = counter.type
+        if (currentType == CounterType.DYNAMIC) {
+            binding.radioDynamic.isChecked = true
+            binding.formulaEdit.setText(counter.formula)
+            binding.standardCounterSettings.visibility = View.GONE
+            binding.formulaInputBox.visibility = View.VISIBLE
+        } else {
+            binding.radioStandard.isChecked = true
+            binding.fakeSpinnerInterval.setText(counter.interval.toHumanReadableResourceId())
+            binding.spinnerInterval.setSelection(intervalAdapter.positionOf(counter.interval))
+            goal = counter.goal
+            updateGoalText()
+            binding.standardCounterSettings.visibility = View.VISIBLE
+            binding.formulaInputBox.visibility = View.GONE
+        }
+        
         return this
     }
 
@@ -144,29 +167,56 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
 
     fun show(): AlertDialog {
         val dialog = builder.show()
-        // Override the listener last (after showing) instead of passing it to setPositiveButton so we can decide when to dismiss the dialog
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             val name = binding.nameEdit.text.toString().trim()
-            when {
-                name.isBlank() -> {
-                    binding.nameEdit.error = context.getString(R.string.name_cant_be_blank)
+            var isValid = true
+
+            if (name.isBlank()) {
+                binding.nameEdit.error = context.getString(R.string.name_cant_be_blank)
+                isValid = false
+            } else if (name != previousName && viewModel.counterExists(name)) {
+                binding.nameEdit.error = context.getString(R.string.already_exists)
+                isValid = false
+            } else {
+                binding.nameEdit.error = null
+            }
+
+            val formula = binding.formulaEdit.text.toString().trim()
+            if (currentType == CounterType.DYNAMIC) {
+                val validationResult = viewModel.validateFormula(formula, name)
+                if (validationResult is ViewModel.FormulaValidationResult.Invalid) {
+                    binding.formulaInputBox.error = validationResult.error
+                    isValid = false
+                } else {
+                    binding.formulaInputBox.error = null
                 }
-                name != previousName && viewModel.counterExists(name) -> {
-                    binding.nameEdit.error = context.getString(R.string.already_exists)
-                }
-                else -> {
-                    val category = binding.categoryEdit.text.toString().trim().takeIf { it.isNotBlank() } ?: "默认"
-                    onSaveListener(
-                        CounterMetadata(
-                            name,
-                            intervalAdapter.itemAt(binding.spinnerInterval.selectedItemPosition),
-                            goal,
-                            CounterColor(colorAdapter.selectedColor),
-                            category
-                        )
+            }
+            
+            if (isValid) {
+                val category = binding.categoryEdit.text.toString().trim().takeIf { it.isNotBlank() } ?: "默认"
+                val metadata = if (currentType == CounterType.STANDARD) {
+                    CounterMetadata(
+                        name,
+                        intervalAdapter.itemAt(binding.spinnerInterval.selectedItemPosition),
+                        goal,
+                        CounterColor(colorAdapter.selectedColor),
+                        category,
+                        CounterType.STANDARD,
+                        null
                     )
-                    dialog.dismiss()
+                } else { // DYNAMIC
+                    CounterMetadata(
+                        name,
+                        Interval.DEFAULT, // Interval/goal not applicable for dynamic
+                        0,
+                        CounterColor(colorAdapter.selectedColor),
+                        category,
+                        CounterType.DYNAMIC,
+                        formula
+                    )
                 }
+                onSaveListener(metadata)
+                dialog.dismiss()
             }
         }
         if (binding.nameEdit.text.isNullOrEmpty()) {

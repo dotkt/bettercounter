@@ -13,6 +13,9 @@ androidDesugarJdkLibs = "2.0.4"
 simpleTooltip = "1.1.0"
 mpAndroidChart = "v3.1.0"
 junit = "4.13.2"
+androidxTestExtJunit = "1.1.5"
+androidxTestCore = "1.5.0"
+kotlinxCoroutinesTest = "1.8.0"
 
 [libraries]
 android-gradlePlugin = { module = "com.android.tools.build:gradle", version.ref = "gradle" }
@@ -31,6 +34,9 @@ android-desugarJdkLibs = { module = "com.android.tools:desugar_jdk_libs", versio
 douglasjunior-android-simple-tooltip = { module = "com.github.douglasjunior:android-simple-tooltip", version.ref = "simpleTooltip" }
 philJay-mpAndroidChart = { module = "com.github.PhilJay:MPAndroidChart", version.ref = "mpAndroidChart" }
 junit = { module = "junit:junit", version.ref = "junit" }
+androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidxTestExtJunit" }
+androidx-test-core = { module = "androidx.test:core", version.ref = "androidxTestCore" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinxCoroutinesTest" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "gradle" }

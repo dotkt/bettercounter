@@ -6,17 +6,35 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class CounterSummary(
+
     var name: String,
+
     var interval: Interval,
+
     var goal: Int,
+
     var color: CounterColor,
+
+    var category: String,
+
     var lastIntervalCount: Int,
+
     var totalCount: Int,
+
     var leastRecent: Date?,
+
     var mostRecent: Date?,
+
+    var type: CounterType = CounterType.STANDARD,
+
+    var formula: String? = null
+
 ) {
+
     fun latestBetweenNowAndMostRecentEntry(): Date {
+
         val now = Calendar.getInstance().time
+
         val lastEntry = mostRecent
         return if (lastEntry != null && lastEntry > now) lastEntry else now
     }
