@@ -67,6 +67,8 @@ class WidgetProvider : AppWidgetProvider() {
                     Log.d(TAG, "CounterSummary has no observers")
                     updateAppWidget(context, viewModel, AppWidgetManager.getInstance(context), appWidgetId)
                 }
+                // Force all widgets to refresh to ensure dynamic counters are updated.
+                forceRefreshWidgets(context)
             }
         } else if (intent.action == ACTION_UPDATE_TIME) {
             // 处理时间更新请求
