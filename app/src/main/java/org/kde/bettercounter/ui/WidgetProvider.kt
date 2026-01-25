@@ -30,6 +30,8 @@ private const val TAG = "WidgetProvider"
 class WidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
+        val startTime = System.currentTimeMillis()
+        Log.d("WidgetTimings", "onUpdate started for ${appWidgetIds.size} widgets at $startTime")
         Log.d("DynamicCounterBug", "onUpdate called for widget IDs: ${appWidgetIds.joinToString()}")
         val viewModel = (context.applicationContext as BetterApplication).viewModel
         // When widgets are updated, we must ensure dynamic counters are recalculated.
@@ -37,6 +39,8 @@ class WidgetProvider : AppWidgetProvider() {
         for (appWidgetId in appWidgetIds) {
             updateAppWidget(context, viewModel, appWidgetManager, appWidgetId)
         }
+        val endTime = System.currentTimeMillis()
+        Log.d("WidgetTimings", "onUpdate finished for ${appWidgetIds.size} widgets in ${endTime - startTime}ms")
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
@@ -46,6 +50,8 @@ class WidgetProvider : AppWidgetProvider() {
     }
 
     override fun onReceive(context: Context, intent: Intent) {
+        val startTime = System.currentTimeMillis()
+        Log.d("WidgetTimings", "onReceive started for action: ${intent.action} at $startTime")
         super.onReceive(context, intent)
         Log.d("DynamicCounterBug", "onReceive received action: ${intent.action}")
         if (intent.action == ACTION_COUNT) {
@@ -86,6 +92,8 @@ class WidgetProvider : AppWidgetProvider() {
                 updateAppWidget(context, viewModel, appWidgetManager, appWidgetId)
             }
         }
+        val endTime = System.currentTimeMillis()
+        Log.d("WidgetTimings", "onReceive finished for action: ${intent.action} in ${endTime - startTime}ms")
     }
 }
 
@@ -109,6 +117,8 @@ fun removeWidgets(context: Context, counterName: String) {
 }
 
 fun forceRefreshWidgets(context: Context) {
+    val startTime = System.currentTimeMillis()
+    Log.d("WidgetTimings", "forceRefreshWidgets started at $startTime")
     Log.d("DynamicCounterBug", "forceRefreshWidgets called.")
     val widgetIds = getAllWidgetIds(context)
     if (widgetIds.isNotEmpty()) {
@@ -120,6 +130,8 @@ fun forceRefreshWidgets(context: Context) {
     } else {
         Log.d(TAG, "No widgets to refresh")
     }
+    val endTime = System.currentTimeMillis()
+    Log.d("WidgetTimings", "forceRefreshWidgets finished in ${endTime - startTime}ms")
 }
 
 internal fun updateAppWidget(
@@ -128,12 +140,14 @@ internal fun updateAppWidget(
     appWidgetManager: AppWidgetManager,
     appWidgetId: Int
 ) {
+    val startTime = System.currentTimeMillis()
     if (!existsWidgetCounterNamePref(context, appWidgetId)) {
         Log.e(TAG, "Ignoring updateAppWidget for an unconfigured widget")
         return
     }
 
     val counterName = loadWidgetCounterNamePref(context, appWidgetId)
+    Log.d("WidgetTimings", "updateAppWidget started for widget ID $appWidgetId, counter '$counterName' at $startTime")
 
     val views = RemoteViews(BuildConfig.APPLICATION_ID, R.layout.widget)
 
@@ -223,7 +237,8 @@ internal fun updateAppWidget(
                 } else {
                     views.setViewVisibility(R.id.widgetCheckmark, android.view.View.GONE)
                 }
-            } else {
+            }
+            else {
                 views.setTextViewText(R.id.widgetTime, if (value.type == org.kde.bettercounter.persistence.CounterType.DYNAMIC) "" else context.getString(R.string.never))
                 views.setViewVisibility(R.id.widgetCheckmark, android.view.View.GONE)
             }
@@ -232,6 +247,8 @@ internal fun updateAppWidget(
             scheduleSmartTimeUpdate(context, appWidgetId, date)
         }
     })
+    val endTime = System.currentTimeMillis()
+    Log.d("WidgetTimings", "updateAppWidget finished for widget ID $appWidgetId, counter '$counterName' in ${endTime - startTime}ms")
 }
 
 /**

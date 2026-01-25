@@ -54,4 +54,5 @@ else
     echo "========================================"
     echo "APK位置: app/build/outputs/apk/debug/app-debug.apk"
     echo ""
+    adb install app/build/outputs/apk/debug/app-debug.apk
 fi

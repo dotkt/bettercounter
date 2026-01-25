@@ -193,6 +193,8 @@ class ViewModel(application: Application) {
     }
 
     fun incrementCounterWithCallback(name: String, date: Date = Calendar.getInstance().time, callback: () -> Unit) {
+        val startTime = System.currentTimeMillis()
+        Log.d("WidgetTimings", "incrementCounterWithCallback started for '$name' at $startTime")
         Log.d("DynamicCounterBug", "incrementCounterWithCallback triggered for '$name'")
         CoroutineScope(Dispatchers.IO).launch {
             repo.addEntry(name, date)
@@ -207,6 +209,8 @@ class ViewModel(application: Application) {
             recalculateDynamicCounters()
             CoroutineScope(Dispatchers.Main).launch {
                 callback()
+                val endTime = System.currentTimeMillis()
+                Log.d("WidgetTimings", "incrementCounterWithCallback finished for '$name' in ${endTime - startTime}ms")
             }
 
         }
