@@ -83,14 +83,6 @@ class WidgetProvider : AppWidgetProvider() {
                 val viewModel = (context.applicationContext as BetterApplication).viewModel
                 updateAppWidgetTimeOnly(context, viewModel, AppWidgetManager.getInstance(context), appWidgetId)
             }
-        } else if (intent.action == AppWidgetManager.ACTION_APPWIDGET_UPDATE) {
-            // 系统触发的更新，更新所有widget
-            val viewModel = (context.applicationContext as BetterApplication).viewModel
-            val appWidgetManager = AppWidgetManager.getInstance(context)
-            val appWidgetIds = getAllWidgetIds(context)
-            for (appWidgetId in appWidgetIds) {
-                updateAppWidget(context, viewModel, appWidgetManager, appWidgetId)
-            }
         }
         val endTime = System.currentTimeMillis()
         Log.d("WidgetTimings", "onReceive finished for action: ${intent.action} in ${endTime - startTime}ms")
