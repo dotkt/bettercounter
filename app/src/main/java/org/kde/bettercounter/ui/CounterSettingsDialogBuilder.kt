@@ -96,10 +96,7 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
 
         binding.stepInput.addTextChangedListener {
             step = it.toString().toIntOrNull() ?: 1
-            if (step == 1) {
-                it?.clear()
-            }
-            binding.stepInput.isCursorVisible = binding.stepInput.hasFocus() && (step != 1)
+            binding.stepInput.isCursorVisible = binding.stepInput.hasFocus()
         }
 
         binding.stepInput.setOnFocusChangeListener { _, hasFocus ->
