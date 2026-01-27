@@ -6,6 +6,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.kde.bettercounter.ViewModel
+import org.kde.bettercounter.persistence.CounterMetadata
 import org.kde.bettercounter.persistence.Entry
 import java.time.temporal.ChronoUnit
 import java.util.Date
@@ -64,4 +65,17 @@ class ImportTest {
         ViewModel.parseImportLine(line, namesToImport, entriesToImport)
     }
 
+    @Test
+    fun `import with step`() {
+        val namesToImport: MutableList<String> = mutableListOf()
+        val entriesToImport: MutableList<Entry> = mutableListOf()
+        val metadataToUpdate = mutableMapOf<String, CounterMetadata>()
+        val line = """{"name":"TestCounter","color":"#FFFFFF","colorName":"WHITE","interval":"DAILY","goal":10,"category":"Test","type":"STANDARD","formula":null,"step":5},[$testTimestamp]"""
+        ViewModel.parseImportLineWithJSON(line, namesToImport, entriesToImport, metadataToUpdate)
+        assertEquals(1, namesToImport.size)
+        assertEquals("TestCounter", namesToImport[0])
+        assertEquals(1, entriesToImport.size)
+        assertEquals(testTimestamp, entriesToImport[0].date.time)
+        assertEquals(5, metadataToUpdate["TestCounter"]?.step)
+    }
 }

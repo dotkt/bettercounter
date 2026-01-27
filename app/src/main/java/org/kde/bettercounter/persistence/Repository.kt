@@ -19,6 +19,7 @@ const val COUNTERS_GOAL_PREFS_KEY = "goal.%s"
 const val COUNTERS_CATEGORY_PREFS_KEY = "category.%s"
 const val COUNTERS_TYPE_PREFS_KEY = "type.%s"
 const val COUNTERS_FORMULA_PREFS_KEY = "formula.%s"
+const val COUNTERS_STEP_PREFS_KEY = "step.%s"
 const val TUTORIALS_PREFS_KEY = "tutorials"
 
 class Repository(
@@ -115,6 +116,11 @@ class Repository(
         return sharedPref.getString(key, null)
     }
 
+    private fun getCounterStep(name: String): Int {
+        val key = COUNTERS_STEP_PREFS_KEY.format(name)
+        return sharedPref.getInt(key, 1)
+    }
+
 
     fun deleteCounterMetadata(name: String) {
         val colorKey = COUNTERS_COLOR_PREFS_KEY.format(name)
@@ -123,6 +129,7 @@ class Repository(
         val categoryKey = COUNTERS_CATEGORY_PREFS_KEY.format(name)
         val typeKey = COUNTERS_TYPE_PREFS_KEY.format(name)
         val formulaKey = COUNTERS_FORMULA_PREFS_KEY.format(name)
+        val stepKey = COUNTERS_STEP_PREFS_KEY.format(name)
         sharedPref.edit()
             .remove(colorKey)
             .remove(intervalKey)
@@ -130,6 +137,7 @@ class Repository(
             .remove(categoryKey)
             .remove(typeKey)
             .remove(formulaKey)
+            .remove(stepKey)
             .apply()
         counterCache.remove(name)
     }
@@ -141,6 +149,7 @@ class Repository(
         val categoryKey = COUNTERS_CATEGORY_PREFS_KEY.format(counter.name)
         val typeKey = COUNTERS_TYPE_PREFS_KEY.format(counter.name)
         val formulaKey = COUNTERS_FORMULA_PREFS_KEY.format(counter.name)
+        val stepKey = COUNTERS_STEP_PREFS_KEY.format(counter.name)
 
         val editor = sharedPref.edit()
             .putInt(colorKey, counter.color.colorInt)
@@ -148,6 +157,7 @@ class Repository(
             .putInt(goalKey, counter.goal)
             .putString(categoryKey, counter.category)
             .putString(typeKey, counter.type.name)
+            .putInt(stepKey, counter.step)
 
         if (counter.formula != null) {
             editor.putString(formulaKey, counter.formula)
@@ -166,6 +176,7 @@ class Repository(
         val category = getCounterCategory(name)
         val type = getCounterType(name)
         val formula = getCounterFormula(name)
+        val step = getCounterStep(name)
 
         val intervalStartDate = when (interval) {
             Interval.LIFETIME -> Calendar.getInstance().apply { set(Calendar.YEAR, 1990) }
@@ -186,7 +197,8 @@ class Repository(
             leastRecent = firstLastAndCount.first,
             mostRecent = firstLastAndCount.last,
             type = type,
-            formula = formula
+            formula = formula,
+            step = step
         )
     }
 

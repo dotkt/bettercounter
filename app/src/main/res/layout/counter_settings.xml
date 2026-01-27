@@ -103,6 +103,25 @@
                 android:inputType="number"
                 android:maxLines="1" />
         </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/stepInputBox"
+            style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:hint="@string/step"
+            app:startIconDrawable="@drawable/ic_minusone"
+            app:endIconDrawable="@drawable/ic_plusone">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/stepInput"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center"
+                android:inputType="number"
+                android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
     </LinearLayout>
 
     <com.google.android.material.textfield.TextInputLayout

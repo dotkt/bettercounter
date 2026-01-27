@@ -12,6 +12,7 @@ data class CounterMetadata(
     var color: CounterColor,
     var category: String = "默认",
     var type: CounterType = CounterType.STANDARD,
-    var formula: String? = null
+    var formula: String? = null,
+    var step: Int = 1
 )
 

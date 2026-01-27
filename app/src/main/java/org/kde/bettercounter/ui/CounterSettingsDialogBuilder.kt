@@ -32,6 +32,7 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
     private var onSaveListener: (counterMetadata: CounterMetadata) -> Unit = { _ -> }
     private var previousName: String? = null
     private var goal = 0
+    private var step = 1
     private var currentType = CounterType.STANDARD
 
     init {
@@ -82,6 +83,29 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
             binding.goalInput.isCursorVisible = hasFocus && (goal != 0)
         }
 
+        binding.stepInputBox.setStartIconOnClickListener {
+            if (step > 1) {
+                step -= 1
+                updateStepText()
+            }
+        }
+        binding.stepInputBox.setEndIconOnClickListener {
+            step += 1
+            updateStepText()
+        }
+
+        binding.stepInput.addTextChangedListener {
+            step = it.toString().toIntOrNull() ?: 1
+            if (step == 1) {
+                it?.clear()
+            }
+            binding.stepInput.isCursorVisible = binding.stepInput.hasFocus() && (step != 1)
+        }
+
+        binding.stepInput.setOnFocusChangeListener { _, hasFocus ->
+            binding.stepInput.isCursorVisible = hasFocus && (step != 1)
+        }
+
         binding.counterTypeRadioGroup.setOnCheckedChangeListener { _, checkedId ->
             when (checkedId) {
                 R.id.radioStandard -> {
@@ -109,12 +133,21 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
         }
     }
 
+    private fun updateStepText() {
+        if (step > 1) {
+            binding.stepInput.setText(step.toString())
+        } else {
+            binding.stepInput.text?.clear()
+        }
+    }
+
     fun forNewCounter(): CounterSettingsDialogBuilder {
         builder.setTitle(R.string.add_counter)
         binding.fakeSpinnerInterval.setText(Interval.DEFAULT.toHumanReadableResourceId())
         binding.spinnerInterval.setSelection(intervalAdapter.positionOf(Interval.DEFAULT))
         binding.categoryEdit.setText("默认")
         updateGoalText()
+        updateStepText()
         return this
     }
 
@@ -142,7 +175,9 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
             binding.fakeSpinnerInterval.setText(counter.interval.toHumanReadableResourceId())
             binding.spinnerInterval.setSelection(intervalAdapter.positionOf(counter.interval))
             goal = counter.goal
+            step = counter.step
             updateGoalText()
+            updateStepText()
             binding.standardCounterSettings.visibility = View.VISIBLE
             binding.formulaInputBox.visibility = View.GONE
         }
@@ -202,7 +237,8 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
                         CounterColor(colorAdapter.selectedColor),
                         category,
                         CounterType.STANDARD,
-                        null
+                        null,
+                        step
                     )
                 } else { // DYNAMIC
                     CounterMetadata(
@@ -212,7 +248,8 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
                         CounterColor(colorAdapter.selectedColor),
                         category,
                         CounterType.DYNAMIC,
-                        formula
+                        formula,
+                        1
                     )
                 }
                 onSaveListener(metadata)

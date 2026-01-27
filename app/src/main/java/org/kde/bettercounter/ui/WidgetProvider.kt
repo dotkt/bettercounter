@@ -67,7 +67,9 @@ class WidgetProvider : AppWidgetProvider() {
             val counterName = loadWidgetCounterNamePref(context, appWidgetId)
             Log.d("DynamicCounterBug", "ACTION_COUNT for widget ID $appWidgetId, counter '$counterName'")
             val viewModel = (context.applicationContext as BetterApplication).viewModel
-            viewModel.incrementCounterWithCallback(counterName) {
+            val counterSummary = viewModel.getCounterSummary(counterName).value
+            val step = counterSummary?.step ?: 1
+            viewModel.incrementCounterWithCallback(counterName, step) {
                 if (!viewModel.getCounterSummary(counterName).hasObservers()) {
                     // The app was terminated and we got unsubscribed
                     Log.d(TAG, "CounterSummary has no observers")

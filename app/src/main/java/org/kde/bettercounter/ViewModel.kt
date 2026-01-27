@@ -192,12 +192,12 @@ class ViewModel(application: Application) {
         }
     }
 
-    fun incrementCounterWithCallback(name: String, date: Date = Calendar.getInstance().time, callback: () -> Unit) {
+    fun incrementCounterWithCallback(name: String, step: Int = 1, date: Date = Calendar.getInstance().time, callback: () -> Unit) {
         val startTime = System.currentTimeMillis()
         Log.d("WidgetTimings", "incrementCounterWithCallback started for '$name' at $startTime")
         Log.d("DynamicCounterBug", "incrementCounterWithCallback triggered for '$name'")
         CoroutineScope(Dispatchers.IO).launch {
-            repo.addEntry(name, date)
+            incrementCounterByValue(name, step, date)
             withContext(Dispatchers.Main) {
                 playDingSound()
             }
@@ -663,7 +663,7 @@ class ViewModel(application: Application) {
                     val formula = summary.formula?.let { "\"$it\"" } ?: "null"
     
                     // Create JSON with all metadata
-                    val configJson = """{"name":"$counterName","color":"$colorRGB","colorName":"$colorName","interval":"${summary.interval}","goal":${summary.goal},"category":"$category","type":"$type","formula":$formula}"""
+                    val configJson = """{"name":"$counterName","color":"$colorRGB","colorName":"$colorName","interval":"${summary.interval}","goal":${summary.goal},"category":"$category","type":"$type","formula":$formula,"step":${summary.step}}"""
                     
                     val timestamps = counterEntries.joinToString(",") { it.date.time.toString() }
                     
@@ -865,7 +865,7 @@ class ViewModel(application: Application) {
         }
     }
     
-    private fun parseImportLineWithJSON(
+    internal fun parseImportLineWithJSON(
         line: String,
         namesToImport: MutableList<String>,
         entriesToImport: MutableList<Entry>,
@@ -925,8 +925,9 @@ class ViewModel(application: Application) {
                 val typeStr = configMap["type"] as? String
                 val type = if (typeStr == "DYNAMIC") org.kde.bettercounter.persistence.CounterType.DYNAMIC else org.kde.bettercounter.persistence.CounterType.STANDARD
                 val formula = configMap["formula"] as? String
+                val step = (configMap["step"] as? Number)?.toInt() ?: 1
 
-                val metadata = CounterMetadata(name, interval, goal, color, category, type, formula)
+                val metadata = CounterMetadata(name, interval, goal, color, category, type, formula, step)
                 metadataToUpdate[name] = metadata
                 
                 parseTimestamps(timestampsPart, name, entriesToImport)

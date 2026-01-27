@@ -27,7 +27,9 @@ class CounterSummary(
 
     var type: CounterType = CounterType.STANDARD,
 
-    var formula: String? = null
+    var formula: String? = null,
+
+    var step: Int = 1
 
 ) {
 

@@ -65,6 +65,7 @@
     <string name="color_hint">Color %1$d</string>
     <string name="interval">Interval to display</string>
     <string name="goal">Goal</string>
+    <string name="step">Step</string>
     <string name="category">Category</string>
     <string name="color">Color</string>
     <string name="search_counters">搜索计数器...</string>
