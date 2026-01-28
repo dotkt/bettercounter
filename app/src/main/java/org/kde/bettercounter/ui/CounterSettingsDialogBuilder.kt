@@ -140,8 +140,9 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
 
     fun forNewCounter(): CounterSettingsDialogBuilder {
         builder.setTitle(R.string.add_counter)
-        binding.fakeSpinnerInterval.setText(Interval.DEFAULT.toHumanReadableResourceId())
-        binding.spinnerInterval.setSelection(intervalAdapter.positionOf(Interval.DEFAULT))
+        val selectedInterval = intervalAdapter.positionOf(Interval.DEFAULT)
+        binding.spinnerInterval.setSelection(selectedInterval)
+        binding.fakeSpinnerInterval.setText(intervalAdapter.getItem(selectedInterval))
         binding.categoryEdit.setText("默认")
         updateGoalText()
         updateStepText()
@@ -169,8 +170,9 @@ class CounterSettingsDialogBuilder(private val context: Context, private val vie
             binding.formulaInputBox.visibility = View.VISIBLE
         } else {
             binding.radioStandard.isChecked = true
-            binding.fakeSpinnerInterval.setText(counter.interval.toHumanReadableResourceId())
-            binding.spinnerInterval.setSelection(intervalAdapter.positionOf(counter.interval))
+            val selectedInterval = intervalAdapter.positionOf(counter.interval)
+            binding.spinnerInterval.setSelection(selectedInterval)
+            binding.fakeSpinnerInterval.setText(intervalAdapter.getItem(selectedInterval))
             goal = counter.goal
             step = counter.step
             updateGoalText()
