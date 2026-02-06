@@ -26,6 +26,8 @@ private const val ACTION_UPDATE_TIME = "org.kde.bettercounter.WidgetProvider.UPD
 private const val EXTRA_WIDGET_ID = "EXTRA_WIDGET_ID"
 
 private const val TAG = "WidgetProvider"
+// Cache for per-widget LiveData observers to prevent observer leaks on rapid updates
+private val widgetObservers = java.util.HashMap<Int, androidx.lifecycle.Observer<org.kde.bettercounter.persistence.CounterSummary>>()
 
 class WidgetProvider : AppWidgetProvider() {
 
@@ -44,7 +46,18 @@ class WidgetProvider : AppWidgetProvider() {
     }
 
     override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        val host = AppWidgetHost(context, 0)
         for (appWidgetId in appWidgetIds) {
+            // Clean up any registered observers for this widget
+            val observer = widgetObservers.remove(appWidgetId)
+            if (observer != null) {
+                val counterName = loadWidgetCounterNamePref(context, appWidgetId)
+                if (counterName.isNotEmpty()) {
+                    (context.applicationContext as BetterApplication).viewModel.getCounterSummary(counterName).removeObserver(observer)
+                }
+            }
+            // Remove the widget from the host and clear prefs
+            host.deleteAppWidgetId(appWidgetId)
             deleteWidgetCounterNamePref(context, appWidgetId)
         }
     }
@@ -167,7 +180,12 @@ internal fun updateAppWidget(
     }
 
     var prevCounterName = counterName
-    viewModel.getCounterSummary(counterName).observeForever(object : Observer<CounterSummary> {
+    // Use a persistent observer per widget to avoid leaking observers on repeated updates
+    val oldObserver = widgetObservers[appWidgetId]
+    if (oldObserver != null) {
+        viewModel.getCounterSummary(counterName).removeObserver(oldObserver)
+    }
+    val newObserver = object : Observer<CounterSummary> {
         override fun onChanged(value: CounterSummary) {
             Log.d("DynamicCounterBug", "Observer onChanged for widget ID $appWidgetId, counter '${value.name}' (type: ${value.type}), new count: ${value.lastIntervalCount}")
             if (!existsWidgetCounterNamePref(context, appWidgetId)) {
@@ -240,7 +258,10 @@ internal fun updateAppWidget(
             
             scheduleSmartTimeUpdate(context, appWidgetId, date)
         }
-    })
+    }
+    // Attach the new observer to keep widget in sync with updates
+    viewModel.getCounterSummary(counterName).observeForever(newObserver)
+    widgetObservers[appWidgetId] = newObserver
     val endTime = System.currentTimeMillis()
     Log.d("WidgetTimings", "updateAppWidget finished for widget ID $appWidgetId, counter '$counterName' in ${endTime - startTime}ms")
 }
