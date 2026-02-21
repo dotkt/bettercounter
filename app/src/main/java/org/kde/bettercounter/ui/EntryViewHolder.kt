@@ -100,16 +100,31 @@ class EntryViewHolder(
         
         // 红色减号按钮绑定
         binding.btnMinus10.setOnClickListener {
-            lastButtonClickTime = System.currentTimeMillis()
-            viewModel.incrementCounterByValue(counter.name, -10)
+            val mostRecentDate = counter.mostRecent
+            if (mostRecentDate != null && System.currentTimeMillis() - mostRecentDate.time <= 3600000L) {
+                lastButtonClickTime = System.currentTimeMillis()
+                viewModel.incrementCounterByValue(counter.name, -10)
+            } else {
+                android.widget.Toast.makeText(activity, "只能撤销一小时内的点击", android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
         binding.btnMinus5.setOnClickListener {
-            lastButtonClickTime = System.currentTimeMillis()
-            viewModel.incrementCounterByValue(counter.name, -5)
+            val mostRecentDate = counter.mostRecent
+            if (mostRecentDate != null && System.currentTimeMillis() - mostRecentDate.time <= 3600000L) {
+                lastButtonClickTime = System.currentTimeMillis()
+                viewModel.incrementCounterByValue(counter.name, -5)
+            } else {
+                android.widget.Toast.makeText(activity, "只能撤销一小时内的点击", android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
         binding.btnMinus1.setOnClickListener {
-            lastButtonClickTime = System.currentTimeMillis()
-            viewModel.incrementCounterByValue(counter.name, -1)
+            val mostRecentDate = counter.mostRecent
+            if (mostRecentDate != null && System.currentTimeMillis() - mostRecentDate.time <= 3600000L) {
+                lastButtonClickTime = System.currentTimeMillis()
+                viewModel.incrementCounterByValue(counter.name, -1)
+            } else {
+                android.widget.Toast.makeText(activity, "只能撤销一小时内的点击", android.widget.Toast.LENGTH_SHORT).show()
+            }
         }
         
         // 绿色加号按钮绑定

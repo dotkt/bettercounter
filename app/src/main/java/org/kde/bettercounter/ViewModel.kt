@@ -136,8 +136,14 @@ class ViewModel(application: Application) {
                     repo.addEntry(name, date)
                 }
             } else if (value < 0) {
+                var removedCount = 0
                 repeat(-value) {
-                    repo.removeEntry(name)
+                    if (repo.removeEntryIfWithinTimeLimit(name, 3600000L)) {
+                        removedCount++
+                    }
+                }
+                if (removedCount < -value && -value > 1) {
+                    Log.d(TAG, "Requested to remove ${-value} entries, but only $removedCount were within the time limit.")
                 }
             }
             

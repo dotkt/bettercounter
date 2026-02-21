@@ -221,6 +221,16 @@ class Repository(
         return entry?.date
     }
 
+    suspend fun removeEntryIfWithinTimeLimit(name: String, timeLimitMillis: Long): Boolean {
+        val entry = entryDao.getLastAdded(name)
+        if (entry != null && System.currentTimeMillis() - entry.date.time <= timeLimitMillis) {
+            entryDao.delete(entry)
+            counterCache.remove(name)
+            return true
+        }
+        return false
+    }
+
     suspend fun removeAllEntries(name: String) {
         entryDao.deleteAll(name)
         counterCache.remove(name)
