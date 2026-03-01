@@ -54,5 +54,11 @@ else
     echo "========================================"
     echo "APK位置: app/build/outputs/apk/debug/app-debug.apk"
     echo ""
-    adb install app/build/outputs/apk/debug/app-debug.apk
+    #adb install app/build/outputs/apk/debug/app-debug.apk
+    echo "安装到小米:"
+    echo "adb -s 192.168.110.24:5555 install app/build/outputs/apk/debug/app-debug.apk"
+    echo "安装到vivo旧工作机:"
+    echo "adb -s 192.168.110.62:5555 install app/build/outputs/apk/debug/app-debug.apk"
+    echo "安装到vivo有内鬼机:"
+    echo "adb -s 192.168.110.121:5555 install app/build/outputs/apk/debug/app-debug.apk"
 fi
