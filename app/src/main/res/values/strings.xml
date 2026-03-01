@@ -61,7 +61,14 @@
     </plurals>
     <string name="fake_example_title">Go jogging</string>
     <string name="app_widget_description">Add a counter to your home screen</string>
+    <string name="app_widget_category_description">Display counters from a category as a list</string>
     <string name="no_counters">No counters exist: Create some first</string>
+    <string name="no_counters_in_category">No counters in this category</string>
+    <string name="select_category">Select a category</string>
+    <string name="fake_category_title">My Category</string>
+    <string name="fake_counter_1">Counter A</string>
+    <string name="fake_counter_2">Counter B</string>
+    <string name="fake_counter_3">Counter C</string>
     <string name="color_hint">Color %1$d</string>
     <string name="interval">Interval to display</string>
     <string name="goal">Goal</string>

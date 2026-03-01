@@ -35,8 +35,35 @@
                 android:resource="@xml/widget_info" />
         </receiver>
 
+        <receiver
+            android:name=".ui.CategoryWidgetProvider"
+            android:exported="false" >
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="org.kde.bettercounter.CategoryWidgetProvider.COUNT" />
+                <action android:name="org.kde.bettercounter.CategoryWidgetProvider.REFRESH" />
+            </intent-filter>
+
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_category_info" />
+        </receiver>
+
+        <service
+            android:name=".ui.CategoryWidgetRemoteViewsService"
+            android:permission="android.permission.BIND_REMOTEVIEWS"
+            android:exported="false" />
+
         <activity
             android:name=".ui.WidgetConfigureActivity"
+            android:exported="false" >
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ui.CategoryWidgetConfigureActivity"
             android:exported="false" >
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widgetCategoryBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/colorDarkBackground"
+    android:padding="4dp">
+
+    <TextView
+        android:id="@+id/widgetCategoryTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="@color/colorAccent"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:paddingBottom="4dp" />
+
+    <ListView
+        android:id="@+id/widgetCategoryListView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:divider="@null"
+        android:dividerHeight="0dp"
+        android:scrollbars="none" />
+
+    <TextView
+        android:id="@+id/widgetCategoryEmpty"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:text="@string/no_counters_in_category"
+        android:textColor="@color/colorAccent"
+        android:textSize="12sp"
+        android:gravity="center"
+        android:visibility="gone" />
+
+</LinearLayout>

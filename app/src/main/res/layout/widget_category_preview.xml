@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widgetCategoryBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#5C88BE"
+    android:padding="4dp">
+
+    <TextView
+        android:id="@+id/widgetCategoryTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/fake_category_title"
+        android:textColor="@color/colorAccent"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:maxLines="1"
+        android:ellipsize="end"
+        android:paddingBottom="4dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingVertical="4dp"
+        android:paddingHorizontal="4dp">
+
+        <TextView
+            android:id="@+id/widgetCounterItemName1"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/fake_counter_1"
+            android:textColor="@color/colorAccent"
+            android:textSize="13sp"
+            android:maxLines="1" />
+
+        <TextView
+            android:id="@+id/widgetCounterItemCount1"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="12"
+            android:textColor="@color/colorAccent"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingVertical="4dp"
+        android:paddingHorizontal="4dp">
+
+        <TextView
+            android:id="@+id/widgetCounterItemName2"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/fake_counter_2"
+            android:textColor="@color/colorAccent"
+            android:textSize="13sp"
+            android:maxLines="1" />
+
+        <TextView
+            android:id="@+id/widgetCounterItemCount2"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="8"
+            android:textColor="@color/colorAccent"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingVertical="4dp"
+        android:paddingHorizontal="4dp">
+
+        <TextView
+            android:id="@+id/widgetCounterItemName3"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="@string/fake_counter_3"
+            android:textColor="@color/colorAccent"
+            android:textSize="13sp"
+            android:maxLines="1" />
+
+        <TextView
+            android:id="@+id/widgetCounterItemCount3"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="3"
+            android:textColor="@color/colorAccent"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+    </LinearLayout>
+
+</LinearLayout>
