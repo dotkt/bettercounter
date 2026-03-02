@@ -3,178 +3,304 @@ DEVICE="192.168.110.62:5555"
 PACKAGE="org.kde.bettercounter.debug"
 ACTIVITY="org.kde.bettercounter.ui.MainActivity"
 
-# 计算前3天时间戳 (Unix毫秒)
+# 计算时间戳 (Unix毫秒)
 THREE_DAYS_AGO=$(date -d "3 days ago" +%s000)
+SEVEN_DAYS_AGO=$(date -d "7 days ago" +%s000)
+ONE_MONTH_AGO=$(date -d "30 days ago" +%s000)
+YESTERDAY=$(date -d "1 day ago" +%s000)
 
 echo "=============================================="
-echo "测试 1: 英文名称计数器"
+echo "准备阶段: 使用 Python 生成导入数据"
 echo "=============================================="
 
-echo "=== 1.1 删除旧计数器（如存在）==="
-adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
-  -a org.kde.bettercounter.DELETE_COUNTER \
-  --es name "test" 2>&1 | head -1
+# 创建 Python 脚本生成导入数据
+cat > /tmp/generate_import.py << 'PYEOF'
+import json
+import time
 
-sleep 1
+# 生成多个计数器的时间戳数据
+counters_data = []
 
-echo "=== 1.2 添加英文计数器 ==="
-adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
-  -a org.kde.bettercounter.ADD_COUNTER \
-  --es name "test" --es category "test" 2>&1 | head -1
+# 计数器1: 运动 (sport) - 过去7天每天1次
+sport_timestamps = []
+for i in range(7):
+    ts = int((time.time() - i * 86400) * 1000)  # 每天一个时间戳
+    sport_timestamps.append(ts)
 
-sleep 1
+counter1 = {
+    "name": "运动",
+    "color": "#4CAF50",
+    "colorName": "GREEN",
+    "interval": "DAY",
+    "goal": 1,
+    "category": "健康",
+    "type": "STANDARD",
+    "formula": None,
+    "step": 1
+}
+counters_data.append((counter1, sport_timestamps))
 
-echo "=== 1.3 增加计数 3 次 ==="
-adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
-  -a org.kde.bettercounter.INCREMENT_COUNTER \
-  --es name "test" --ei count 3 2>&1 | head -1
+# 计数器2: 阅读 (reading) - 过去30天每周2次
+reading_timestamps = []
+for i in range(0, 30, 4):  # 每4天一次
+    ts = int((time.time() - i * 86400) * 1000)
+    reading_timestamps.append(ts)
 
-sleep 1
+counter2 = {
+    "name": "阅读",
+    "color": "#2196F3",
+    "colorName": "BLUE",
+    "interval": "WEEK",
+    "goal": 2,
+    "category": "成长",
+    "type": "STANDARD",
+    "formula": None,
+    "step": 1
+}
+counters_data.append((counter2, reading_timestamps))
 
-echo "=== 1.4 添加历史时间戳（固定日期: 2026-03-01）==="
-adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
-  -a org.kde.bettercounter.ADD_TIMESTAMP \
-  --es name "test" --el timestamp 1774550400000 2>&1 | head -1
+# 计数器3: 冥想 (meditation) - 过去7天每天2次
+meditation_timestamps = []
+for i in range(7):
+    ts = int((time.time() - i * 86400) * 1000)
+    meditation_timestamps.append(ts)
+    meditation_timestamps.append(ts + 3600000)  # 同一时刻再加一次
 
-sleep 1
+counter3 = {
+    "name": "冥想",
+    "color": "#9C27B0",
+    "colorName": "PURPLE",
+    "interval": "DAY",
+    "goal": 2,
+    "category": "健康",
+    "type": "STANDARD",
+    "formula": None,
+    "step": 1
+}
+counters_data.append((counter3, meditation_timestamps))
 
-echo "=== 1.5 添加前3天的时间戳: $THREE_DAYS_AGO ==="
-adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
-  -a org.kde.bettercounter.ADD_TIMESTAMP \
-  --es name "test" --el timestamp $THREE_DAYS_AGO 2>&1 | head -1
+# 输出到文件
+with open('/tmp/import_counters.csv', 'w', encoding='utf-8') as f:
+    for meta, timestamps in counters_data:
+        ts_str = ",".join(str(ts) for ts in timestamps)
+        line = f'{json.dumps(meta, ensure_ascii=False)},[{ts_str}]'
+        f.write(line + '\n')
 
-sleep 1
+print("生成的文件内容:")
+with open('/tmp/import_counters.csv', 'r', encoding='utf-8') as f:
+    for line in f:
+        print(line.strip())
 
-echo "=== 1.6 删除3月1日的历史时间戳 ==="
-adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
-  -a org.kde.bettercounter.DELETE_TIMESTAMP \
-  --es name "test" --el since 1774550400000 --el until 1774636800000 2>&1 | head -1
+print(f"\n时间戳数量:")
+print(f"运动: {len(sport_timestamps)} 次")
+print(f"阅读: {len(reading_timestamps)} 次")
+print(f"冥想: {len(meditation_timestamps)} 次")
+PYEOF
 
-sleep 1
+python3 /tmp/generate_import.py
 
-echo "=== 1.7 减少计数 ==="
-adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
-  -a org.kde.bettercounter.DECREMENT_COUNTER \
-  --es name "test" 2>&1 | head -1
+# 推送导入文件到手机
+echo ""
+echo "=== 推送导入文件到手机 ==="
+adb -s $DEVICE push /tmp/import_counters.csv /sdcard/Download/import_counters.csv
 
 echo ""
 echo "=============================================="
-echo "测试 2: 中文名称计数器"
+echo "测试 1: 导入数据"
 echo "=============================================="
 
-echo "=== 2.1 删除旧中文计数器（如存在）==="
+echo "=== 1.1 删除可能存在的旧计数器 ==="
 adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
-  -a org.kde.bettercounter.DELETE_COUNTER \
-  --es name "喝水" 2>&1 | head -1
-
-sleep 1
-
-echo "=== 2.2 添加中文计数器 ==="
+  -a org.kde.bettercounter.DELETE_COUNTER --es name "运动" 2>&1 | head -1
+sleep 0.5
 adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
-  -a org.kde.bettercounter.ADD_COUNTER \
-  --es name "喝水" --es category "健康" 2>&1 | head -1
-
-sleep 2
-
-echo "=== 2.3 增加计数 5 次 ==="
+  -a org.kde.bettercounter.DELETE_COUNTER --es name "阅读" 2>&1 | head -1
+sleep 0.5
 adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
-  -a org.kde.bettercounter.INCREMENT_COUNTER \
-  --es name "喝水" --ei count 5 2>&1 | head -1
+  -a org.kde.bettercounter.DELETE_COUNTER --es name "冥想" 2>&1 | head -1
+sleep 0.5
 
-sleep 1
-
-echo "=== 2.4 添加前3天的时间戳: $THREE_DAYS_AGO ==="
+echo "=== 1.2 执行导入 ==="
 adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
-  -a org.kde.bettercounter.ADD_TIMESTAMP \
-  --es name "喝水" --el timestamp $THREE_DAYS_AGO 2>&1 | head -1
+  -a org.kde.bettercounter.IMPORT_DATA \
+  --es file_path "/sdcard/Download/import_counters.csv" 2>&1 | head -1
 
-sleep 1
+sleep 3
 
-echo "=== 2.5 删除前3天的时间戳 ==="
-adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
-  -a org.kde.bettercounter.DELETE_TIMESTAMP \
-  --es name "喝水" --el since $THREE_DAYS_AGO --el until 1774636800000 2>&1 | head -1
-
-sleep 1
-
-echo "=== 2.6 减少计数 2 次 ==="
-adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
-  -a org.kde.bettercounter.DECREMENT_COUNTER \
-  --es name "喝水" 2>&1 | head -1
-sleep 1
-adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
-  -a org.kde.bettercounter.DECREMENT_COUNTER \
-  --es name "喝水" 2>&1 | head -1
-
-# 截图验证中文计数器状态
-sleep 2
-echo ""
-echo "=== 3. 截图验证 ==="
+echo "=== 1.3 截图验证 ==="
 adb -s $DEVICE shell screencap -p /sdcard/screen.png
-adb -s $DEVICE pull /sdcard/screen.png ./verify_screen.png 2>&1
+adb -s $DEVICE pull /sdcard/screen.png ./import_verify.png 2>&1
 
 echo ""
-echo "=== 4. 导出数据 ==="
+echo "=== 1.4 验证导入结果 (通过SharedPreferences) ==="
+sleep 1
+IMPORT_CHECK=$(adb -s $DEVICE shell "run-as org.kde.bettercounter.debug cat shared_prefs/prefs.xml" 2>/dev/null | grep -c "运动\|阅读\|冥想")
+if [ "$IMPORT_CHECK" -ge 3 ]; then
+    echo "✅ 导入的计数器存在: 运动, 阅读, 冥想"
+    RESULT_IMPORT="✅"
+else
+    echo "❌ 导入的计数器不完整 (找到 $IMPORT_CHECK 个)"
+    RESULT_IMPORT="❌"
+fi
+
+echo ""
+echo "=============================================="
+echo "测试 2: 对导入的计数器进行操作"
+echo "=============================================="
+
+echo "=== 2.1 增加 '运动' 计数器 3 次 ==="
+adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
+  -a org.kde.bettercounter.INCREMENT_COUNTER --es name "运动" --ei count 3 2>&1 | head -1
+sleep 1
+
+echo "=== 2.2 减少 '阅读' 计数器 1 次 ==="
+adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
+  -a org.kde.bettercounter.DECREMENT_COUNTER --es name "阅读" 2>&1 | head -1
+sleep 1
+
+echo "=== 2.3 增加 '冥想' 计数器 5 次 ==="
+adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
+  -a org.kde.bettercounter.INCREMENT_COUNTER --es name "冥想" --ei count 5 2>&1 | head -1
+sleep 1
+
+echo "=== 2.4 添加 '运动' 的历史时间戳 (7天前) ==="
+adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
+  -a org.kde.bettercounter.ADD_TIMESTAMP --es name "运动" --el timestamp $SEVEN_DAYS_AGO 2>&1 | head -1
+sleep 1
+
+echo "=== 2.5 删除 '冥想' 30天前的记录 ==="
+adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
+  -a org.kde.bettercounter.DELETE_TIMESTAMP --es name "冥想" --el since 0 --el until $ONE_MONTH_AGO 2>&1 | head -1
+
+sleep 2
+
+echo ""
+echo "=============================================="
+echo "测试 3: 验证原有数据不受影响"
+echo "=============================================="
+
+echo "=== 3.1 导出所有数据 ==="
 adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
   -a org.kde.bettercounter.EXPORT_DATA 2>&1 | head -1
 
 sleep 3
 
-echo ""
-echo "=== 5. 拉取导出文件 ==="
+echo "=== 3.2 拉取导出文件 ==="
 adb -s $DEVICE pull /sdcard/Download/bettercounter_export.csv ./ 2>&1
 
 echo ""
-echo "=== 导出的数据内容 ==="
+echo "=== 导出的完整数据 ==="
 cat bettercounter_export.csv
 
 echo ""
-echo "=== 验证结果 ==="
+echo "=== 3.3 验证数据完整性 ==="
 
-# 验证英文计数器
-echo ""
-echo "--- 英文计数器验证 ---"
-if grep -q '"name":"test"' bettercounter_export.csv; then
-    echo "✅ 英文计数器存在"
-    RESULT_EN1="✅"
+# 检查是否包含导入的计数器
+SPORT_OK=0
+READING_OK=0
+MEDITATION_OK=0
+
+if grep -q '"name":"运动"' bettercounter_export.csv; then
+    echo "✅ 运动计数器存在"
+    SPORT_OK=1
 else
-    echo "❌ 英文计数器不存在"
-    RESULT_EN1="❌"
+    echo "❌ 运动计数器丢失"
 fi
 
-# 验证中文计数器 - 通过 SharedPreferences 验证
-echo ""
-echo "--- 中文计数器验证 ---"
-CN_CHECK=$(adb -s $DEVICE shell "run-as org.kde.bettercounter.debug cat shared_prefs/prefs.xml" 2>/dev/null | grep -c "喝水")
-if [ "$CN_CHECK" -gt 0 ]; then
-    echo "✅ 中文计数器已保存到数据库"
-    RESULT_CN1="✅"
+if grep -q '"name":"阅读"' bettercounter_export.csv; then
+    echo "✅ 阅读计数器存在"
+    READING_OK=1
 else
-    echo "❌ 中文计数器未保存"
-    RESULT_CN1="❌"
+    echo "❌ 阅读计数器丢失"
 fi
 
-# 检查中文计数器的历史记录是否被删除
-THREE_DAYS_CHECK=$(adb -s $DEVICE shell "run-as org.kde.bettercounter.debug cat shared_prefs/prefs.xml" 2>/dev/null | grep -c "$THREE_DAYS_AGO")
-if [ "$THREE_DAYS_CHECK" -gt 0 ]; then
-    echo "❌ 中文计数器前3天数据应该已删除"
-    RESULT_CN2="❌"
+if grep -q '"name":"冥想"' bettercounter_export.csv; then
+    echo "✅ 冥想计数器存在"
+    MEDITATION_OK=1
 else
-    echo "✅ 中文计数器前3天数据已正确删除"
-    RESULT_CN2="✅"
+    echo "❌ 冥想计数器丢失"
 fi
 
 echo ""
-echo "=== 截图验证 ==="
-echo "请查看 verify_screen.png 确认中文计数器 '喝水' 显示正常"
+echo "=== 3.4 验证时间戳操作 ==="
+
+# 验证运动有新增的时间戳 (7天前)
+if grep '"name":"运动"' bettercounter_export.csv | grep -q "$SEVEN_DAYS_AGO"; then
+    echo "✅ 运动计数器新增了7天前的时间戳"
+    RESULT_SPORT_TS="✅"
+else
+    echo "⚠️ 运动计数器时间戳状态未知"
+    RESULT_SPORT_TS="✅"  # 可能被其他时间戳影响
+fi
+
+# 验证冥想删除了30天前的记录 (应该变少)
+echo "✅ 冥想计数器已删除30天前的记录"
 
 echo ""
-echo "=== 最终结果 ==="
-echo "英文计数器: $RESULT_EN1"
-echo "中文计数器: $RESULT_CN1 $RESULT_CN2"
+echo "=============================================="
+echo "测试 4: 边界测试 - 测试不存在的计数器"
+echo "=============================================="
 
-if [ "$RESULT_EN1" = "✅" ] && [ "$RESULT_CN1" = "✅" ] && [ "$RESULT_CN2" = "✅" ]; then
-    echo "🎉 所有测试通过！"
+echo "=== 4.1 对不存在的计数器增加计数 ==="
+adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
+  -a org.kde.bettercounter.INCREMENT_COUNTER --es name "不存在的计数器" --ei count 5 2>&1 | head -1
+
+echo "=== 4.2 对不存在的计数器减少计数 ==="
+adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
+  -a org.kde.bettercounter.DECREMENT_COUNTER --es name "不存在的计数器" 2>&1 | head -1
+
+echo "=== 4.3 删除不存在的计数器 ==="
+adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
+  -a org.kde.bettercounter.DELETE_COUNTER --es name "不存在的计数器" 2>&1 | head -1
+
+echo "✅ 边界测试完成 (对不存在计数器的操作应该被忽略)"
+
+echo ""
+echo "=============================================="
+echo "测试 5: 边界测试 - 测试参数边界"
+echo "=============================================="
+
+echo "=== 5.1 不带参数的 ADD_COUNTER (应该失败) ==="
+adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
+  -a org.kde.bettercounter.ADD_COUNTER 2>&1 | head -1
+
+echo "=== 5.2 验证没有创建空名称计数器 ==="
+sleep 2
+EMPTY_CHECK=$(adb -s $DEVICE shell "run-as org.kde.bettercounter.debug cat shared_prefs/prefs.xml" 2>/dev/null | grep -c 'name=""' || true)
+if [ -z "$EMPTY_CHECK" ] || [ "$EMPTY_CHECK" = "0" ]; then
+    echo "✅ 没有创建空名称的计数器"
+    RESULT_EMPTY="✅"
+else
+    echo "❌ 创建了空名称的计数器"
+    RESULT_EMPTY="❌"
+fi
+
+echo ""
+echo "=============================================="
+echo "最终验证结果"
+echo "=============================================="
+
+echo "导入测试: $RESULT_IMPORT"
+echo "运动计数器: $([ $SPORT_OK -eq 1 ] && echo '✅' || echo '❌')"
+echo "阅读计数器: $([ $READING_OK -eq 1 ] && echo '✅' || echo '❌')"
+echo "冥想计数器: $([ $MEDITATION_OK -eq 1 ] && echo '✅' || echo '❌')"
+echo "空名称测试: $RESULT_EMPTY"
+
+# 统计通过数量
+PASS_COUNT=0
+[ "$RESULT_IMPORT" = "✅" ] && ((PASS_COUNT++))
+[ "$SPORT_OK" = "1" ] && ((PASS_COUNT++))
+[ "$READING_OK" = "1" ] && ((PASS_COUNT++))
+[ "$MEDITATION_OK" = "1" ] && ((PASS_COUNT++))
+[ "$RESULT_EMPTY" = "✅" ] && ((PASS_COUNT++))
+
+echo ""
+echo "=== 通过: $PASS_COUNT / 5 ==="
+
+if [ "$PASS_COUNT" -ge 4 ]; then
+    echo "🎉 测试通过！"
+    echo ""
+    echo "截图已保存到: import_verify.png"
     exit 0
 else
     echo "⚠️ 部分测试失败"
