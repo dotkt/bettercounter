@@ -132,28 +132,44 @@ internal fun updateCategoryWidget(
         
         scheduleMessageUpdate(context, appWidgetId)
     } else {
-        views.setViewVisibility(R.id.widgetCategoryListView, android.view.View.VISIBLE)
-        views.setViewVisibility(R.id.widgetCategoryEmpty, android.view.View.GONE)
-        
-        val serviceIntent = Intent(context, CategoryWidgetRemoteViewsService::class.java).apply {
-            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
-            putExtra("category", category)
+        val countersWithUnmetGoal = countersInCategory.filter { name ->
+            val summary = viewModel.getCounterSummaryValue(name)
+            summary == null || summary.goal <= 0 || summary.lastIntervalCount < summary.goal
         }
-        views.setRemoteAdapter(R.id.widgetCategoryListView, serviceIntent)
         
-        val templateIntent = Intent(context, CategoryWidgetProvider::class.java).apply {
-            action = ACTION_CATEGORY_COUNT
-            putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+        if (countersWithUnmetGoal.isEmpty()) {
+            views.setViewVisibility(R.id.widgetCategoryListView, android.view.View.GONE)
+            views.setViewVisibility(R.id.widgetCategoryEmpty, android.view.View.VISIBLE)
+            
+            val randomMessage = ENCOURAGING_MESSAGES.random()
+            views.setTextViewText(R.id.widgetCategoryEmpty, randomMessage)
+            views.setTextColor(R.id.widgetCategoryEmpty, 0xFFFFFF00.toInt())
+            
+            scheduleMessageUpdate(context, appWidgetId)
+        } else {
+            views.setViewVisibility(R.id.widgetCategoryListView, android.view.View.VISIBLE)
+            views.setViewVisibility(R.id.widgetCategoryEmpty, android.view.View.GONE)
+            
+            val serviceIntent = Intent(context, CategoryWidgetRemoteViewsService::class.java).apply {
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+                putExtra("category", category)
+            }
+            views.setRemoteAdapter(R.id.widgetCategoryListView, serviceIntent)
+            
+            val templateIntent = Intent(context, CategoryWidgetProvider::class.java).apply {
+                action = ACTION_CATEGORY_COUNT
+                putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
+            }
+            val templatePendingIntent = PendingIntent.getBroadcast(
+                context,
+                appWidgetId,
+                templateIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+            )
+            views.setPendingIntentTemplate(R.id.widgetCategoryListView, templatePendingIntent)
+            
+            views.setEmptyView(R.id.widgetCategoryListView, R.id.widgetCategoryEmpty)
         }
-        val templatePendingIntent = PendingIntent.getBroadcast(
-            context,
-            appWidgetId,
-            templateIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
-        )
-        views.setPendingIntentTemplate(R.id.widgetCategoryListView, templatePendingIntent)
-        
-        views.setEmptyView(R.id.widgetCategoryListView, R.id.widgetCategoryEmpty)
     }
 
     val openAppIntent = Intent(context, MainActivity::class.java).apply {
@@ -240,6 +256,23 @@ private fun updateCategoryWidgetMessageOnly(context: Context, appWidgetId: Int) 
         
         scheduleMessageUpdate(context, appWidgetId)
     } else {
-        cancelMessageUpdate(context, appWidgetId)
+        val countersWithUnmetGoal = countersInCategory.filter { name ->
+            val summary = viewModel.getCounterSummaryValue(name)
+            summary == null || summary.goal <= 0 || summary.lastIntervalCount < summary.goal
+        }
+        
+        if (countersWithUnmetGoal.isEmpty()) {
+            val views = RemoteViews(BuildConfig.APPLICATION_ID, R.layout.widget_category)
+            
+            val randomMessage = ENCOURAGING_MESSAGES.random()
+            views.setTextViewText(R.id.widgetCategoryEmpty, randomMessage)
+            views.setTextColor(R.id.widgetCategoryEmpty, 0xFFFFFF00.toInt())
+            
+            appWidgetManager.updateAppWidget(appWidgetId, views)
+            
+            scheduleMessageUpdate(context, appWidgetId)
+        } else {
+            cancelMessageUpdate(context, appWidgetId)
+        }
     }
 }
