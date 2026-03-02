@@ -85,6 +85,11 @@
                 <action android:name="org.kde.bettercounter.ADD_TIMESTAMP" />
                 <action android:name="org.kde.bettercounter.DELETE_TIMESTAMP" />
                 <action android:name="org.kde.bettercounter.DELETE_COUNTER" />
+                <action android:name="org.kde.bettercounter.SET_CATEGORY" />
+                <action android:name="org.kde.bettercounter.SET_COLOR" />
+                <action android:name="org.kde.bettercounter.SET_INTERVAL" />
+                <action android:name="org.kde.bettercounter.SET_GOAL" />
+                <action android:name="org.kde.bettercounter.RENAME_COUNTER" />
                 <action android:name="org.kde.bettercounter.EXPORT_DATA" />
                 <action android:name="org.kde.bettercounter.IMPORT_DATA" />
                 <category android:name="android.intent.category.DEFAULT" />

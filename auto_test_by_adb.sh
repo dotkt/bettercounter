@@ -277,7 +277,70 @@ fi
 
 echo ""
 echo "=============================================="
-echo "最终验证结果"
+echo "测试 6: 修改计数器属性 (SET_* intents)"
+echo "=============================================="
+
+echo "=== 6.1 修改 '运动' 的分类 ==="
+adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
+  -a org.kde.bettercounter.SET_CATEGORY --es name "运动" --es category "健身" 2>&1 | head -1
+sleep 1
+
+echo "=== 6.2 修改 '阅读' 的颜色 ==="
+adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
+  -a org.kde.bettercounter.SET_COLOR --es name "阅读" --ei color_int 16733986 2>&1 | head -1
+sleep 1
+sleep 1
+
+echo "=== 6.3 修改 '冥想' 的时间间隔 ==="
+adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
+  -a org.kde.bettercounter.SET_INTERVAL --es name "冥想" --es interval "WEEK" 2>&1 | head -1
+sleep 1
+
+echo "=== 6.4 修改 '运动' 的目标值 ==="
+adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
+  -a org.kde.bettercounter.SET_GOAL --es name "运动" --ei goal 10 2>&1 | head -1
+sleep 1
+
+echo "=== 6.5 重命名 '冥想' 为 '正念' ==="
+adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
+  -a org.kde.bettercounter.RENAME_COUNTER --es name "冥想" --es new_name "正念" 2>&1 | head -1
+sleep 1
+
+echo "=== 6.6 导出验证修改结果 ==="
+adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
+  -a org.kde.bettercounter.EXPORT_DATA 2>&1 | head -1
+
+sleep 3
+adb -s $DEVICE pull /sdcard/Download/bettercounter_export.csv ./ 2>&1
+
+echo ""
+echo "=== 验证修改结果 ==="
+RENAME_OK=0
+CATEGORY_OK=0
+COLOR_OK=0
+
+if grep -q '"name":"正念"' bettercounter_export.csv; then
+    echo "✅ 重命名成功: 冥想 -> 正念"
+    RENAME_OK=1
+else
+    echo "❌ 重命名失败"
+fi
+
+if grep '"name":"运动"' bettercounter_export.csv | grep -q '"category":"健身"'; then
+    echo "✅ 分类修改成功: 运动 -> 健身"
+    CATEGORY_OK=1
+else
+    echo "❌ 分类修改失败"
+fi
+
+if grep '"name":"阅读"' bettercounter_export.csv | grep -q '"color":"#FF5722"'; then
+    echo "✅ 颜色修改成功: 阅读 -> #FF5722"
+    COLOR_OK=1
+else
+    echo "❌ 颜色修改失败"
+fi
+
+echo ""
 echo "=============================================="
 
 echo "导入测试: $RESULT_IMPORT"
@@ -285,6 +348,9 @@ echo "运动计数器: $([ $SPORT_OK -eq 1 ] && echo '✅' || echo '❌')"
 echo "阅读计数器: $([ $READING_OK -eq 1 ] && echo '✅' || echo '❌')"
 echo "冥想计数器: $([ $MEDITATION_OK -eq 1 ] && echo '✅' || echo '❌')"
 echo "空名称测试: $RESULT_EMPTY"
+echo "重命名测试: $([ $RENAME_OK -eq 1 ] && echo '✅' || echo '❌')"
+echo "分类修改: $([ $CATEGORY_OK -eq 1 ] && echo '✅' || echo '❌')"
+echo "颜色修改: $([ $COLOR_OK -eq 1 ] && echo '✅' || echo '❌')"
 
 # 统计通过数量
 PASS_COUNT=0
@@ -293,11 +359,14 @@ PASS_COUNT=0
 [ "$READING_OK" = "1" ] && ((PASS_COUNT++))
 [ "$MEDITATION_OK" = "1" ] && ((PASS_COUNT++))
 [ "$RESULT_EMPTY" = "✅" ] && ((PASS_COUNT++))
+[ "$RENAME_OK" = "1" ] && ((PASS_COUNT++))
+[ "$CATEGORY_OK" = "1" ] && ((PASS_COUNT++))
+[ "$COLOR_OK" = "1" ] && ((PASS_COUNT++))
 
 echo ""
-echo "=== 通过: $PASS_COUNT / 5 ==="
+echo "=== 通过: $PASS_COUNT / 8 ==="
 
-if [ "$PASS_COUNT" -ge 4 ]; then
+if [ "$PASS_COUNT" -ge 6 ]; then
     echo "🎉 测试通过！"
     echo ""
     echo "截图已保存到: import_verify.png"

@@ -71,9 +71,16 @@ class MainActivity : AppCompatActivity() {
         const val ACTION_EXPORT_DATA = "org.kde.bettercounter.EXPORT_DATA"
         const val ACTION_IMPORT_DATA = "org.kde.bettercounter.IMPORT_DATA"
         const val ACTION_DELETE_COUNTER = "org.kde.bettercounter.DELETE_COUNTER"
+        const val ACTION_SET_CATEGORY = "org.kde.bettercounter.SET_CATEGORY"
+        const val ACTION_SET_COLOR = "org.kde.bettercounter.SET_COLOR"
+        const val ACTION_SET_INTERVAL = "org.kde.bettercounter.SET_INTERVAL"
+        const val ACTION_SET_GOAL = "org.kde.bettercounter.SET_GOAL"
+        const val ACTION_RENAME_COUNTER = "org.kde.bettercounter.RENAME_COUNTER"
         const val EXTRA_COUNTER_NAME = "EXTRA_COUNTER_NAME"
         const val EXTRA_CATEGORY = "EXTRA_CATEGORY"
         const val EXTRA_COLOR = "color"
+        const val EXTRA_COLOR_ALIAS = "counter_color"
+        const val EXTRA_COLOR_INT = "color_int"
         const val EXTRA_INTERVAL = "interval"
         const val EXTRA_GOAL = "goal"
         const val EXTRA_COUNT = "count"
@@ -81,6 +88,7 @@ class MainActivity : AppCompatActivity() {
         const val EXTRA_TIMESTAMP = "timestamp"
         const val EXTRA_SINCE = "since"
         const val EXTRA_UNTIL = "until"
+        const val EXTRA_NEW_NAME = "new_name"
         private const val TAG = "MainActivity"
     }
 
@@ -474,6 +482,21 @@ class MainActivity : AppCompatActivity() {
             ACTION_DELETE_COUNTER -> {
                 handleDeleteCounterIntent(intent)
             }
+            ACTION_SET_CATEGORY -> {
+                handleSetCategoryIntent(intent)
+            }
+            ACTION_SET_COLOR -> {
+                handleSetColorIntent(intent)
+            }
+            ACTION_SET_INTERVAL -> {
+                handleSetIntervalIntent(intent)
+            }
+            ACTION_SET_GOAL -> {
+                handleSetGoalIntent(intent)
+            }
+            ACTION_RENAME_COUNTER -> {
+                handleRenameCounterIntent(intent)
+            }
             else -> {
                 intent?.getStringExtra(EXTRA_COUNTER_NAME)?.let { counterName ->
                     Log.d(TAG, "========== Widget点击: 计划导航到计数器 = $counterName ==========")
@@ -665,6 +688,214 @@ class MainActivity : AppCompatActivity() {
         viewModel.deleteCounter(name)
         categoryPagerAdapter.updateCategories()
         Log.d(TAG, "DELETE_COUNTER: Deleted counter '$name'")
+    }
+
+    private fun handleSetCategoryIntent(intent: Intent) {
+        val name = intent.getStringExtra(EXTRA_COUNTER_NAME) ?: intent.getStringExtra("name")
+        if (name.isNullOrBlank()) {
+            Log.e(TAG, "SET_CATEGORY: name is required")
+            return
+        }
+        
+        val existingCounter = viewModel.getCounterList().find { it == name }
+        if (existingCounter == null) {
+            Log.e(TAG, "SET_CATEGORY: counter '$name' not found")
+            return
+        }
+        
+        val newCategory = intent.getStringExtra(EXTRA_CATEGORY) ?: intent.getStringExtra("category")
+        if (newCategory.isNullOrBlank()) {
+            Log.e(TAG, "SET_CATEGORY: category is required")
+            return
+        }
+        
+        val metadata = viewModel.getCounterSummaryValue(name)
+        if (metadata == null) {
+            Log.e(TAG, "SET_CATEGORY: cannot get metadata for counter '$name'")
+            return
+        }
+        
+        val updatedMetadata = CounterMetadata(
+            name = metadata.name,
+            interval = metadata.interval,
+            goal = metadata.goal,
+            color = metadata.color,
+            category = newCategory,
+            type = metadata.type,
+            formula = metadata.formula,
+            step = metadata.step
+        )
+        viewModel.editCounterSameName(updatedMetadata)
+        categoryPagerAdapter.updateCategories()
+        
+        Log.d(TAG, "SET_CATEGORY: Set category '$newCategory' for counter '$name'")
+    }
+
+    private fun handleSetColorIntent(intent: Intent) {
+        val name = intent.getStringExtra(EXTRA_COUNTER_NAME) ?: intent.getStringExtra("name")
+        if (name.isNullOrBlank()) {
+            Log.e(TAG, "SET_COLOR: name is required")
+            return
+        }
+        
+        val existingCounter = viewModel.getCounterList().find { it == name }
+        if (existingCounter == null) {
+            Log.e(TAG, "SET_COLOR: counter '$name' not found")
+            return
+        }
+        
+        val colorStr = intent.getStringExtra(EXTRA_COLOR) ?: intent.getStringExtra("color") ?: intent.getStringExtra(EXTRA_COLOR_ALIAS)
+        val colorInt = intent.getIntExtra(EXTRA_COLOR_INT, -1)
+        
+        val color = if (colorInt != -1) {
+            CounterColor(colorInt)
+        } else if (!colorStr.isNullOrBlank()) {
+            CounterColor.fromHex(colorStr)
+        } else {
+            Log.e(TAG, "SET_COLOR: color is required")
+            return
+        }
+        val metadata = viewModel.getCounterSummaryValue(name)
+        if (metadata == null) {
+            Log.e(TAG, "SET_COLOR: cannot get metadata for counter '$name'")
+            return
+        }
+        
+        val updatedMetadata = CounterMetadata(
+            name = metadata.name,
+            interval = metadata.interval,
+            goal = metadata.goal,
+            color = color,
+            category = metadata.category,
+            type = metadata.type,
+            formula = metadata.formula,
+            step = metadata.step
+        )
+        viewModel.editCounterSameName(updatedMetadata)
+        
+        Log.d(TAG, "SET_COLOR: Set color '$colorStr' for counter '$name'")
+    }
+
+    private fun handleSetIntervalIntent(intent: Intent) {
+        val name = intent.getStringExtra(EXTRA_COUNTER_NAME) ?: intent.getStringExtra("name")
+        if (name.isNullOrBlank()) {
+            Log.e(TAG, "SET_INTERVAL: name is required")
+            return
+        }
+        
+        val existingCounter = viewModel.getCounterList().find { it == name }
+        if (existingCounter == null) {
+            Log.e(TAG, "SET_INTERVAL: counter '$name' not found")
+            return
+        }
+        
+        val intervalStr = intent.getStringExtra(EXTRA_INTERVAL) ?: intent.getStringExtra("interval")
+        if (intervalStr.isNullOrBlank()) {
+            Log.e(TAG, "SET_INTERVAL: interval is required")
+            return
+        }
+        
+        val interval = mapStringToInterval(intervalStr)
+        val metadata = viewModel.getCounterSummaryValue(name)
+        if (metadata == null) {
+            Log.e(TAG, "SET_INTERVAL: cannot get metadata for counter '$name'")
+            return
+        }
+        
+        val updatedMetadata = CounterMetadata(
+            name = metadata.name,
+            interval = interval,
+            goal = metadata.goal,
+            color = metadata.color,
+            category = metadata.category,
+            type = metadata.type,
+            formula = metadata.formula,
+            step = metadata.step
+        )
+        viewModel.editCounterSameName(updatedMetadata)
+        
+        Log.d(TAG, "SET_INTERVAL: Set interval '$interval' for counter '$name'")
+    }
+
+    private fun handleSetGoalIntent(intent: Intent) {
+        val name = intent.getStringExtra(EXTRA_COUNTER_NAME) ?: intent.getStringExtra("name")
+        if (name.isNullOrBlank()) {
+            Log.e(TAG, "SET_GOAL: name is required")
+            return
+        }
+        
+        val existingCounter = viewModel.getCounterList().find { it == name }
+        if (existingCounter == null) {
+            Log.e(TAG, "SET_GOAL: counter '$name' not found")
+            return
+        }
+        
+        val goal = intent.getIntExtra(EXTRA_GOAL, 0).takeIf { it > 0 } ?: intent.getIntExtra("goal", 0)
+        if (goal <= 0) {
+            Log.e(TAG, "SET_GOAL: goal must be positive")
+            return
+        }
+        
+        val metadata = viewModel.getCounterSummaryValue(name)
+        if (metadata == null) {
+            Log.e(TAG, "SET_GOAL: cannot get metadata for counter '$name'")
+            return
+        }
+        
+        val updatedMetadata = CounterMetadata(
+            name = metadata.name,
+            interval = metadata.interval,
+            goal = goal,
+            color = metadata.color,
+            category = metadata.category,
+            type = metadata.type,
+            formula = metadata.formula,
+            step = metadata.step
+        )
+        viewModel.editCounterSameName(updatedMetadata)
+        
+        Log.d(TAG, "SET_GOAL: Set goal $goal for counter '$name'")
+    }
+
+    private fun handleRenameCounterIntent(intent: Intent) {
+        val oldName = intent.getStringExtra(EXTRA_COUNTER_NAME) ?: intent.getStringExtra("name")
+        if (oldName.isNullOrBlank()) {
+            Log.e(TAG, "RENAME_COUNTER: old name is required")
+            return
+        }
+        
+        val newName = intent.getStringExtra(EXTRA_NEW_NAME) ?: intent.getStringExtra("new_name")
+        if (newName.isNullOrBlank()) {
+            Log.e(TAG, "RENAME_COUNTER: new name is required")
+            return
+        }
+        
+        val existingCounter = viewModel.getCounterList().find { it == oldName }
+        if (existingCounter == null) {
+            Log.e(TAG, "RENAME_COUNTER: counter '$oldName' not found")
+            return
+        }
+        
+        val metadata = viewModel.getCounterSummaryValue(oldName)
+        if (metadata == null) {
+            Log.e(TAG, "RENAME_COUNTER: cannot get metadata for counter '$oldName'")
+            return
+        }
+        
+        val updatedMetadata = CounterMetadata(
+            name = newName,
+            interval = metadata.interval,
+            goal = metadata.goal,
+            color = metadata.color,
+            category = metadata.category,
+            type = metadata.type,
+            formula = metadata.formula,
+            step = metadata.step
+        )
+        viewModel.editCounter(oldName, updatedMetadata)
+        categoryPagerAdapter.updateCategories()
+        
+        Log.d(TAG, "RENAME_COUNTER: Renamed '$oldName' to '$newName'")
     }
 
     private fun tryNavigateToPendingCounter() {
