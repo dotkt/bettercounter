@@ -4,12 +4,16 @@ import android.content.ContentValues
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
+import android.util.DisplayMetrics
 import android.util.Log
 import android.view.Menu
 import android.view.MenuInflater
@@ -2151,6 +2155,15 @@ class MainActivity : AppCompatActivity() {
         
         Log.d(TAG, "EXPORT_STATISTICS_IMAGE: Processing counter '$name'")
         
+        // 获取屏幕分辨率并转换为横屏模式（宽度>高度）
+        val displayMetrics = DisplayMetrics()
+        @Suppress("DEPRECATION")
+        windowManager.defaultDisplay.getRealMetrics(displayMetrics)
+        // 交换宽高，模拟横屏效果
+        val screenWidth = maxOf(displayMetrics.widthPixels, displayMetrics.heightPixels)
+        val screenHeight = minOf(displayMetrics.widthPixels, displayMetrics.heightPixels)
+        Log.d(TAG, "Screen resolution (landscape): ${screenWidth}x${screenHeight}")
+        
         lifecycleScope.launch {
             try {
                 val entries = withContext(Dispatchers.IO) {
@@ -2168,16 +2181,64 @@ class MainActivity : AppCompatActivity() {
                 val adapter = StatisticsDialogAdapter(entries, name, null)
                 adapter.bindWeekStatisticsView(dialogView)
                 
-                // 等待视图布局完成
-                dialogView.post {
+                // 使用 Handler 延迟执行以确保视图已渲染
+                Handler(Looper.getMainLooper()).postDelayed({
                     try {
+                        // 强制测量和布局视图
+                        dialogView.measure(
+                            View.MeasureSpec.makeMeasureSpec(screenWidth, View.MeasureSpec.EXACTLY),
+                            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                        )
+                        dialogView.layout(0, 0, dialogView.measuredWidth, dialogView.measuredHeight.coerceAtLeast(screenHeight - 200))
+                        
+                        val bitmapWidth = screenWidth
+                        val bitmapHeight = (dialogView.measuredHeight + 150).coerceAtLeast(screenHeight)
+                        
+                        Log.d(TAG, "EXPORT_STATISTICS_IMAGE: Bitmap size: ${bitmapWidth}x${bitmapHeight}")
+                        Log.d(TAG, "EXPORT_STATISTICS_IMAGE: Dialog view size: ${dialogView.measuredWidth}x${dialogView.measuredHeight}")
+                        
                         val bitmap = Bitmap.createBitmap(
-                            dialogView.width.coerceAtLeast(800),
-                            dialogView.height.coerceAtLeast(400),
+                            bitmapWidth,
+                            bitmapHeight,
                             Bitmap.Config.ARGB_8888
                         )
                         val canvas = Canvas(bitmap)
+                        
+                        // 填充白色背景
+                        canvas.drawColor(Color.WHITE)
+                        
+                        // 绘制标题在左上角
+                        val titlePaint = Paint().apply {
+                            color = Color.BLACK
+                            textSize = 48f
+                            typeface = Typeface.DEFAULT_BOLD
+                            isAntiAlias = true
+                        }
+                        val title = name
+                        canvas.drawText(title, 40f, 80f, titlePaint)
+                        
+                        // 绘制日期在右上角
+                        val datePaint = Paint().apply {
+                            color = Color.GRAY
+                            textSize = 32f
+                            typeface = Typeface.DEFAULT
+                            isAntiAlias = true
+                        }
+                        val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                            .format(java.util.Date())
+                        val dateWidth = datePaint.measureText(dateStr)
+                        canvas.drawText(dateStr, bitmapWidth - dateWidth - 40f, 80f, datePaint)
+                        
+                        // 保存当前视图的矩阵状态
+                        canvas.save()
+                        
+                        // 将视图移动到标题下方
+                        canvas.translate(0f, 120f)
+                        
+                        // 绘制视图内容
                         dialogView.draw(canvas)
+                        
+                        canvas.restore()
                         
                         val fileName = "statistics_${name}_${System.currentTimeMillis()}.png"
                         val file = File(
@@ -2194,13 +2255,14 @@ class MainActivity : AppCompatActivity() {
                         mediaScanIntent.data = Uri.fromFile(file)
                         sendBroadcast(mediaScanIntent)
                         
-                        Log.d(TAG, "EXPORT_STATISTICS_IMAGE: Saved to ${file.absolutePath}")
+                        Log.d(TAG, "EXPORT_STATISTICS_IMAGE: Saved to ${file.absolutePath}, size: ${file.length()} bytes")
+                        Log.d(TAG, "EXPORT_STATISTICS_IMAGE: Screen resolution: ${screenWidth}x${screenHeight}")
                         Snackbar.make(binding.viewPager, "已导出到: $fileName", Snackbar.LENGTH_LONG).show()
                     } catch (e: Exception) {
                         Log.e(TAG, "EXPORT_STATISTICS_IMAGE failed: ${e.message}", e)
                         Snackbar.make(binding.viewPager, "导出失败: ${e.message}", Snackbar.LENGTH_LONG).show()
                     }
-                }
+                }, 1000) // 延迟1秒以确保视图已完全渲染
             } catch (e: Exception) {
                 Log.e(TAG, "EXPORT_STATISTICS_IMAGE error: ${e.message}", e)
                 Snackbar.make(binding.viewPager, "导出失败: ${e.message}", Snackbar.LENGTH_LONG).show()

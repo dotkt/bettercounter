@@ -3,6 +3,7 @@ package org.kde.bettercounter.ui
 
 import android.util.Log
 import android.view.HapticFeedbackConstants
+import android.view.View
 import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -401,25 +402,91 @@ class EntryViewHolder(
                     // 添加导出图片按钮的点击事件
                     dialogView.findViewById<Button>(R.id.btnExportImage)?.setOnClickListener {
                         try {
-                            val bitmap = android.graphics.Bitmap.createBitmap(
-                                dialogView.width,
-                                dialogView.height,
-                                android.graphics.Bitmap.Config.ARGB_8888
-                            )
-                            val canvas = android.graphics.Canvas(bitmap)
-                            dialogView.draw(canvas)
+                            // 获取屏幕分辨率并转换为横屏模式（宽度>高度）
+                            val displayMetrics = android.util.DisplayMetrics()
+                            @Suppress("DEPRECATION")
+                            activity.windowManager.defaultDisplay.getRealMetrics(displayMetrics)
+                            // 交换宽高，模拟横屏效果
+                            val screenWidth = maxOf(displayMetrics.widthPixels, displayMetrics.heightPixels)
+                            val screenHeight = minOf(displayMetrics.widthPixels, displayMetrics.heightPixels)
                             
-                            val fileName = "statistics_${counter.name}_${System.currentTimeMillis()}.png"
-                            val file = java.io.File(android.os.Environment.getExternalStoragePublicDirectory(
-                                android.os.Environment.DIRECTORY_DOWNLOADS), fileName)
-                            
-                            java.io.FileOutputStream(file).use { out ->
-                                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
-                            }
-                            
-                            android.widget.Toast.makeText(activity, "已保存到: ${file.absolutePath}", 
-                                android.widget.Toast.LENGTH_LONG).show()
-                            Log.d(TAG, "统计图片已保存到: ${file.absolutePath}")
+                            // 使用 Handler 延迟执行以确保视图已渲染
+                            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                                try {
+                                    // 强制测量和布局视图
+                                    dialogView.measure(
+                                        View.MeasureSpec.makeMeasureSpec(screenWidth, View.MeasureSpec.EXACTLY),
+                                        View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                                    )
+                                    dialogView.layout(0, 0, dialogView.measuredWidth, dialogView.measuredHeight.coerceAtLeast(screenHeight - 200))
+                                    
+                                    val bitmapWidth = screenWidth
+                                    val bitmapHeight = (dialogView.measuredHeight + 150).coerceAtLeast(screenHeight)
+                                    
+                                    val bitmap = android.graphics.Bitmap.createBitmap(
+                                        bitmapWidth,
+                                        bitmapHeight,
+                                        android.graphics.Bitmap.Config.ARGB_8888
+                                    )
+                                    val canvas = android.graphics.Canvas(bitmap)
+                                    
+                                    // 填充白色背景
+                                    canvas.drawColor(android.graphics.Color.WHITE)
+                                    
+                                    // 绘制标题在左上角
+                                    val titlePaint = android.graphics.Paint().apply {
+                                        color = android.graphics.Color.BLACK
+                                        textSize = 48f
+                                        typeface = android.graphics.Typeface.DEFAULT_BOLD
+                                        isAntiAlias = true
+                                    }
+                                    canvas.drawText(counter.name, 40f, 80f, titlePaint)
+                                    
+                                    // 绘制日期在右上角
+                                    val datePaint = android.graphics.Paint().apply {
+                                        color = android.graphics.Color.GRAY
+                                        textSize = 32f
+                                        typeface = android.graphics.Typeface.DEFAULT
+                                        isAntiAlias = true
+                                    }
+                                    val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                                        .format(java.util.Date())
+                                    val dateWidth = datePaint.measureText(dateStr)
+                                    canvas.drawText(dateStr, bitmapWidth - dateWidth - 40f, 80f, datePaint)
+                                    
+                                    // 保存当前视图的矩阵状态
+                                    canvas.save()
+                                    
+                                    // 将视图移动到标题下方
+                                    canvas.translate(0f, 120f)
+                                    
+                                    // 绘制视图内容
+                                    dialogView.draw(canvas)
+                                    
+                                    canvas.restore()
+                                    
+                                    val fileName = "statistics_${counter.name}_${System.currentTimeMillis()}.png"
+                                    val file = java.io.File(android.os.Environment.getExternalStoragePublicDirectory(
+                                        android.os.Environment.DIRECTORY_DOWNLOADS), fileName)
+                                    
+                                    java.io.FileOutputStream(file).use { out ->
+                                        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+                                    }
+                                    
+                                    // 通知媒体扫描
+                                    val mediaScanIntent = android.content.Intent(android.content.Intent.ACTION_MEDIA_SCANNER_SCAN_FILE)
+                                    mediaScanIntent.data = android.net.Uri.fromFile(file)
+                                    activity.sendBroadcast(mediaScanIntent)
+                                    
+                                    android.widget.Toast.makeText(activity, "已保存到: ${file.absolutePath}", 
+                                        android.widget.Toast.LENGTH_LONG).show()
+                                    Log.d(TAG, "统计图片已保存到: ${file.absolutePath}, size: ${file.length()} bytes")
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "导出统计图片失败: ${e.message}", e)
+                                    android.widget.Toast.makeText(activity, "导出失败: ${e.message}", 
+                                        android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }, 1000) // 延迟1秒以确保视图已完全渲染
                         } catch (e: Exception) {
                             Log.e(TAG, "导出统计图片失败: ${e.message}", e)
                             android.widget.Toast.makeText(activity, "导出失败: ${e.message}", 
