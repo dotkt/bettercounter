@@ -32,6 +32,9 @@ private val ENCOURAGING_MESSAGES = listOf(
     "留下我的故事"
 )
 
+private const val WHITE_COLOR = 0xFFFFFFFF.toInt()
+private const val BLACK_COLOR = 0xFF000000.toInt()
+
 class CategoryWidgetProvider : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
@@ -128,7 +131,8 @@ internal fun updateCategoryWidget(
         
         val randomMessage = ENCOURAGING_MESSAGES.random()
         views.setTextViewText(R.id.widgetCategoryEmpty, randomMessage)
-        views.setTextColor(R.id.widgetCategoryEmpty, 0xFFFFFF00.toInt()) // Yellow color
+        views.setTextColor(R.id.widgetCategoryEmpty, WHITE_COLOR)
+        views.setFloat(R.id.widgetCategoryEmpty, "setTextSize", 36f)
         
         scheduleMessageUpdate(context, appWidgetId)
     } else {
@@ -143,12 +147,17 @@ internal fun updateCategoryWidget(
             
             val randomMessage = ENCOURAGING_MESSAGES.random()
             views.setTextViewText(R.id.widgetCategoryEmpty, randomMessage)
-            views.setTextColor(R.id.widgetCategoryEmpty, 0xFFFFFF00.toInt())
+            views.setTextColor(R.id.widgetCategoryEmpty, WHITE_COLOR)
+            views.setFloat(R.id.widgetCategoryEmpty, "setTextSize", 36f)
             
             scheduleMessageUpdate(context, appWidgetId)
         } else {
             views.setViewVisibility(R.id.widgetCategoryListView, android.view.View.VISIBLE)
             views.setViewVisibility(R.id.widgetCategoryEmpty, android.view.View.GONE)
+            
+            // Use black background and white text for counters
+            views.setInt(R.id.widgetCategoryBackground, "setBackgroundColor", BLACK_COLOR)
+            views.setTextColor(R.id.widgetCategoryTitle, WHITE_COLOR)
             
             val serviceIntent = Intent(context, CategoryWidgetRemoteViewsService::class.java).apply {
                 putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
@@ -250,7 +259,8 @@ private fun updateCategoryWidgetMessageOnly(context: Context, appWidgetId: Int) 
         
         val randomMessage = ENCOURAGING_MESSAGES.random()
         views.setTextViewText(R.id.widgetCategoryEmpty, randomMessage)
-        views.setTextColor(R.id.widgetCategoryEmpty, 0xFFFFFF00.toInt())
+        views.setTextColor(R.id.widgetCategoryEmpty, WHITE_COLOR)
+        views.setFloat(R.id.widgetCategoryEmpty, "setTextSize", 36f)
         
         appWidgetManager.updateAppWidget(appWidgetId, views)
         
@@ -266,12 +276,21 @@ private fun updateCategoryWidgetMessageOnly(context: Context, appWidgetId: Int) 
             
             val randomMessage = ENCOURAGING_MESSAGES.random()
             views.setTextViewText(R.id.widgetCategoryEmpty, randomMessage)
-            views.setTextColor(R.id.widgetCategoryEmpty, 0xFFFFFF00.toInt())
+            views.setTextColor(R.id.widgetCategoryEmpty, WHITE_COLOR)
+            views.setFloat(R.id.widgetCategoryEmpty, "setTextSize", 36f)
             
             appWidgetManager.updateAppWidget(appWidgetId, views)
             
             scheduleMessageUpdate(context, appWidgetId)
         } else {
+            val views = RemoteViews(BuildConfig.APPLICATION_ID, R.layout.widget_category)
+            
+            // Use black background and white text for counters
+            views.setInt(R.id.widgetCategoryBackground, "setBackgroundColor", BLACK_COLOR)
+            views.setTextColor(R.id.widgetCategoryTitle, WHITE_COLOR)
+            
+            appWidgetManager.updateAppWidget(appWidgetId, views)
+            
             cancelMessageUpdate(context, appWidgetId)
         }
     }
