@@ -31,10 +31,8 @@ class CategoryPagerAdapter(
             }
         }
         notifyDataSetChanged()
-        // 通知MainActivity更新分类导航栏（仅在已初始化后）
-        if (isInitialized) {
-            (activity as? MainActivity)?.onCategoriesUpdated()
-        }
+        // 通知MainActivity更新分类导航栏（始终调用，确保Intent添加计数器时UI也能更新）
+        (activity as? MainActivity)?.onCategoriesUpdated()
     }
     
     /**

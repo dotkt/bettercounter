@@ -474,16 +474,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleAddCounterIntent(intent: Intent) {
-        val name = intent.getStringExtra(EXTRA_COUNTER_NAME)
+        // 支持两种参数名：EXTRA_COUNTER_NAME 或简写的 name
+        val name = intent.getStringExtra(EXTRA_COUNTER_NAME) ?: intent.getStringExtra("name")
         if (name.isNullOrBlank()) {
             Log.e(TAG, "ADD_COUNTER: name is required")
             return
         }
 
-        val category = intent.getStringExtra(EXTRA_CATEGORY) ?: "默认"
-        val colorStr = intent.getStringExtra(EXTRA_COLOR) ?: "#2196F3"
-        val intervalStr = intent.getStringExtra(EXTRA_INTERVAL) ?: "DAILY"
-        val goal = intent.getIntExtra(EXTRA_GOAL, 1)
+        // 支持简写的参数名
+        val category = intent.getStringExtra(EXTRA_CATEGORY) ?: intent.getStringExtra("category") ?: "默认"
+        val colorStr = intent.getStringExtra(EXTRA_COLOR) ?: intent.getStringExtra("color") ?: "#2196F3"
+        val intervalStr = intent.getStringExtra(EXTRA_INTERVAL) ?: intent.getStringExtra("interval") ?: "DAY"
+        val goal = intent.getIntExtra(EXTRA_GOAL, 1).takeIf { it > 0 } ?: intent.getIntExtra("goal", 1)
 
         val interval = mapStringToInterval(intervalStr)
 
@@ -497,7 +499,10 @@ class MainActivity : AppCompatActivity() {
         )
 
         viewModel.addCounter(metadata)
+        
+        // 更新分类列表并为新分类创建适配器
         categoryPagerAdapter.updateCategories()
+        categoryPagerAdapter.ensureAdapterForCategory(category)
 
         Log.d(TAG, "ADD_COUNTER: Added counter '$name'")
     }
@@ -521,7 +526,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleImportDataIntent(intent: Intent) {
-        val filePath = intent.getStringExtra(EXTRA_FILE_PATH)
+        val filePath = intent.getStringExtra(EXTRA_FILE_PATH) ?: intent.getStringExtra("file_path")
         if (filePath.isNullOrBlank()) {
             Log.e(TAG, "IMPORT_DATA: file_path is required")
             return
@@ -547,12 +552,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleIncrementCounterIntent(intent: Intent) {
-        val name = intent.getStringExtra(EXTRA_COUNTER_NAME)
+        val name = intent.getStringExtra(EXTRA_COUNTER_NAME) ?: intent.getStringExtra("name")
         if (name.isNullOrBlank()) {
             Log.e(TAG, "INCREMENT_COUNTER: name is required")
             return
         }
-        val count = intent.getIntExtra(EXTRA_COUNT, 1)
+        val count = intent.getIntExtra(EXTRA_COUNT, 1).takeIf { it > 0 } ?: intent.getIntExtra("count", 1)
         
         val existingCounter = viewModel.getCounterList().find { it == name }
         if (existingCounter == null) {
@@ -567,7 +572,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleDecrementCounterIntent(intent: Intent) {
-        val name = intent.getStringExtra(EXTRA_COUNTER_NAME)
+        val name = intent.getStringExtra(EXTRA_COUNTER_NAME) ?: intent.getStringExtra("name")
         if (name.isNullOrBlank()) {
             Log.e(TAG, "DECREMENT_COUNTER: name is required")
             return
@@ -584,7 +589,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleAddTimestampIntent(intent: Intent) {
-        val name = intent.getStringExtra(EXTRA_COUNTER_NAME)
+        val name = intent.getStringExtra(EXTRA_COUNTER_NAME) ?: intent.getStringExtra("name")
         if (name.isNullOrBlank()) {
             Log.e(TAG, "ADD_TIMESTAMP: name is required")
             return
@@ -596,8 +601,9 @@ class MainActivity : AppCompatActivity() {
             return
         }
         
-        val timestamp = intent.getLongExtra(EXTRA_TIMESTAMP, System.currentTimeMillis())
-        val count = intent.getIntExtra(EXTRA_COUNT, 1)
+        val timestamp = intent.getLongExtra(EXTRA_TIMESTAMP, System.currentTimeMillis()).takeIf { it > 0 } 
+            ?: intent.getLongExtra("timestamp", System.currentTimeMillis())
+        val count = intent.getIntExtra(EXTRA_COUNT, 1).takeIf { it > 0 } ?: intent.getIntExtra("count", 1)
         
         viewModel.addTimestamp(name, timestamp, count)
         Log.d(TAG, "ADD_TIMESTAMP: Added $count entries at timestamp $timestamp to counter '$name'")
@@ -616,8 +622,10 @@ class MainActivity : AppCompatActivity() {
             return
         }
         
-        val since = intent.getLongExtra(EXTRA_SINCE, 0L)
-        val until = intent.getLongExtra(EXTRA_UNTIL, System.currentTimeMillis())
+        val since = intent.getLongExtra(EXTRA_SINCE, 0L).takeIf { it > 0 } 
+            ?: intent.getLongExtra("since", 0L)
+        val until = intent.getLongExtra(EXTRA_UNTIL, System.currentTimeMillis()).takeIf { it > 0 } 
+            ?: intent.getLongExtra("until", System.currentTimeMillis())
         
         if (since >= until) {
             Log.e(TAG, "DELETE_TIMESTAMP: since must be less than until")
@@ -629,7 +637,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleDeleteCounterIntent(intent: Intent) {
-        val name = intent.getStringExtra(EXTRA_COUNTER_NAME)
+        val name = intent.getStringExtra(EXTRA_COUNTER_NAME) ?: intent.getStringExtra("name")
         if (name.isNullOrBlank()) {
             Log.e(TAG, "DELETE_COUNTER: name is required")
             return
