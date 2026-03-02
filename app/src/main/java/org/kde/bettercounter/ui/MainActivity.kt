@@ -58,6 +58,9 @@ import org.kde.bettercounter.persistence.CounterMetadata
 import org.kde.bettercounter.persistence.CounterSummary
 import org.kde.bettercounter.persistence.Interval
 import org.kde.bettercounter.persistence.Tutorial
+import org.kde.bettercounter.ui.CategoryWidgetProvider
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.view.ViewGroup
 import java.io.File
 import java.io.FileOutputStream
@@ -551,6 +554,16 @@ class MainActivity : AppCompatActivity() {
         )
 
         viewModel.addCounter(metadata)
+        
+        val widgetIds = AppWidgetManager.getInstance(this).getAppWidgetIds(
+            ComponentName(this, CategoryWidgetProvider::class.java)
+        )
+        if (widgetIds.isNotEmpty()) {
+            val intent = Intent(this, CategoryWidgetProvider::class.java)
+            intent.action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
+            intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, widgetIds)
+            sendBroadcast(intent)
+        }
         
         // 更新分类列表并为新分类创建适配器
         categoryPagerAdapter.updateCategories()
