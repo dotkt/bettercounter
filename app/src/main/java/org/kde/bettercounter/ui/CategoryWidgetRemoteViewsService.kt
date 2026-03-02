@@ -31,6 +31,7 @@ class CategoryWidgetRemoteViewsFactory(
     data class CounterItem(
         val name: String,
         val count: Int,
+        val goal: Int,
         val color: Int,
         val isStandard: Boolean
     )
@@ -59,6 +60,7 @@ class CategoryWidgetRemoteViewsFactory(
                         CounterItem(
                             name = summary.name,
                             count = summary.lastIntervalCount,
+                            goal = summary.goal,
                             color = summary.color.colorInt,
                             isStandard = summary.type == org.kde.bettercounter.persistence.CounterType.STANDARD
                         )
@@ -68,6 +70,7 @@ class CategoryWidgetRemoteViewsFactory(
                     null
                 }
             }
+            .filter { counter -> counter.goal <= 0 || counter.count < counter.goal }
     }
 
     override fun onDestroy() {
@@ -85,7 +88,13 @@ class CategoryWidgetRemoteViewsFactory(
         val views = RemoteViews(context.packageName, R.layout.widget_category_item)
 
         views.setTextViewText(R.id.widgetCounterItemName, counter.name)
-        views.setTextViewText(R.id.widgetCounterItemCount, counter.count.toString())
+        
+        val countText = if (counter.goal > 0) {
+            "${counter.count}/${counter.goal}"
+        } else {
+            counter.count.toString()
+        }
+        views.setTextViewText(R.id.widgetCounterItemCount, countText)
         
         val bgColor = if (counter.isStandard) {
             adjustAlpha(counter.color, 0.3f)
