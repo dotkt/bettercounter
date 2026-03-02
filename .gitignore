@@ -10,3 +10,4 @@
 .kotlin/errors/*.log
 .kotlin/sessions/*.salive
 .git_hash
+bettercounter_export.csv
