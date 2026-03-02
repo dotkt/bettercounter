@@ -492,6 +492,8 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        Log.d(TAG, "ADD_COUNTER: Processing counter '$name'")
+
         // 支持简写的参数名
         val category = intent.getStringExtra(EXTRA_CATEGORY) ?: intent.getStringExtra("category") ?: "默认"
         val colorStr = intent.getStringExtra(EXTRA_COLOR) ?: intent.getStringExtra("color") ?: "#2196F3"
