@@ -228,9 +228,20 @@ class MainActivity : AppCompatActivity() {
                 tryNavigateToPendingCounter()
                 viewModel.removeCounterChangeObserver(this)
             }
-            override fun onCounterAdded(counterName: String) {}
-            override fun onCounterRemoved(counterName: String) {}
-            override fun onCounterRenamed(oldName: String, newName: String) {}
+            override fun onCounterAdded(counterName: String) {
+                // 计数器被添加时，更新分类列表
+                Log.d(TAG, "CounterObserver: onCounterAdded - $counterName")
+                categoryPagerAdapter.updateCategories()
+                // 确保新分类的适配器存在
+                val category = viewModel.getCounterCategory(counterName)
+                categoryPagerAdapter.ensureAdapterForCategory(category)
+            }
+            override fun onCounterRemoved(counterName: String) {
+                categoryPagerAdapter.updateCategories()
+            }
+            override fun onCounterRenamed(oldName: String, newName: String) {
+                categoryPagerAdapter.updateCategories()
+            }
             override fun onCounterDecremented(counterName: String, oldEntryDate: Date) {}
         })
         
