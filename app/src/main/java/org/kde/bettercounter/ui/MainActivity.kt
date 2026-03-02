@@ -621,7 +621,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleDeleteTimestampIntent(intent: Intent) {
-        val name = intent.getStringExtra(EXTRA_COUNTER_NAME)
+        val name = intent.getStringExtra(EXTRA_COUNTER_NAME) ?: intent.getStringExtra("name")
         if (name.isNullOrBlank()) {
             Log.e(TAG, "DELETE_TIMESTAMP: name is required")
             return
