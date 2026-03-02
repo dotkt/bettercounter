@@ -78,6 +78,17 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <intent-filter>
+                <action android:name="org.kde.bettercounter.ADD_COUNTER" />
+                <action android:name="org.kde.bettercounter.INCREMENT_COUNTER" />
+                <action android:name="org.kde.bettercounter.DECREMENT_COUNTER" />
+                <action android:name="org.kde.bettercounter.ADD_TIMESTAMP" />
+                <action android:name="org.kde.bettercounter.DELETE_TIMESTAMP" />
+                <action android:name="org.kde.bettercounter.DELETE_COUNTER" />
+                <action android:name="org.kde.bettercounter.EXPORT_DATA" />
+                <action android:name="org.kde.bettercounter.IMPORT_DATA" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
         </activity>
     </application>
 

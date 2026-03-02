@@ -22,5 +22,14 @@ value class CounterColor(val colorInt: Int) {
             colorArray.recycle()
             return CounterColor(color)
         }
+
+        fun fromHex(hex: String): CounterColor {
+            return try {
+                val colorInt = android.graphics.Color.parseColor(hex)
+                CounterColor(colorInt)
+            } catch (e: Exception) {
+                CounterColor(android.graphics.Color.parseColor("#2196F3"))
+            }
+        }
     }
 }

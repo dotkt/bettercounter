@@ -239,6 +239,12 @@ class Repository(
         counterCache.remove(name)
     }
 
+    suspend fun removeEntriesInRange(name: String, since: Date, until: Date): Int {
+        val count = entryDao.deleteInRange(name, since, until)
+        counterCache.remove(name)
+        return count
+    }
+
     suspend fun getEntriesForRangeSortedByDate(name: String, since: Date, until: Date): List<Entry> {
         return entryDao.getAllEntriesInRangeSortedByDate(name, since, until)
     }

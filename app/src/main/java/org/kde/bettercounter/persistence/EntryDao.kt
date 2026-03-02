@@ -49,4 +49,7 @@ interface EntryDao {
 
     @Query("DELETE FROM entry WHERE name = (:name)")
     fun deleteAll(name: String)
+
+    @Query("DELETE FROM entry WHERE name = (:name) AND date >= (:since) AND date <= (:until)")
+    fun deleteInRange(name: String, since: Date, until: Date): Int
 }

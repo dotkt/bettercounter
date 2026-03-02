@@ -338,7 +338,39 @@ class ViewModel(application: Application) {
             synchronized(this) {
                 summaryMap[name]?.postValue(counterSummary)
             }
-            // After resetting, recalculate any dynamic counters that might depend on this one
+            recalculateDynamicCounters()
+        }
+    }
+
+    fun addTimestamp(name: String, timestamp: Long, count: Int = 1) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val summary = summaryMap[name]?.value
+            if (summary?.type == org.kde.bettercounter.persistence.CounterType.DYNAMIC) {
+                Log.w(TAG, "Attempted to add timestamp to dynamic counter '$name'. This is not allowed.")
+                return@launch
+            }
+            val date = Date(timestamp)
+            repeat(count) {
+                repo.addEntry(name, date)
+            }
+            val counterSummary = repo.getCounterSummary(name)
+            synchronized(this) {
+                summaryMap[name]?.postValue(counterSummary)
+            }
+            recalculateDynamicCounters()
+        }
+    }
+
+    fun deleteTimestampInRange(name: String, since: Long, until: Long) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val sinceDate = Date(since)
+            val untilDate = Date(until)
+            val deletedCount = repo.removeEntriesInRange(name, sinceDate, untilDate)
+            Log.d(TAG, "Deleted $deletedCount entries in range for counter '$name'")
+            val counterSummary = repo.getCounterSummary(name)
+            synchronized(this) {
+                summaryMap[name]?.postValue(counterSummary)
+            }
             recalculateDynamicCounters()
         }
     }

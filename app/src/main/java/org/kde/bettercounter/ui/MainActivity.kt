@@ -48,6 +48,7 @@ import org.kde.bettercounter.boilerplate.OpenFileResultContract
 import org.kde.bettercounter.databinding.ActivityMainBinding
 import org.kde.bettercounter.databinding.ProgressDialogBinding
 import org.kde.bettercounter.persistence.CounterColor
+import org.kde.bettercounter.persistence.CounterMetadata
 import org.kde.bettercounter.persistence.CounterSummary
 import org.kde.bettercounter.persistence.Interval
 import org.kde.bettercounter.persistence.Tutorial
@@ -62,8 +63,24 @@ import android.widget.Toast
 class MainActivity : AppCompatActivity() {
 
     companion object {
+        const val ACTION_ADD_COUNTER = "org.kde.bettercounter.ADD_COUNTER"
+        const val ACTION_INCREMENT_COUNTER = "org.kde.bettercounter.INCREMENT_COUNTER"
+        const val ACTION_DECREMENT_COUNTER = "org.kde.bettercounter.DECREMENT_COUNTER"
+        const val ACTION_ADD_TIMESTAMP = "org.kde.bettercounter.ADD_TIMESTAMP"
+        const val ACTION_DELETE_TIMESTAMP = "org.kde.bettercounter.DELETE_TIMESTAMP"
+        const val ACTION_EXPORT_DATA = "org.kde.bettercounter.EXPORT_DATA"
+        const val ACTION_IMPORT_DATA = "org.kde.bettercounter.IMPORT_DATA"
+        const val ACTION_DELETE_COUNTER = "org.kde.bettercounter.DELETE_COUNTER"
         const val EXTRA_COUNTER_NAME = "EXTRA_COUNTER_NAME"
         const val EXTRA_CATEGORY = "EXTRA_CATEGORY"
+        const val EXTRA_COLOR = "color"
+        const val EXTRA_INTERVAL = "interval"
+        const val EXTRA_GOAL = "goal"
+        const val EXTRA_COUNT = "count"
+        const val EXTRA_FILE_PATH = "file_path"
+        const val EXTRA_TIMESTAMP = "timestamp"
+        const val EXTRA_SINCE = "since"
+        const val EXTRA_UNTIL = "until"
         private const val TAG = "MainActivity"
     }
 
@@ -414,18 +431,219 @@ class MainActivity : AppCompatActivity() {
     private fun handleIntent(intent: Intent?) {
         Log.d(TAG, "========== handleIntent 开始 ==========")
         Log.d(TAG, "Intent: $intent")
+        Log.d(TAG, "Action: ${intent?.action}")
         intent?.extras?.let { bundle ->
             for (key in bundle.keySet()) {
                 Log.d(TAG, "Extra: $key = ${bundle.get(key)}")
             }
         }
 
-        intent?.getStringExtra(EXTRA_COUNTER_NAME)?.let { counterName ->
-            Log.d(TAG, "========== Widget点击: 计划导航到计数器 = $counterName ==========")
-            pendingCounterToNavigate = counterName
-            // 尝试立即导航，以防应用已在运行且数据已加载
-            tryNavigateToPendingCounter()
+        when (intent?.action) {
+            ACTION_ADD_COUNTER -> {
+                handleAddCounterIntent(intent)
+            }
+            ACTION_INCREMENT_COUNTER -> {
+                handleIncrementCounterIntent(intent)
+            }
+            ACTION_DECREMENT_COUNTER -> {
+                handleDecrementCounterIntent(intent)
+            }
+            ACTION_ADD_TIMESTAMP -> {
+                handleAddTimestampIntent(intent)
+            }
+            ACTION_DELETE_TIMESTAMP -> {
+                handleDeleteTimestampIntent(intent)
+            }
+            ACTION_EXPORT_DATA -> {
+                handleExportDataIntent()
+            }
+            ACTION_IMPORT_DATA -> {
+                handleImportDataIntent(intent)
+            }
+            ACTION_DELETE_COUNTER -> {
+                handleDeleteCounterIntent(intent)
+            }
+            else -> {
+                intent?.getStringExtra(EXTRA_COUNTER_NAME)?.let { counterName ->
+                    Log.d(TAG, "========== Widget点击: 计划导航到计数器 = $counterName ==========")
+                    pendingCounterToNavigate = counterName
+                    tryNavigateToPendingCounter()
+                }
+            }
         }
+    }
+
+    private fun handleAddCounterIntent(intent: Intent) {
+        val name = intent.getStringExtra(EXTRA_COUNTER_NAME)
+        if (name.isNullOrBlank()) {
+            Log.e(TAG, "ADD_COUNTER: name is required")
+            return
+        }
+
+        val category = intent.getStringExtra(EXTRA_CATEGORY) ?: "默认"
+        val colorStr = intent.getStringExtra(EXTRA_COLOR) ?: "#2196F3"
+        val intervalStr = intent.getStringExtra(EXTRA_INTERVAL) ?: "DAILY"
+        val goal = intent.getIntExtra(EXTRA_GOAL, 1)
+
+        val interval = mapStringToInterval(intervalStr)
+
+        val color = CounterColor.fromHex(colorStr)
+        val metadata = CounterMetadata(
+            name = name,
+            interval = interval,
+            goal = goal,
+            color = color,
+            category = category
+        )
+
+        viewModel.addCounter(metadata)
+        categoryPagerAdapter.updateCategories()
+
+        Log.d(TAG, "ADD_COUNTER: Added counter '$name'")
+    }
+
+    private fun mapStringToInterval(intervalStr: String): Interval {
+        return when (intervalStr.uppercase()) {
+            "HOURLY", "HOUR" -> Interval.HOUR
+            "DAILY", "DAY" -> Interval.DAY
+            "WEEKLY", "WEEK" -> Interval.WEEK
+            "MONTHLY", "MONTH" -> Interval.MONTH
+            "YEARLY", "YEAR" -> Interval.YEAR
+            "TIMER", "MYTIMER" -> Interval.MYTIMER
+            "LIFETIME" -> Interval.LIFETIME
+            else -> Interval.DAY
+        }
+    }
+
+    private fun handleExportDataIntent() {
+        Log.d(TAG, "EXPORT_DATA: Starting export")
+        checkPermissionAndExport()
+    }
+
+    private fun handleImportDataIntent(intent: Intent) {
+        val filePath = intent.getStringExtra(EXTRA_FILE_PATH)
+        if (filePath.isNullOrBlank()) {
+            Log.e(TAG, "IMPORT_DATA: file_path is required")
+            return
+        }
+        
+        val file = java.io.File(filePath)
+        if (!file.exists()) {
+            Log.e(TAG, "IMPORT_DATA: file not found: $filePath")
+            return
+        }
+        
+        try {
+            val inputStream = java.io.FileInputStream(file)
+            val progressHandler = Handler(Looper.getMainLooper()) { msg ->
+                Log.d(TAG, "IMPORT_DATA: progress ${msg.arg1}, done ${msg.arg2}")
+                true
+            }
+            viewModel.importAll(this, inputStream, progressHandler)
+            Log.d(TAG, "IMPORT_DATA: Import started for $filePath")
+        } catch (e: Exception) {
+            Log.e(TAG, "IMPORT_DATA: Failed to import", e)
+        }
+    }
+
+    private fun handleIncrementCounterIntent(intent: Intent) {
+        val name = intent.getStringExtra(EXTRA_COUNTER_NAME)
+        if (name.isNullOrBlank()) {
+            Log.e(TAG, "INCREMENT_COUNTER: name is required")
+            return
+        }
+        val count = intent.getIntExtra(EXTRA_COUNT, 1)
+        
+        val existingCounter = viewModel.getCounterList().find { it == name }
+        if (existingCounter == null) {
+            Log.e(TAG, "INCREMENT_COUNTER: counter '$name' not found")
+            return
+        }
+        
+        repeat(count) {
+            viewModel.incrementCounter(name)
+        }
+        Log.d(TAG, "INCREMENT_COUNTER: Added $count to counter '$name'")
+    }
+
+    private fun handleDecrementCounterIntent(intent: Intent) {
+        val name = intent.getStringExtra(EXTRA_COUNTER_NAME)
+        if (name.isNullOrBlank()) {
+            Log.e(TAG, "DECREMENT_COUNTER: name is required")
+            return
+        }
+        
+        val existingCounter = viewModel.getCounterList().find { it == name }
+        if (existingCounter == null) {
+            Log.e(TAG, "DECREMENT_COUNTER: counter '$name' not found")
+            return
+        }
+        
+        viewModel.decrementCounter(name)
+        Log.d(TAG, "DECREMENT_COUNTER: Decreased counter '$name'")
+    }
+
+    private fun handleAddTimestampIntent(intent: Intent) {
+        val name = intent.getStringExtra(EXTRA_COUNTER_NAME)
+        if (name.isNullOrBlank()) {
+            Log.e(TAG, "ADD_TIMESTAMP: name is required")
+            return
+        }
+        
+        val existingCounter = viewModel.getCounterList().find { it == name }
+        if (existingCounter == null) {
+            Log.e(TAG, "ADD_TIMESTAMP: counter '$name' not found")
+            return
+        }
+        
+        val timestamp = intent.getLongExtra(EXTRA_TIMESTAMP, System.currentTimeMillis())
+        val count = intent.getIntExtra(EXTRA_COUNT, 1)
+        
+        viewModel.addTimestamp(name, timestamp, count)
+        Log.d(TAG, "ADD_TIMESTAMP: Added $count entries at timestamp $timestamp to counter '$name'")
+    }
+
+    private fun handleDeleteTimestampIntent(intent: Intent) {
+        val name = intent.getStringExtra(EXTRA_COUNTER_NAME)
+        if (name.isNullOrBlank()) {
+            Log.e(TAG, "DELETE_TIMESTAMP: name is required")
+            return
+        }
+        
+        val existingCounter = viewModel.getCounterList().find { it == name }
+        if (existingCounter == null) {
+            Log.e(TAG, "DELETE_TIMESTAMP: counter '$name' not found")
+            return
+        }
+        
+        val since = intent.getLongExtra(EXTRA_SINCE, 0L)
+        val until = intent.getLongExtra(EXTRA_UNTIL, System.currentTimeMillis())
+        
+        if (since >= until) {
+            Log.e(TAG, "DELETE_TIMESTAMP: since must be less than until")
+            return
+        }
+        
+        viewModel.deleteTimestampInRange(name, since, until)
+        Log.d(TAG, "DELETE_TIMESTAMP: Deleted entries between $since and $until for counter '$name'")
+    }
+
+    private fun handleDeleteCounterIntent(intent: Intent) {
+        val name = intent.getStringExtra(EXTRA_COUNTER_NAME)
+        if (name.isNullOrBlank()) {
+            Log.e(TAG, "DELETE_COUNTER: name is required")
+            return
+        }
+        
+        val existingCounter = viewModel.getCounterList().find { it == name }
+        if (existingCounter == null) {
+            Log.e(TAG, "DELETE_COUNTER: counter '$name' not found")
+            return
+        }
+        
+        viewModel.deleteCounter(name)
+        categoryPagerAdapter.updateCategories()
+        Log.d(TAG, "DELETE_COUNTER: Deleted counter '$name'")
     }
 
     private fun tryNavigateToPendingCounter() {
