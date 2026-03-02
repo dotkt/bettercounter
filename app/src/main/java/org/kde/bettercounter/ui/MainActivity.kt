@@ -756,6 +756,7 @@ class MainActivity : AppCompatActivity() {
         )
         viewModel.editCounterSameName(updatedMetadata)
         categoryPagerAdapter.updateCategories()
+        forceRefreshCategoryWidgets(this)
         
         Log.d(TAG, "SET_CATEGORY: Set category '$newCategory' for counter '$name'")
     }
@@ -1953,6 +1954,7 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     viewModel.editCounterSameName(newCounterMetadata)
                 }
+                forceRefreshCategoryWidgets(this@MainActivity)
                 // We are not subscribed to the summary livedata, so we won't get notified of the change we just made.
                 // Update our local copy so it has the right data if we open the dialog again.
                 counter.name = newCounterMetadata.name

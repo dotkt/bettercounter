@@ -28,9 +28,11 @@ echo ""
 # 检查git是否可用
 if ! command -v git &> /dev/null; then
     echo "警告: 未检测到git，将使用'unknown'作为commit hash"
+    echo "unknown" > .git_hash
 else
-    echo "当前Git Commit:"
-    git rev-parse --short=6 HEAD
+    GIT_HASH=$(git rev-parse --short=6 HEAD)
+    echo "$GIT_HASH" > .git_hash
+    echo "当前Git Commit: $GIT_HASH"
     echo ""
 fi
 
