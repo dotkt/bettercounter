@@ -41,8 +41,6 @@ class CategoryWidgetRemoteViewsFactory(
     }
 
     override fun onDataSetChanged() {
-        Log.d(TAG, "onDataSetChanged for widget $appWidgetId")
-        
         if (category == null) {
             counters = emptyList()
             return
@@ -52,10 +50,12 @@ class CategoryWidgetRemoteViewsFactory(
         val allCounters = viewModel.getCounterList()
         
         counters = allCounters
-            .filter { name -> viewModel.getCounterCategory(name) == category }
+            .filter { name -> 
+                viewModel.getCounterCategory(name).trim() == category.trim()
+            }
             .mapNotNull { name ->
                 try {
-                    val summary = viewModel.getCounterSummary(name).value
+                    val summary = viewModel.getCounterSummaryValue(name)
                     if (summary != null) {
                         CounterItem(
                             name = summary.name,

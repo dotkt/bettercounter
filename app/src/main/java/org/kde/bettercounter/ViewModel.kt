@@ -309,6 +309,21 @@ class ViewModel(application: Application) {
 
     fun getAllCategories(): Set<String> = repo.getAllCategories()
 
+    fun getCounterSummaryValue(name: String): CounterSummary? {
+        // First try to get from LiveData
+        val liveDataValue = summaryMap[name]?.value
+        if (liveDataValue != null) {
+            return liveDataValue
+        }
+        // If LiveData doesn't have value, get synchronously from repository
+        return try {
+            repo.getCounterSummarySync(name)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error getting counter summary sync for $name", e)
+            null
+        }
+    }
+
     fun saveCounterOrder(value: List<String>) = repo.setCounterList(value)
 
     fun resetCounter(name: String) {

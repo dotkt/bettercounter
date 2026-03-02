@@ -95,7 +95,6 @@ internal fun updateCategoryWidget(
     }
 
     val category = loadWidgetCategoryPref(context, appWidgetId)
-    Log.d(TAG, "updateCategoryWidget for widget ID $appWidgetId, category '$category'")
 
     val views = RemoteViews(BuildConfig.APPLICATION_ID, R.layout.widget_category)
     views.setTextViewText(R.id.widgetCategoryTitle, category)

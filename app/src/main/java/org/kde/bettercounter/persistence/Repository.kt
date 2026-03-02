@@ -170,6 +170,10 @@ class Repository(
     }
 
     suspend fun getCounterSummary(name: String): CounterSummary {
+        return getCounterSummarySync(name)
+    }
+
+    fun getCounterSummarySync(name: String): CounterSummary {
         val interval = getCounterInterval(name)
         val color = getCounterColor(name)
         val goal = getCounterGoal(name)
@@ -185,7 +189,6 @@ class Repository(
         val intervalEndDate = intervalStartDate.copy().apply { addInterval(interval, 1) }
         val firstLastAndCount = entryDao.getFirstLastAndCount(name)
 
-        // 每次都重新计算计数器摘要，不使用缓存
         return CounterSummary(
             name = name,
             color = color,
