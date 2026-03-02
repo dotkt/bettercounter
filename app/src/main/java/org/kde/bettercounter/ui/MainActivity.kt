@@ -2,12 +2,14 @@ package org.kde.bettercounter.ui
 
 import android.content.ContentValues
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.MediaStore
-import android.os.Environment
 import android.util.Log
 import android.view.Menu
 import android.view.MenuInflater
@@ -53,6 +55,8 @@ import org.kde.bettercounter.persistence.CounterSummary
 import org.kde.bettercounter.persistence.Interval
 import org.kde.bettercounter.persistence.Tutorial
 import android.view.ViewGroup
+import java.io.File
+import java.io.FileOutputStream
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import java.util.Date
@@ -76,6 +80,7 @@ class MainActivity : AppCompatActivity() {
         const val ACTION_SET_INTERVAL = "org.kde.bettercounter.SET_INTERVAL"
         const val ACTION_SET_GOAL = "org.kde.bettercounter.SET_GOAL"
         const val ACTION_RENAME_COUNTER = "org.kde.bettercounter.RENAME_COUNTER"
+        const val ACTION_EXPORT_STATISTICS_IMAGE = "org.kde.bettercounter.EXPORT_STATISTICS_IMAGE"
         const val EXTRA_COUNTER_NAME = "EXTRA_COUNTER_NAME"
         const val EXTRA_CATEGORY = "EXTRA_CATEGORY"
         const val EXTRA_COLOR = "color"
@@ -121,6 +126,10 @@ class MainActivity : AppCompatActivity() {
         
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        
+        // 在启动时静默请求文件访问权限
+        requestStoragePermissionOnStartup()
+        
         // 不再使用 toolbar，改用自定义按钮
 
         viewModel = (application as BetterApplication).viewModel
@@ -496,6 +505,9 @@ class MainActivity : AppCompatActivity() {
             }
             ACTION_RENAME_COUNTER -> {
                 handleRenameCounterIntent(intent)
+            }
+            ACTION_EXPORT_STATISTICS_IMAGE -> {
+                handleExportStatisticsImageIntent(intent)
             }
             else -> {
                 intent?.getStringExtra(EXTRA_COUNTER_NAME)?.let { counterName ->
@@ -2000,6 +2012,27 @@ class MainActivity : AppCompatActivity() {
             STORAGE_PERMISSION_CODE
         )
     }
+    
+    // 启动时静默请求文件访问权限
+    private fun requestStoragePermissionOnStartup() {
+        Log.d(TAG, "启动时检查文件访问权限")
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                try {
+                    Log.d(TAG, "启动时请求文件访问权限")
+                    val intent = Intent(android.provider.Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
+                    val uri = Uri.fromParts("package", packageName, null)
+                    intent.data = uri
+                    // 使用 startActivity 而不是 startActivityForResult，避免阻塞启动
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Log.e(TAG, "启动时请求权限失败: ${e.message}")
+                }
+            } else {
+                Log.d(TAG, "文件访问权限已存在")
+            }
+        }
+    }
 
     // 处理权限请求结果
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -2105,6 +2138,72 @@ class MainActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     Snackbar.make(binding.viewPager, "导出失败: ${e.message}", Snackbar.LENGTH_LONG).show()
                 }
+            }
+        }
+    }
+    
+    private fun handleExportStatisticsImageIntent(intent: Intent) {
+        val name = intent.getStringExtra(EXTRA_COUNTER_NAME) ?: intent.getStringExtra("name")
+        if (name.isNullOrBlank()) {
+            Log.e(TAG, "EXPORT_STATISTICS_IMAGE: name is required")
+            return
+        }
+        
+        Log.d(TAG, "EXPORT_STATISTICS_IMAGE: Processing counter '$name'")
+        
+        lifecycleScope.launch {
+            try {
+                val entries = withContext(Dispatchers.IO) {
+                    viewModel.getAllEntriesSortedByDate(name)
+                }
+                
+                if (entries.isEmpty()) {
+                    Log.e(TAG, "EXPORT_STATISTICS_IMAGE: no entries for counter '$name'")
+                    Snackbar.make(binding.viewPager, "没有数据可导出", Snackbar.LENGTH_SHORT).show()
+                    return@launch
+                }
+                
+                // 创建统计视图
+                val dialogView = layoutInflater.inflate(R.layout.fragment_week_statistics, null)
+                val adapter = StatisticsDialogAdapter(entries, name, null)
+                adapter.bindWeekStatisticsView(dialogView)
+                
+                // 等待视图布局完成
+                dialogView.post {
+                    try {
+                        val bitmap = Bitmap.createBitmap(
+                            dialogView.width.coerceAtLeast(800),
+                            dialogView.height.coerceAtLeast(400),
+                            Bitmap.Config.ARGB_8888
+                        )
+                        val canvas = Canvas(bitmap)
+                        dialogView.draw(canvas)
+                        
+                        val fileName = "statistics_${name}_${System.currentTimeMillis()}.png"
+                        val file = File(
+                            Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),
+                            fileName
+                        )
+                        
+                        FileOutputStream(file).use { out ->
+                            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                        }
+                        
+                        // 通知媒体扫描
+                        val mediaScanIntent = Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE)
+                        mediaScanIntent.data = Uri.fromFile(file)
+                        sendBroadcast(mediaScanIntent)
+                        
+                        Log.d(TAG, "EXPORT_STATISTICS_IMAGE: Saved to ${file.absolutePath}")
+                        Snackbar.make(binding.viewPager, "已导出到: $fileName", Snackbar.LENGTH_LONG).show()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "EXPORT_STATISTICS_IMAGE failed: ${e.message}", e)
+                        Snackbar.make(binding.viewPager, "导出失败: ${e.message}", Snackbar.LENGTH_LONG).show()
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "EXPORT_STATISTICS_IMAGE error: ${e.message}", e)
+                Snackbar.make(binding.viewPager, "导出失败: ${e.message}", Snackbar.LENGTH_LONG).show()
             }
         }
     }

@@ -342,6 +342,28 @@ fi
 
 echo ""
 echo "=============================================="
+echo "测试 7: 导出统计图片"
+echo "=============================================="
+
+echo "=== 7.1 导出 '运动' 的统计图片 ==="
+adb -s $DEVICE shell am start -n $PACKAGE/$ACTIVITY \
+  -a org.kde.bettercounter.EXPORT_STATISTICS_IMAGE --es name "运动" 2>&1 | head -1
+
+sleep 3
+
+echo "=== 7.2 检查导出的图片 ==="
+adb -s $DEVICE shell ls -la /sdcard/Download/statistics_*.png 2>&1
+
+STATS_EXPORT_OK=0
+if adb -s $DEVICE shell ls /sdcard/Download/statistics_*.png 2>&1 | grep -q "statistics_"; then
+    echo "✅ 统计图片导出成功"
+    STATS_EXPORT_OK=1
+    adb -s $DEVICE pull /sdcard/Download/statistics_运动_*.png ./ 2>&1 || true
+else
+    echo "❌ 统计图片导出失败"
+fi
+
+echo ""
 
 echo "导入测试: $RESULT_IMPORT"
 echo "运动计数器: $([ $SPORT_OK -eq 1 ] && echo '✅' || echo '❌')"
@@ -351,6 +373,7 @@ echo "空名称测试: $RESULT_EMPTY"
 echo "重命名测试: $([ $RENAME_OK -eq 1 ] && echo '✅' || echo '❌')"
 echo "分类修改: $([ $CATEGORY_OK -eq 1 ] && echo '✅' || echo '❌')"
 echo "颜色修改: $([ $COLOR_OK -eq 1 ] && echo '✅' || echo '❌')"
+echo "统计图片导出: $([ $STATS_EXPORT_OK -eq 1 ] && echo '✅' || echo '❌')"
 
 # 统计通过数量
 PASS_COUNT=0
@@ -362,11 +385,12 @@ PASS_COUNT=0
 [ "$RENAME_OK" = "1" ] && ((PASS_COUNT++))
 [ "$CATEGORY_OK" = "1" ] && ((PASS_COUNT++))
 [ "$COLOR_OK" = "1" ] && ((PASS_COUNT++))
+[ "$STATS_EXPORT_OK" = "1" ] && ((PASS_COUNT++))
 
 echo ""
-echo "=== 通过: $PASS_COUNT / 8 ==="
+echo "=== 通过: $PASS_COUNT / 9 ==="
 
-if [ "$PASS_COUNT" -ge 6 ]; then
+if [ "$PASS_COUNT" -ge 7 ]; then
     echo "🎉 测试通过！"
     echo ""
     echo "截图已保存到: import_verify.png"

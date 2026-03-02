@@ -7,6 +7,24 @@
     android:background="@android:color/white"
     android:minHeight="400dp">
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end"
+        android:padding="8dp"
+        android:background="@android:color/white">
+        
+        <Button
+            android:id="@+id/btnExportImage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="导出图片"
+            android:textSize="12sp"
+            style="@style/Widget.Material3.Button.TextButton" />
+            
+    </LinearLayout>
+
     <com.google.android.material.tabs.TabLayout
         android:id="@+id/tabLayout"
         android:layout_width="match_parent"

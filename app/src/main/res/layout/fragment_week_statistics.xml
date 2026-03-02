@@ -6,6 +6,23 @@
     android:background="@android:color/white"
     android:padding="4dp">
 
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="end"
+        android:padding="4dp">
+        
+        <Button
+            android:id="@+id/btnExportImage"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="导出图片"
+            android:textSize="12sp"
+            style="@style/Widget.Material3.Button.TextButton" />
+            
+    </LinearLayout>
+
     <!-- 表格容器 -->
     <HorizontalScrollView
         android:layout_width="match_parent"

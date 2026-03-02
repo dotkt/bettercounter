@@ -3,6 +3,7 @@ package org.kde.bettercounter.ui
 
 import android.util.Log
 import android.view.HapticFeedbackConstants
+import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -395,6 +396,35 @@ class EntryViewHolder(
                         layoutParams.width = android.view.ViewGroup.LayoutParams.MATCH_PARENT
                         layoutParams.height = android.view.ViewGroup.LayoutParams.MATCH_PARENT
                         it.attributes = layoutParams
+                    }
+                    
+                    // 添加导出图片按钮的点击事件
+                    dialogView.findViewById<Button>(R.id.btnExportImage)?.setOnClickListener {
+                        try {
+                            val bitmap = android.graphics.Bitmap.createBitmap(
+                                dialogView.width,
+                                dialogView.height,
+                                android.graphics.Bitmap.Config.ARGB_8888
+                            )
+                            val canvas = android.graphics.Canvas(bitmap)
+                            dialogView.draw(canvas)
+                            
+                            val fileName = "statistics_${counter.name}_${System.currentTimeMillis()}.png"
+                            val file = java.io.File(android.os.Environment.getExternalStoragePublicDirectory(
+                                android.os.Environment.DIRECTORY_DOWNLOADS), fileName)
+                            
+                            java.io.FileOutputStream(file).use { out ->
+                                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+                            }
+                            
+                            android.widget.Toast.makeText(activity, "已保存到: ${file.absolutePath}", 
+                                android.widget.Toast.LENGTH_LONG).show()
+                            Log.d(TAG, "统计图片已保存到: ${file.absolutePath}")
+                        } catch (e: Exception) {
+                            Log.e(TAG, "导出统计图片失败: ${e.message}", e)
+                            android.widget.Toast.makeText(activity, "导出失败: ${e.message}", 
+                                android.widget.Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             } catch (e: Exception) {
