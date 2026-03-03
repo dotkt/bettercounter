@@ -14,10 +14,12 @@ import org.kde.bettercounter.BetterApplication
 import org.kde.bettercounter.BuildConfig
 import org.kde.bettercounter.R
 import org.kde.bettercounter.ViewModel
+import java.util.Calendar
 
 private const val ACTION_CATEGORY_COUNT = "org.kde.bettercounter.CategoryWidgetProvider.COUNT"
 private const val ACTION_CATEGORY_REFRESH = "org.kde.bettercounter.CategoryWidgetProvider.REFRESH"
 private const val ACTION_CATEGORY_MESSAGE_UPDATE = "org.kde.bettercounter.CategoryWidgetProvider.MESSAGE_UPDATE"
+private const val ACTION_CATEGORY_MIDNIGHT_REFRESH = "org.kde.bettercounter.CategoryWidgetProvider.MIDNIGHT_REFRESH"
 
 private const val TAG = "CategoryWidgetProvider"
 
@@ -41,6 +43,9 @@ class CategoryWidgetProvider : AppWidgetProvider() {
         Log.d(TAG, "onUpdate called for ${appWidgetIds.size} widgets")
         val viewModel = (context.applicationContext as BetterApplication).viewModel
         viewModel.recalculateDynamicCounters()
+        
+        // 调度午夜刷新
+        scheduleMidnightRefresh(context)
         
         for (appWidgetId in appWidgetIds) {
             updateCategoryWidget(context, viewModel, appWidgetManager, appWidgetId)
@@ -84,6 +89,12 @@ class CategoryWidgetProvider : AppWidgetProvider() {
                 val viewModel = (context.applicationContext as BetterApplication).viewModel
                 updateCategoryWidgetMessageOnly(context, appWidgetId)
             }
+        } else if (intent.action == ACTION_CATEGORY_MIDNIGHT_REFRESH) {
+            // 午夜刷新：更新所有大类widget
+            Log.d(TAG, "Midnight refresh triggered")
+            forceRefreshCategoryWidgets(context)
+            // 重新调度下一天的午夜更新
+            scheduleMidnightRefresh(context)
         }
     }
 }
@@ -239,6 +250,43 @@ private fun cancelMessageUpdate(context: Context, appWidgetId: Int) {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
     alarmManager.cancel(updatePendingIntent)
+}
+
+private fun scheduleMidnightRefresh(context: Context) {
+    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    
+    val updateIntent = Intent(context, CategoryWidgetProvider::class.java).apply {
+        action = ACTION_CATEGORY_MIDNIGHT_REFRESH
+    }
+    val updatePendingIntent = PendingIntent.getBroadcast(
+        context,
+        0,
+        updateIntent,
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+    
+    // 计算下一个午夜时间（凌晨0点0分）
+    val now = Calendar.getInstance()
+    val midnight = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+        add(Calendar.DAY_OF_YEAR, 1) // 下一天
+    }
+    
+    val triggerTime = midnight.timeInMillis
+    
+    try {
+        alarmManager.setExactAndAllowWhileIdle(
+            AlarmManager.RTC_WAKEUP,
+            triggerTime,
+            updatePendingIntent
+        )
+        Log.d(TAG, "Scheduled midnight refresh at ${midnight.time}")
+    } catch (e: Exception) {
+        Log.e(TAG, "Failed to schedule midnight refresh: ${e.message}", e)
+    }
 }
 
 private fun updateCategoryWidgetMessageOnly(context: Context, appWidgetId: Int) {
