@@ -90,10 +90,10 @@ class CategoryWidgetProvider : AppWidgetProvider() {
                 updateCategoryWidgetMessageOnly(context, appWidgetId)
             }
         } else if (intent.action == ACTION_CATEGORY_MIDNIGHT_REFRESH) {
-            // 午夜刷新：更新所有大类widget
-            Log.d(TAG, "Midnight refresh triggered")
+            // 周期刷新：更新所有大类widget
+            Log.d(TAG, "Periodic refresh triggered")
             forceRefreshCategoryWidgets(context)
-            // 重新调度下一天的午夜更新
+            // 重新调度下一次刷新
             scheduleMidnightRefresh(context)
         }
     }
@@ -265,17 +265,9 @@ private fun scheduleMidnightRefresh(context: Context) {
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
     
-    // 计算下一个午夜时间（凌晨0点0分）
-    val now = Calendar.getInstance()
-    val midnight = Calendar.getInstance().apply {
-        set(Calendar.HOUR_OF_DAY, 0)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
-        add(Calendar.DAY_OF_YEAR, 1) // 下一天
-    }
-    
-    val triggerTime = midnight.timeInMillis
+    // 使用每小时的周期检查，而不是单次午夜定时器
+    // 这样当用户改变系统时间时，最多1小时内就会触发刷新
+    val triggerTime = System.currentTimeMillis() + (60 * 60 * 1000) // 1小时后
     
     try {
         alarmManager.setExactAndAllowWhileIdle(
@@ -283,9 +275,9 @@ private fun scheduleMidnightRefresh(context: Context) {
             triggerTime,
             updatePendingIntent
         )
-        Log.d(TAG, "Scheduled midnight refresh at ${midnight.time}")
+        Log.d(TAG, "Scheduled hourly refresh check in 1 hour")
     } catch (e: Exception) {
-        Log.e(TAG, "Failed to schedule midnight refresh: ${e.message}", e)
+        Log.e(TAG, "Failed to schedule hourly refresh: ${e.message}", e)
     }
 }
 
@@ -331,15 +323,9 @@ private fun updateCategoryWidgetMessageOnly(context: Context, appWidgetId: Int) 
             
             scheduleMessageUpdate(context, appWidgetId)
         } else {
-            val views = RemoteViews(BuildConfig.APPLICATION_ID, R.layout.widget_category)
-            
-            // Use black background and white text for counters
-            views.setInt(R.id.widgetCategoryBackground, "setBackgroundColor", BLACK_COLOR)
-            views.setTextColor(R.id.widgetCategoryTitle, WHITE_COLOR)
-            
-            appWidgetManager.updateAppWidget(appWidgetId, views)
-            
-            cancelMessageUpdate(context, appWidgetId)
+            // 有计数器时，每10秒检查并刷新所有widget（检测日期变化）
+            forceRefreshCategoryWidgets(context)
+            scheduleMessageUpdate(context, appWidgetId)
         }
     }
 }
