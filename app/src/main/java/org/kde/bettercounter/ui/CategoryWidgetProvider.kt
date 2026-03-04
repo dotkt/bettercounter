@@ -31,7 +31,11 @@ private val ENCOURAGING_MESSAGES = listOf(
     "未来就在脚下",
     "行动才会改变",
     "无悔奔赴宇宙",
-    "留下我的故事"
+    "留下我的故事",
+    "人到中年漂泊未定",
+    "儿子长大父母老去",
+    "全家靠我慎重取舍",
+    "先立项再行动"
 )
 
 private const val WHITE_COLOR = 0xFFFFFFFF.toInt()
